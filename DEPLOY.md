@@ -35,14 +35,22 @@ git push -u origin main
    - `REACT_APP_MQTT_TOPIC`
 5. SPA rewrite: `render.yaml`에 `/* → /index.html` 포함됨
 
-## 3. 커스텀 도메인 (sjvl.sjinnovation.space)
+## 3. 커스텀 도메인 (sjvl.sjinnovation.space) — Render 설정 완료
 
-1. Render 서비스 → **Settings** → **Custom Domains** → `sjvl.sjinnovation.space` 추가
-2. DNS (sjinnovation.space 관리 패널):
-   - Type: `CNAME`
-   - Name: `sjvl`
-   - Value: Render가 안내하는 `*.onrender.com` 호스트
-3. Render가 TLS 인증서 자동 발급 (수 분 소요)
+Render에 커스텀 도메인 등록 및 SPA rewrite 완료:
+- 서비스 URL: `https://sjvl-smartfactory-frontend.onrender.com`
+- 커스텀 도메인: `sjvl.sjinnovation.space` (Render 등록됨, DNS 검증 대기)
+
+**Namecheap DNS (수동 1회)** — `sam.sjinnovation.space` 와 동일 패턴:
+
+| Type | Host | Value |
+|------|------|-------|
+| CNAME | sjvl | `sjvl-smartfactory-frontend.onrender.com` |
+
+설정 후 검증:
+```bash
+bash scripts/setup-dns.sh
+```
 
 ## 4. 백엔드(backend.sjep.space) 설정 — 완료됨
 
