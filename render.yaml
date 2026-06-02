@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: sjvl-smartfactory-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./build
+    envVars:
+      - key: REACT_APP_MQTT_BROKER_HOST
+        sync: false
+      - key: REACT_APP_MQTT_BROKER_PORT
+        sync: false
+      - key: REACT_APP_MQTT_USERNAME
+        sync: false
+      - key: REACT_APP_MQTT_PASSWORD
+        sync: false
+      - key: REACT_APP_MQTT_TOPIC
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

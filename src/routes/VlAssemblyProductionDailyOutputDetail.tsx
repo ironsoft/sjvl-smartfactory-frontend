@@ -1,0 +1,375 @@
+import {
+  Alert,
+  AlertIcon,
+  Box,
+  Button,
+  Center,
+  FormControl,
+  FormHelperText,
+  FormLabel,
+  Heading,
+  HStack,
+  Input,
+  Spinner,
+  Text,
+  Textarea,
+  useColorModeValue,
+  useToast
+} from "@chakra-ui/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Helmet } from "react-helmet";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getVlAssemblyProductionDailyOutput,
+  patchVlAssemblyProductionDailyOutput,
+  deleteVlAssemblyProductionDailyOutput,
+  IVlAssemblyProductionDailyOutput
+} from "../api";
+import { FaArrowLeft, FaTrash } from "react-icons/fa";
+import { refreshEpProductionCaches } from "../lib/refreshEpProductionCaches";
+import useUser from "../lib/useUser";
+
+export default function VlAssemblyProductionDailyOutputDetail() {
+  const { outputId } = useParams<{ outputId: string }>();
+  const pk = Number(outputId);
+  const { t } = useTranslation();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useUser();
+  const isWorker = user?.role === "worker";
+  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const cardBg = useColorModeValue("white", "gray.800");
+  const border = useColorModeValue("gray.200", "gray.600");
+  const labelColor = useColorModeValue("gray.500", "gray.400");
+
+  const [qty, setQty] = useState("");
+  const [recordedAt, setRecordedAt] = useState("");
+  const [remark, setRemark] = useState("");
+  const [editing, setEditing] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["epDailyOutputDetail", pk],
+    queryFn: () => getVlAssemblyProductionDailyOutput(pk),
+    enabled: Number.isFinite(pk)
+  });
+
+  const row = data as IVlAssemblyProductionDailyOutput | undefined;
+
+  const totalQty = row?.ep_process_total_qty ?? null;
+  const cumulative = row?.ep_process_output_qty ?? 0;
+  const maxQtyForThisRow = useMemo(() => {
+    if (!row || totalQty == null) return undefined;
+    return Math.max(0, totalQty - cumulative + row.qty);
+  }, [row, totalQty, cumulative]);
+
+  useEffect(() => {
+    if (!data) return;
+    const d = data as IVlAssemblyProductionDailyOutput;
+    setQty(String(d.qty));
+    const dt = new Date(d.recorded_at);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setRecordedAt(
+      `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`
+    );
+    setRemark(d.remark || "");
+    setEditing(false);
+  }, [data]);
+
+  const patchMut = useMutation({
+    mutationFn: () => {
+      const q = Number(qty);
+      if (!Number.isFinite(q) || q < 1) throw new Error("qty");
+      let recorded_iso: string | undefined;
+      if (recordedAt) {
+        const d = new Date(recordedAt);
+        if (!Number.isNaN(d.getTime())) recorded_iso = d.toISOString();
+      }
+      return patchVlAssemblyProductionDailyOutput(pk, {
+        qty: q,
+        recorded_at: recorded_iso,
+        remark: remark.trim()
+      });
+    },
+    onSuccess: (resp) => {
+      const r = resp as IVlAssemblyProductionDailyOutput;
+      toast({ title: t("vlAssembly.dailyOutput.updated"), status: "success" });
+      setEditing(false);
+      void Promise.all([
+        refreshEpProductionCaches(queryClient, {
+          ep_schedule_pk: r.ep_schedule_pk,
+          ep_process: r.ep_process,
+        }),
+        queryClient.invalidateQueries({ queryKey: ["epDailyOutputDetail", pk] }),
+        queryClient.invalidateQueries({ queryKey: ["epDailyOutputs"] }),
+      ]);
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { qty?: string[] } } };
+      const msg =
+        ax?.response?.data?.qty?.[0] ?? t("vlAssembly.dailyOutput.updateError");
+      toast({ title: msg, status: "error" });
+    }
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => deleteVlAssemblyProductionDailyOutput(pk),
+    onSuccess: () => {
+      toast({ title: t("vlAssembly.dailyOutput.deleted"), status: "success" });
+      navigate("/vl-assembly-production/daily-outputs");
+      if (row?.ep_schedule_pk != null && row?.ep_process != null) {
+        void refreshEpProductionCaches(queryClient, {
+          ep_schedule_pk: row.ep_schedule_pk,
+          ep_process: row.ep_process,
+        });
+      }
+      void queryClient.invalidateQueries({ queryKey: ["epDailyOutputs"] });
+    }
+  });
+
+  if (!Number.isFinite(pk)) {
+    return (
+      <Center minH="50vh">
+        <Text>Invalid id</Text>
+      </Center>
+    );
+  }
+
+  return (
+    <>
+      <Helmet>
+        <title>{t("vlAssembly.dailyOutput.detailTitle", { id: pk })}</title>
+      </Helmet>
+      <Box bg={pageBg} minH="100vh" px={{ base: 3, md: 5 }} py={6}>
+        <Box maxW="880px" mx="auto">
+          <Button
+            as={RouterLink}
+            to="/vl-assembly-production/daily-outputs"
+            size="sm"
+            variant="ghost"
+            leftIcon={<FaArrowLeft />}
+            mb={4}
+          >
+            {t("vlAssembly.dailyOutput.backToList")}
+          </Button>
+
+          {isLoading || !row ? (
+            <Center py={20}>
+              <Spinner />
+            </Center>
+          ) : (
+            <>
+              <Heading size="md" mb={4}>
+                {t("vlAssembly.dailyOutput.detailTitle", { id: row.pk })}
+              </Heading>
+              {isWorker && (
+                <Alert status="info" borderRadius="md" mb={4} fontSize="sm">
+                  <AlertIcon />
+                  {t("vlAssembly.dailyOutput.workerReadOnlyDetail")}
+                </Alert>
+              )}
+              <Box
+                bg={cardBg}
+                borderRadius="md"
+                borderWidth="1px"
+                borderColor={border}
+                p={5}
+              >
+                <Text fontSize="xs" color={labelColor} mb={1}>
+                  {t("vlAssembly.dailyOutput.colPo")}
+                </Text>
+                <Text mb={3}>{row.sj_po_number}</Text>
+                <Text fontSize="xs" color={labelColor} mb={1}>
+                  {t("vlAssembly.dailyOutput.colSjNo")} /{" "}
+                  {t("vlAssembly.dailyOutput.colModule")} /{" "}
+                  {t("vlAssembly.dailyOutput.colProcess")}
+                </Text>
+                <Text mb={3}>
+                  {row.ep_sj_no} / {row.ep_module_code} / {row.ep_process_code}
+                </Text>
+                <Button
+                  as={RouterLink}
+                  to={`/vl-assembly-production/processes/${row.ep_process}`}
+                  size="sm"
+                  variant="link"
+                  colorScheme="blue"
+                  mb={2}
+                >
+                  {t("vlAssembly.dailyOutput.linkProcess")}
+                </Button>
+                <Box
+                  fontSize="sm"
+                  mb={4}
+                  p={3}
+                  borderRadius="md"
+                  bg="gray.50"
+                  _dark={{ bg: "gray.700" }}
+                >
+                  <Text mb={1}>
+                    {t("vlAssembly.dailyOutput.modalTotalQty")}:{" "}
+                    <Text as="span" fontWeight="bold">
+                      {totalQty != null ? totalQty.toLocaleString() : "—"}
+                    </Text>
+                  </Text>
+                  <Text
+                    mb={2}
+                    mt={2}
+                    fontWeight="semibold"
+                    fontSize="xs"
+                    color="gray.600"
+                  >
+                    {t("vlAssembly.dailyOutput.processCumulativeSection")}
+                  </Text>
+                  <Text mb={1} pl={2} fontSize="sm">
+                    {t("vlAssembly.dailyOutput.cumulativeAtSaveRecord")}:{" "}
+                    <Text as="span" fontWeight="bold" color="teal.600">
+                      {row.process_cumulative_snapshot != null
+                        ? row.process_cumulative_snapshot.toLocaleString()
+                        : "—"}
+                    </Text>
+                  </Text>
+                  <Text mb={1} pl={2} fontSize="sm">
+                    {t("vlAssembly.dailyOutput.cumulativeActualNow")}:{" "}
+                    <Text as="span" fontWeight="bold" color="blue.600">
+                      {cumulative.toLocaleString()}
+                    </Text>
+                  </Text>
+                  <Text mt={2} fontSize="sm">
+                    {t("vlAssembly.dailyOutput.modalRemainingForThisEntry")}:{" "}
+                    <Text as="span" fontWeight="bold" color="green.600">
+                      {maxQtyForThisRow !== undefined
+                        ? maxQtyForThisRow.toLocaleString()
+                        : "—"}
+                    </Text>
+                  </Text>
+                </Box>
+
+                <FormControl
+                  mb={3}
+                  isInvalid={Boolean(
+                    maxQtyForThisRow !== undefined &&
+                    qty !== "" &&
+                    Number(qty) > maxQtyForThisRow
+                  )}
+                >
+                  <FormLabel fontSize="sm">{t("vlAssembly.dailyOutput.qty")}</FormLabel>
+                  <Input
+                    type="number"
+                    min={maxQtyForThisRow === 0 ? 0 : 1}
+                    max={
+                      maxQtyForThisRow !== undefined && maxQtyForThisRow > 0
+                        ? maxQtyForThisRow
+                        : undefined
+                    }
+                    value={qty}
+                    isReadOnly={isWorker}
+                    onChange={(e) => {
+                      setEditing(true);
+                      const raw = e.target.value;
+                      if (maxQtyForThisRow === undefined) {
+                        setQty(raw);
+                        return;
+                      }
+                      if (raw === "") {
+                        setQty("");
+                        return;
+                      }
+                      const n = parseInt(raw, 10);
+                      if (Number.isNaN(n)) {
+                        setQty(raw);
+                        return;
+                      }
+                      setQty(
+                        String(Math.min(Math.max(0, n), maxQtyForThisRow))
+                      );
+                    }}
+                  />
+                  <FormHelperText>
+                    {totalQty == null
+                      ? t("vlAssembly.dailyOutput.noProcessTotal")
+                      : maxQtyForThisRow === 0
+                        ? t("vlAssembly.dailyOutput.qtyRemainingZeroEdit")
+                        : t("vlAssembly.dailyOutput.qtyCapHintEdit", {
+                            max: maxQtyForThisRow
+                          })}
+                  </FormHelperText>
+                </FormControl>
+                <FormControl mb={3}>
+                  <FormLabel fontSize="sm">
+                    {t("vlAssembly.dailyOutput.recordedAt")}
+                  </FormLabel>
+                  <Input
+                    type="datetime-local"
+                    value={recordedAt}
+                    isReadOnly={isWorker}
+                    onChange={(e) => {
+                      setEditing(true);
+                      setRecordedAt(e.target.value);
+                    }}
+                  />
+                </FormControl>
+                <FormControl mb={4}>
+                  <FormLabel fontSize="sm">
+                    {t("vlAssembly.dailyOutput.remark")}
+                  </FormLabel>
+                  <Textarea
+                    value={remark}
+                    isReadOnly={isWorker}
+                    onChange={(e) => {
+                      setEditing(true);
+                      setRemark(e.target.value);
+                    }}
+                    rows={3}
+                  />
+                </FormControl>
+
+                {!isWorker && (
+                  <HStack>
+                    <Button
+                      colorScheme="blue"
+                      size="sm"
+                      onClick={() => patchMut.mutate()}
+                      isLoading={patchMut.isPending}
+                      isDisabled={(() => {
+                        if (!editing) return true;
+                        const q = Number(qty);
+                        if (!Number.isFinite(q) || q < 1) return true;
+                        if (
+                          maxQtyForThisRow !== undefined &&
+                          (maxQtyForThisRow === 0 || q > maxQtyForThisRow)
+                        )
+                          return true;
+                        return false;
+                      })()}
+                    >
+                      {t("vlAssembly.dailyOutput.save")}
+                    </Button>
+                    <Button
+                      colorScheme="red"
+                      size="sm"
+                      variant="outline"
+                      leftIcon={<FaTrash />}
+                      onClick={() => {
+                        if (window.confirm(t("vlAssembly.dailyOutput.deleteConfirm")))
+                          deleteMut.mutate();
+                      }}
+                      isLoading={deleteMut.isPending}
+                    >
+                      {t("vlAssembly.dailyOutput.delete")}
+                    </Button>
+                  </HStack>
+                )}
+
+                <Text fontSize="xs" color={labelColor} mt={4}>
+                  {t("vlAssembly.dailyOutput.colBy")}: {row.recorded_by_name ?? "—"}
+                </Text>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Box>
+    </>
+  );
+}

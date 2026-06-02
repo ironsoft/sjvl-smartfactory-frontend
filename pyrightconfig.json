@@ -1,0 +1,6 @@
+{
+  "extraPaths": [
+    "../airbnb-clone-backend3/.venv/lib/python3.12/site-packages",
+    "../airbnb-clone-backend3"
+  ]
+}
