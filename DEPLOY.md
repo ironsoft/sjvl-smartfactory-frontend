@@ -3,7 +3,24 @@
 프로덕션 URL: `https://sjvl.sjinnovation.space`  
 API 백엔드: `https://backend.sjep.space/api/v1/` (기존과 동일)
 
-## Render Static Site 설정
+## 1. GitHub 저장소 생성 및 push
+
+로컬 프로젝트 경로: `/Users/keunsunglee/sjvl-smartfactory-frontend`
+
+```bash
+cd /Users/keunsunglee/sjvl-smartfactory-frontend
+gh auth login
+bash scripts/push-to-github.sh
+```
+
+또는 GitHub 웹에서 `ironsoft/sjvl-smartfactory-frontend` private repo 생성 후:
+
+```bash
+git remote add origin https://github.com/ironsoft/sjvl-smartfactory-frontend.git
+git push -u origin main
+```
+
+## 2. Render Static Site 생성
 
 1. Render Dashboard → **New** → **Static Site**
 2. GitHub repo `ironsoft/sjvl-smartfactory-frontend` 연결
@@ -18,7 +35,7 @@ API 백엔드: `https://backend.sjep.space/api/v1/` (기존과 동일)
    - `REACT_APP_MQTT_TOPIC`
 5. SPA rewrite: `render.yaml`에 `/* → /index.html` 포함됨
 
-## 커스텀 도메인 (sjvl.sjinnovation.space)
+## 3. 커스텀 도메인 (sjvl.sjinnovation.space)
 
 1. Render 서비스 → **Settings** → **Custom Domains** → `sjvl.sjinnovation.space` 추가
 2. DNS (sjinnovation.space 관리 패널):
@@ -27,28 +44,18 @@ API 백엔드: `https://backend.sjep.space/api/v1/` (기존과 동일)
    - Value: Render가 안내하는 `*.onrender.com` 호스트
 3. Render가 TLS 인증서 자동 발급 (수 분 소요)
 
-## 백엔드(backend.sjep.space) 필수 설정
+## 4. 백엔드(backend.sjep.space) 설정 — 완료됨
 
-동일 백엔드를 사용하므로 아래 도메인을 추가해야 합니다.
+`airbnb-clone-backend3`의 `config/settings.py`에 아래 도메인이 추가되어 push됨:
 
-```python
-# Django settings.py (또는 환경변수)
-CORS_ALLOWED_ORIGINS = [
-    # ...기존 도메인...
-    "https://sjvl.sjinnovation.space",
-]
+- `CORS_ALLOWED_ORIGINS`: `https://sjvl.sjinnovation.space`
+- `CSRF_TRUSTED_ORIGINS`: `https://sjvl.sjinnovation.space`
 
-CSRF_TRUSTED_ORIGINS = [
-    # ...기존 도메인...
-    "https://sjvl.sjinnovation.space",
-]
-```
+백엔드 Render 서비스가 자동 재배포되면 적용됩니다.
 
-### Cross-site 쿠키 (중요)
+## 5. Cross-site 쿠키 — 이미 설정됨
 
-- 기존 `sjep.space` ↔ `backend.sjep.space`는 same-site → `SameSite=Lax` 동작
-- 신규 `sjvl.sjinnovation.space` ↔ `backend.sjep.space`는 **cross-site**
-- 로그인/세션/CSRF 쿠키가 전송되려면 백엔드 쿠키 설정 필요:
+백엔드에 아래 설정이 이미 존재 (sam.sjinnovation.space 등과 동일):
 
 ```python
 SESSION_COOKIE_SAMESITE = "None"
@@ -57,7 +64,15 @@ CSRF_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SECURE = True
 ```
 
-## 배포 후 검증 체크리스트
+`sjvl.sjinnovation.space` ↔ `backend.sjep.space` cross-site 로그인이 동작해야 합니다.
+
+## 6. 배포 후 검증
+
+```bash
+bash scripts/verify-deployment.sh
+```
+
+수동 체크리스트:
 
 - [ ] `https://sjvl.sjinnovation.space` 접속
 - [ ] SPA 라우팅: `/ep-production/...` 등 직접 URL 새로고침
