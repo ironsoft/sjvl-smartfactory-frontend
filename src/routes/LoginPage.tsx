@@ -81,6 +81,8 @@ export default function LoginPage() {
       const me = queryClient.getQueryData<IUser>([`me`]);
       if (me?.role === "worker") {
         navigate("/worker/me");
+      } else if (me?.factory_access === "DEVELOPMENT") {
+        navigate("/jigs");
       } else {
         navigate("/home");
       }

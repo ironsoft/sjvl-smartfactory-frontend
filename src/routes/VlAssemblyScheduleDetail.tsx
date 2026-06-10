@@ -1,8 +1,15 @@
 import {
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
   Badge,
   Box,
   Button,
   Center,
+  Checkbox,
   Collapse,
   Divider,
   FormControl,
@@ -14,6 +21,15 @@ import {
   IconButton,
   Input,
   Link,
+  List,
+  ListItem,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
   Table,
@@ -26,12 +42,6 @@ import {
   Thead,
   Tr,
   VStack,
-  AlertDialog,
-  AlertDialogOverlay,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogBody,
-  AlertDialogFooter,
   useColorModeValue,
   useDisclosure,
   useToast,
@@ -39,8 +49,8 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet";
 import { useParams, useNavigate, Link as RouterLink, useSearchParams } from "react-router-dom";
-import { useMemo, useRef, useState } from "react";
-import { FaChevronDown, FaChevronRight } from "react-icons/fa";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FaChevronDown, FaChevronRight, FaPlus, FaTimes, FaTrash } from "react-icons/fa";
 import LocalizedDateInput from "../components/LocalizedDateInput";
 import PhotoModal from "../components/PhotoModal";
 import { StatusBadge, statusOptionStyle } from "../components/StatusBadge";
@@ -59,14 +69,21 @@ import {
   getVlPlanHolidays,
   editVlAssemblySchedule,
   deleteVlAssemblySchedule,
+  addSjNoToVlAssemblySchedule,
+  deleteVlAssemblySjNo,
+  searchSjOrders,
   getProductionLines,
+  getModuleCategories,
   IVlAssemblySchedule,
   IVlAssemblySjNoCopy,
   IVlAssemblyModuleCopy,
   IVlAssemblyProcessCopy,
   IProductionLine,
+  IModuleCategory,
+  ISjOrderSearchResult,
   ISjOrderInfo,
 } from "../api";
+import { displayModuleCategoryName } from "../lib/moduleCategoryDisplay";
 import { useTranslation } from "react-i18next";
 
 /** 조립 리드타임 / 공정 리드타임 아래: 일요일 제외 + 등록 공휴일(일요일 제외) 안내 */
@@ -170,13 +187,78 @@ function ModuleRow({
   );
 }
 
+// ── Module category tree helpers ───────────────────────────────────
+
+function collectDescendantCategoryIds(
+  pk: number,
+  childrenByParent: Map<number | null, IModuleCategory[]>
+): number[] {
+  const ids: number[] = [pk];
+  for (const child of childrenByParent.get(pk) ?? []) {
+    ids.push(...collectDescendantCategoryIds(child.pk, childrenByParent));
+  }
+  return ids;
+}
+
+function subtreeCheckboxState(
+  pk: number,
+  childrenByParent: Map<number | null, IModuleCategory[]>,
+  selectedIds: number[]
+): { checked: boolean; indeterminate: boolean } {
+  const subtree = collectDescendantCategoryIds(pk, childrenByParent);
+  const n = subtree.filter((id) => selectedIds.includes(id)).length;
+  if (n === 0) return { checked: false, indeterminate: false };
+  if (n === subtree.length) return { checked: true, indeterminate: false };
+  return { checked: false, indeterminate: true };
+}
+
+function ModuleCategoryCheckboxTree({
+  parentPk,
+  depth,
+  childrenByParent,
+  selectedIds,
+  onToggle,
+}: {
+  parentPk: number | null;
+  depth: number;
+  childrenByParent: Map<number | null, IModuleCategory[]>;
+  selectedIds: number[];
+  onToggle: (pk: number) => void;
+}) {
+  const { i18n } = useTranslation();
+  const nodes = childrenByParent.get(parentPk) ?? [];
+  if (nodes.length === 0) return null;
+  return (
+    <VStack align="stretch" spacing={1} pl={depth > 0 ? 4 : 0}>
+      {nodes.map((cat) => {
+        const { checked, indeterminate } = subtreeCheckboxState(cat.pk, childrenByParent, selectedIds);
+        return (
+          <Box key={cat.pk}>
+            <Checkbox isChecked={checked} isIndeterminate={indeterminate} onChange={() => onToggle(cat.pk)}>
+              <Text fontSize="sm">{displayModuleCategoryName(cat, i18n.language)}</Text>
+            </Checkbox>
+            <ModuleCategoryCheckboxTree
+              parentPk={cat.pk}
+              depth={depth + 1}
+              childrenByParent={childrenByParent}
+              selectedIds={selectedIds}
+              onToggle={onToggle}
+            />
+          </Box>
+        );
+      })}
+    </VStack>
+  );
+}
+
 // ── SjNo card (expandable) ─────────────────────────────────────────
 function SjNoCard({
-  sj, cardBg, borderColor, t, onPhotoClick,
+  sj, cardBg, borderColor, t, onPhotoClick, onDelete,
 }: {
   sj: IVlAssemblySjNoCopy; cardBg: string; borderColor: string;
   t: (key: string, opts?: Record<string, unknown>) => string;
   onPhotoClick?: (url: string) => void;
+  onDelete?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const headerBg = useColorModeValue("blue.50", "blue.900");
@@ -239,6 +321,16 @@ function SjNoCard({
             <Text fontWeight="semibold">{balance != null ? balance.toLocaleString() : "—"}</Text>
           </Box>
           <Badge variant="outline" colorScheme="blue" fontSize="xs">{sj.ep_modules.length} {t("vlAssembly.scheduleDetail.modules")}</Badge>
+          {onDelete && (
+            <IconButton
+              aria-label="delete sj no"
+              icon={<FaTrash />}
+              size="xs"
+              colorScheme="red"
+              variant="ghost"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            />
+          )}
         </HStack>
       </HStack>
 
@@ -295,6 +387,8 @@ export default function VlAssemblyScheduleDetail() {
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const labelColor = useColorModeValue("gray.500", "gray.400");
+  const hoverBg = useColorModeValue("gray.50", "gray.700");
+  const existingStyleHintBg = useColorModeValue("blue.50", "blue.900");
 
   const [photoModalUrl, setPhotoModalUrl] = useState<string | undefined>();
 
@@ -304,6 +398,20 @@ export default function VlAssemblyScheduleDetail() {
 
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // ── Add SJ No modal ──────────────────────────────────────────────
+  const { isOpen: isAddSjNoOpen, onOpen: onAddSjNoOpen, onClose: onAddSjNoClose } = useDisclosure();
+  const [addSjNoOrderQuery, setAddSjNoOrderQuery] = useState("");
+  const [addSjNoSearchResults, setAddSjNoSearchResults] = useState<ISjOrderSearchResult[]>([]);
+  const [addSjNoSelectedOrder, setAddSjNoSelectedOrder] = useState<ISjOrderSearchResult | null>(null);
+  const [addSjNoModuleCategoryIds, setAddSjNoModuleCategoryIds] = useState<number[]>([]);
+  const [isSavingAddSjNo, setIsSavingAddSjNo] = useState(false);
+
+  // ── Delete SJ No confirmation ────────────────────────────────────
+  const { isOpen: isDeleteSjNoOpen, onOpen: onDeleteSjNoOpen, onClose: onDeleteSjNoClose } = useDisclosure();
+  const [deleteSjNoTarget, setDeleteSjNoTarget] = useState<IVlAssemblySjNoCopy | null>(null);
+  const [isDeletingSjNo, setIsDeletingSjNo] = useState(false);
+  const deleteSjNoCancelRef = useRef<HTMLButtonElement>(null);
 
   const { data, isLoading } = useQuery<IVlAssemblySchedule>({
     queryKey: ["epSchedule", pk],
@@ -352,6 +460,38 @@ export default function VlAssemblyScheduleDetail() {
     staleTime: 300_000,
   });
 
+  const { data: moduleCategories = [] } = useQuery<IModuleCategory[]>({
+    queryKey: ["moduleCategories"],
+    queryFn: () => getModuleCategories(),
+    staleTime: 300_000,
+  });
+
+  const childrenByParent = useMemo(() => {
+    const map = new Map<number | null, IModuleCategory[]>();
+    for (const cat of moduleCategories) {
+      const list = map.get(cat.parent) ?? [];
+      list.push(cat);
+      map.set(cat.parent, list);
+    }
+    return map;
+  }, [moduleCategories]);
+
+  useEffect(() => {
+    if (!addSjNoOrderQuery.trim()) {
+      setAddSjNoSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchSjOrders(addSjNoOrderQuery.trim());
+        setAddSjNoSearchResults(results);
+      } catch {
+        setAddSjNoSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [addSjNoOrderQuery]);
+
   const vlPlanHolidayYmdDetailSet = useMemo(() => {
     const s = new Set<string>();
     for (const h of planHolidayRows) {
@@ -375,17 +515,15 @@ export default function VlAssemblyScheduleDetail() {
     ]
   );
 
-  const assemblyPlanMeta = useMemo(
-    () =>
-      data && (data.sj_order_info?.total_order_qty ?? 0) > 0
-        ? getAssemblyDailyPlannedQtyFromTotal(
-            data,
-            data.sj_order_info!.total_order_qty!,
-            vlPlanHolidayYmdDetailSet
-          )
-        : null,
-    [data, vlPlanHolidayYmdDetailSet]
-  );
+  const assemblyPlanMeta = useMemo(() => {
+    if (!data) return null;
+    const sjNos = data.ep_sj_nos ?? [];
+    const totalQty = sjNos.length > 0
+      ? sjNos.reduce((sum, sj) => sum + (sj.total_qty ?? 0), 0)
+      : (data.sj_order_info?.total_order_qty ?? 0);
+    if (totalQty <= 0) return null;
+    return getAssemblyDailyPlannedQtyFromTotal(data, totalQty, vlPlanHolidayYmdDetailSet);
+  }, [data, vlPlanHolidayYmdDetailSet]);
 
   const processPlanHolidayExcludedCount = useMemo(
     () =>
@@ -450,9 +588,9 @@ export default function VlAssemblyScheduleDetail() {
   };
 
   const handleSave = async () => {
-    const cap = data.sj_order_info?.total_order_qty;
+    const cap = totalScheduleQty > 0 ? totalScheduleQty : (data.sj_order_info?.total_order_qty ?? 0);
     const asmOut = form.production_assembly_output_qty;
-    if (cap != null && cap > 0 && asmOut != null && Number(asmOut) > cap) {
+    if (cap > 0 && asmOut != null && Number(asmOut) > cap) {
       toast({
         title: t("vlAssembly.scheduleDetail.assemblyOutputExceedsTotal", { cap: cap.toLocaleString() }),
         status: "error",
@@ -532,6 +670,93 @@ export default function VlAssemblyScheduleDetail() {
 
   const epSjNos = data.ep_sj_nos ?? [];
 
+  // Sum total_qty across all linked SJ Nos; fall back to primary sj_order_info when list is empty
+  const totalScheduleQty = epSjNos.length > 0
+    ? epSjNos.reduce((sum, sj) => sum + (sj.total_qty ?? 0), 0)
+    : (data.sj_order_info?.total_order_qty ?? 0);
+
+  const existingStyleCode =
+    epSjNos[0]?.sj_style_code ?? data.sj_order_info?.sj_style?.code ?? null;
+
+  const openAddSjNoModal = () => {
+    setAddSjNoOrderQuery("");
+    setAddSjNoSearchResults([]);
+    setAddSjNoSelectedOrder(null);
+    setAddSjNoModuleCategoryIds([]);
+    onAddSjNoOpen();
+  };
+
+  const selectAddSjNoOrder = (order: ISjOrderSearchResult) => {
+    if (existingStyleCode != null && order.sj_style_code != null && existingStyleCode !== order.sj_style_code) {
+      toast({
+        title: t("vlAssembly.list.styleMismatchError", {
+          expected: existingStyleCode,
+          got: order.sj_style_code,
+        }),
+        status: "warning",
+        duration: 4000,
+        position: "bottom-right",
+      });
+      return;
+    }
+    setAddSjNoSelectedOrder(order);
+    setAddSjNoOrderQuery("");
+    setAddSjNoSearchResults([]);
+  };
+
+  const toggleAddSjNoCategoryId = (catPk: number) => {
+    const descendants = collectDescendantCategoryIds(catPk, childrenByParent);
+    setAddSjNoModuleCategoryIds((prev) => {
+      const allSelected = descendants.every((id) => prev.includes(id));
+      return allSelected
+        ? prev.filter((id) => !descendants.includes(id))
+        : Array.from(new Set([...prev, ...descendants]));
+    });
+  };
+
+  const handleSaveAddSjNo = async () => {
+    if (!addSjNoSelectedOrder) return;
+    setIsSavingAddSjNo(true);
+    try {
+      await addSjNoToVlAssemblySchedule(pk, {
+        sj_order: addSjNoSelectedOrder.pk,
+        module_category_ids: addSjNoModuleCategoryIds.length > 0 ? addSjNoModuleCategoryIds : undefined,
+      });
+      toast({ title: t("vlAssembly.common.saved"), status: "success", duration: 2000, position: "bottom-right" });
+      queryClient.invalidateQueries({ queryKey: ["epSchedule", pk] });
+      queryClient.invalidateQueries({ queryKey: ["vlSchedules"] });
+      broadcastVlAssemblyScheduleListCacheBust();
+      onAddSjNoClose();
+    } catch (e: any) {
+      const msg = e?.response?.data ? JSON.stringify(e.response.data) : t("vlAssembly.common.failedSave");
+      toast({ title: msg, status: "error", duration: 3000, position: "bottom-right" });
+    } finally {
+      setIsSavingAddSjNo(false);
+    }
+  };
+
+  const openDeleteSjNo = (sj: IVlAssemblySjNoCopy) => {
+    setDeleteSjNoTarget(sj);
+    onDeleteSjNoOpen();
+  };
+
+  const handleDeleteSjNo = async () => {
+    if (!deleteSjNoTarget) return;
+    setIsDeletingSjNo(true);
+    try {
+      await deleteVlAssemblySjNo(deleteSjNoTarget.pk);
+      toast({ title: t("vlAssembly.common.deleted"), status: "info", duration: 2000, position: "bottom-right" });
+      queryClient.invalidateQueries({ queryKey: ["epSchedule", pk] });
+      queryClient.invalidateQueries({ queryKey: ["vlSchedules"] });
+      broadcastVlAssemblyScheduleListCacheBust();
+      onDeleteSjNoClose();
+    } catch {
+      toast({ title: t("vlAssembly.common.failedDelete"), status: "error", duration: 2000, position: "bottom-right" });
+    } finally {
+      setIsDeletingSjNo(false);
+    }
+  };
+
   return (
     <>
       <Helmet><title>{`VL Assembly Schedule — ${data.sj_order_info?.sj_po_number ?? pk}`}</title></Helmet>
@@ -570,11 +795,16 @@ export default function VlAssemblyScheduleDetail() {
                   {data.status_display}
                 </StatusBadge>
               </HStack>
-              {data.sj_order_info?.sj_style?.style_name && (
-                <Text fontSize="sm" color={labelColor}>
-                  {data.sj_order_info.sj_style.style_name}
-                </Text>
-              )}
+              <HStack spacing={3} flexWrap="wrap">
+                <Badge colorScheme="gray" variant="outline" fontSize="xs">
+                  {t("vlAssembly.scheduleDetail.scheduleNo", { no: pk })}
+                </Badge>
+                {data.sj_order_info?.sj_style?.style_name && (
+                  <Text fontSize="sm" color={labelColor}>
+                    {data.sj_order_info.sj_style.style_name}
+                  </Text>
+                )}
+              </HStack>
             </Box>
           </HStack>
           {!isEdit && (
@@ -601,15 +831,25 @@ export default function VlAssemblyScheduleDetail() {
                 <InfoRow label={t("vlAssembly.scheduleDetail.buyer")} value={data.sj_order_info?.buyer_name ? (
                   <Badge colorScheme="blue">{data.sj_order_info.buyer_name.name}</Badge>
                 ) : undefined} />
-                <InfoRow label={t("vlAssembly.scheduleDetail.sjNo")} value={data.sj_order_info?.sj_no ? (
-                  <Link as={RouterLink} to={`/sjnos/${data.sj_order_info.sj_no.pk}`} color="blue.500" fontSize="sm" fontWeight="semibold">
-                    {data.sj_order_info.sj_no.sj_no}
-                  </Link>
-                ) : undefined} />
+                <InfoRow label={t("vlAssembly.scheduleDetail.sjNo")} value={
+                  epSjNos.length > 0 ? (
+                    <VStack align="flex-start" spacing={0.5}>
+                      {epSjNos.map((sj) => (
+                        <Link key={sj.pk} as={RouterLink} to={`/vl-assembly-production/sj-nos/${sj.pk}`} color="blue.500" fontSize="sm" fontWeight="semibold">
+                          {sj.sj_no}
+                        </Link>
+                      ))}
+                    </VStack>
+                  ) : data.sj_order_info?.sj_no ? (
+                    <Link as={RouterLink} to={`/sjnos/${data.sj_order_info.sj_no.pk}`} color="blue.500" fontSize="sm" fontWeight="semibold">
+                      {data.sj_order_info.sj_no.sj_no}
+                    </Link>
+                  ) : undefined
+                } />
                 <InfoRow label={t("vlAssembly.scheduleDetail.styleName")} value={data.sj_order_info?.style_name} />
                 <InfoRow label={t("vlAssembly.scheduleDetail.color")} value={data.sj_order_info?.color} />
                 <InfoRow label={t("vlAssembly.scheduleDetail.size")} value={data.sj_order_info?.size} />
-                <InfoRow label={t("vlAssembly.scheduleDetail.totalQty")} value={data.sj_order_info?.total_order_qty?.toLocaleString()} />
+                <InfoRow label={t("vlAssembly.scheduleDetail.totalQty")} value={totalScheduleQty > 0 ? totalScheduleQty.toLocaleString() : (data.sj_order_info?.total_order_qty?.toLocaleString())} />
                 <InfoRow label={t("vlAssembly.scheduleDetail.exFactory")} value={fmtDate(data.sj_order_info?.ex_factory_date)} />
                 <InfoRow label={t("vlAssembly.scheduleDetail.poType")} value={data.sj_order_info?.po_type ? (
                   <Badge colorScheme="purple">{data.sj_order_info.po_type.name}</Badge>
@@ -631,7 +871,21 @@ export default function VlAssemblyScheduleDetail() {
                 <InfoRow label={t("vlAssembly.list.col.actualFob")} value={data.sj_order_info?.actual_fob || "-"} />
                 <InfoRow label={t("vlAssembly.scheduleDetail.productionLine")} value={data.production_line_name} />
                 <InfoRow label={t("vlAssembly.scheduleDetail.outputQtyAuto")} value={data.output_qty != null ? data.output_qty.toLocaleString() : "-"} />
-                <InfoRow label={t("vlAssembly.scheduleDetail.assemblyOutputQty")} value={data.production_assembly_output_qty != null ? data.production_assembly_output_qty.toLocaleString() : "-"} />
+                <InfoRow
+                  label={t("vlAssembly.scheduleDetail.assemblyOutputQty")}
+                  value={
+                    data.production_assembly_output_qty != null ? (
+                      <HStack spacing={2} align="center" flexWrap="wrap">
+                        <Text as="span" fontSize="sm" fontWeight="medium">{data.production_assembly_output_qty.toLocaleString()}</Text>
+                        {totalScheduleQty > 0 && (
+                          <Text as="span" fontSize="xs" color="gray.500">
+                            ({t("vlAssembly.scheduleDetail.balance")}: {Math.max(0, totalScheduleQty - data.production_assembly_output_qty).toLocaleString()}{" · "}{Math.min(100, Math.round(data.production_assembly_output_qty / totalScheduleQty * 100))}%)
+                          </Text>
+                        )}
+                      </HStack>
+                    ) : "-"
+                  }
+                />
                 <InfoRow label={t("vlAssembly.scheduleDetail.assemblyStartDate")} value={fmtDate(data.production_assembly_start_date)} />
                 <InfoRow label={t("vlAssembly.scheduleDetail.assemblyFinishDate")} value={fmtDate(data.production_assembly_finish_date)} />
                 <InfoRow label={t("vlAssembly.scheduleDetail.assemblyLeadTime")} value={data.production_assembly_lead_time != null ? (
@@ -705,9 +959,7 @@ export default function VlAssemblyScheduleDetail() {
                   <Input
                     type="number"
                     min={0}
-                    max={data.sj_order_info?.total_order_qty != null && data.sj_order_info.total_order_qty > 0
-                      ? data.sj_order_info.total_order_qty
-                      : undefined}
+                    max={totalScheduleQty > 0 ? totalScheduleQty : undefined}
                     value={form.production_assembly_output_qty ?? ""}
                     onChange={(e) =>
                       setForm({
@@ -716,10 +968,10 @@ export default function VlAssemblyScheduleDetail() {
                       })
                     }
                   />
-                  {data.sj_order_info?.total_order_qty != null && data.sj_order_info.total_order_qty > 0 && (
+                  {totalScheduleQty > 0 && (
                     <Text fontSize="xs" color="gray.500" mt={1}>
                       {t("vlAssembly.scheduleDetail.assemblyOutputMaxHint", {
-                        cap: data.sj_order_info.total_order_qty.toLocaleString(),
+                        cap: totalScheduleQty.toLocaleString(),
                       })}
                     </Text>
                   )}
@@ -932,15 +1184,20 @@ export default function VlAssemblyScheduleDetail() {
 
           {/* ── VL Assembly SjNo / Module / Process ── */}
           <Box bg={cardBg} borderRadius="lg" border="1px solid" borderColor={borderColor} p={6}>
-            <HStack mb={4} spacing={2}>
-              <Text fontWeight="semibold">{t("vlAssembly.scheduleDetail.epSjNos")}</Text>
-              <Badge colorScheme="purple">{epSjNos.length}</Badge>
+            <HStack mb={4} justify="space-between">
+              <HStack spacing={2}>
+                <Text fontWeight="semibold">{t("vlAssembly.scheduleDetail.epSjNos")}</Text>
+                <Badge colorScheme="purple">{epSjNos.length}</Badge>
+              </HStack>
+              <Button size="sm" leftIcon={<FaPlus />} colorScheme="blue" variant="outline" onClick={openAddSjNoModal}>
+                {t("vlAssembly.scheduleDetail.addSjNo")}
+              </Button>
             </HStack>
             {epSjNos.length === 0 ? (
               <Text fontSize="sm" color="gray.400">No VL Assembly SJ Nos found.</Text>
             ) : (
               epSjNos.map((sj) => (
-                <SjNoCard key={sj.pk} sj={sj} cardBg={cardBg} borderColor={borderColor} t={t} onPhotoClick={setPhotoModalUrl} />
+                <SjNoCard key={sj.pk} sj={sj} cardBg={cardBg} borderColor={borderColor} t={t} onPhotoClick={setPhotoModalUrl} onDelete={() => openDeleteSjNo(sj)} />
               ))
             )}
           </Box>
@@ -973,6 +1230,125 @@ export default function VlAssemblyScheduleDetail() {
           <AlertDialogFooter>
             <Button ref={cancelRef} onClick={onDeleteClose}>{t("vlAssembly.common.cancel")}</Button>
             <Button colorScheme="red" ml={3} onClick={handleDelete}>{t("vlAssembly.common.delete")}</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Add SJ No modal ── */}
+      <Modal isOpen={isAddSjNoOpen} onClose={onAddSjNoClose} size="xl" isCentered scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{t("vlAssembly.scheduleDetail.addSjNo")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={4}>
+              {existingStyleCode && (
+                <Box p={2} bg={existingStyleHintBg} borderRadius="md" fontSize="sm">
+                  <Text color="blue.600">
+                    {t("vlAssembly.scheduleDetail.existingStyleCode")}: <strong>{existingStyleCode}</strong>
+                  </Text>
+                </Box>
+              )}
+
+              <FormControl>
+                <FormLabel fontSize="sm">{t("vlAssembly.scheduleDetail.sjOrderSearch")}</FormLabel>
+                <Input
+                  placeholder={t("vlAssemblyScheduleList.searchPlaceholder")}
+                  value={addSjNoOrderQuery}
+                  onChange={(e) => setAddSjNoOrderQuery(e.target.value)}
+                />
+                {addSjNoSearchResults.length > 0 && (
+                  <Box border="1px solid" borderColor={borderColor} borderRadius="md" mt={1} maxH="200px" overflowY="auto">
+                    <List>
+                      {addSjNoSearchResults.map((r) => (
+                        <ListItem
+                          key={r.pk}
+                          px={3}
+                          py={2}
+                          cursor="pointer"
+                          _hover={{ bg: hoverBg }}
+                          onClick={() => selectAddSjNoOrder(r)}
+                          fontSize="sm"
+                        >
+                          <HStack justify="space-between">
+                            <Box>
+                              <Text fontWeight="semibold">{r.sj_po_number}</Text>
+                              <Text fontSize="xs" color="gray.500">
+                                {r.style_name}{r.sj_style_code ? ` (${r.sj_style_code})` : ""}{r.color ? ` · ${r.color}` : ""}
+                              </Text>
+                            </Box>
+                            <Text fontSize="xs" color="gray.500">{r.total_order_qty?.toLocaleString()} pcs</Text>
+                          </HStack>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                )}
+              </FormControl>
+
+              {addSjNoSelectedOrder && (
+                <Box p={3} bg="green.50" borderRadius="md" border="1px solid" borderColor="green.200">
+                  <HStack justify="space-between">
+                    <Box>
+                      <Text fontSize="sm" fontWeight="semibold">{addSjNoSelectedOrder.sj_po_number}</Text>
+                      <Text fontSize="xs" color="gray.600">
+                        {addSjNoSelectedOrder.style_name}{addSjNoSelectedOrder.color ? ` · ${addSjNoSelectedOrder.color}` : ""}{addSjNoSelectedOrder.total_order_qty ? ` · ${addSjNoSelectedOrder.total_order_qty.toLocaleString()} pcs` : ""}
+                      </Text>
+                    </Box>
+                    <IconButton
+                      aria-label="remove selected order"
+                      icon={<FaTimes />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => setAddSjNoSelectedOrder(null)}
+                    />
+                  </HStack>
+                </Box>
+              )}
+
+              {moduleCategories.length > 0 && (
+                <FormControl>
+                  <FormLabel fontSize="sm">{t("vlAssembly.list.moduleCategoryLabel")}</FormLabel>
+                  <Box border="1px solid" borderColor={borderColor} borderRadius="md" p={3} maxH="200px" overflowY="auto">
+                    <ModuleCategoryCheckboxTree
+                      parentPk={null}
+                      depth={0}
+                      childrenByParent={childrenByParent}
+                      selectedIds={addSjNoModuleCategoryIds}
+                      onToggle={toggleAddSjNoCategoryId}
+                    />
+                  </Box>
+                </FormControl>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onAddSjNoClose}>{t("vlAssembly.common.cancel")}</Button>
+            <Button
+              colorScheme="blue"
+              isLoading={isSavingAddSjNo}
+              isDisabled={!addSjNoSelectedOrder}
+              onClick={handleSaveAddSjNo}
+            >
+              {t("vlAssembly.common.save")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* ── Delete SJ No confirmation ── */}
+      <AlertDialog isOpen={isDeleteSjNoOpen} leastDestructiveRef={deleteSjNoCancelRef} onClose={onDeleteSjNoClose} isCentered>
+        <AlertDialogOverlay />
+        <AlertDialogContent>
+          <AlertDialogHeader>{t("vlAssembly.scheduleDetail.deleteSjNo")}</AlertDialogHeader>
+          <AlertDialogBody>
+            <Text fontSize="sm">
+              <strong>{deleteSjNoTarget?.sj_no}</strong> {t("vlAssembly.scheduleDetail.deleteSjNoConfirm")}
+            </Text>
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button ref={deleteSjNoCancelRef} onClick={onDeleteSjNoClose}>{t("vlAssembly.common.cancel")}</Button>
+            <Button colorScheme="red" ml={3} isLoading={isDeletingSjNo} onClick={handleDeleteSjNo}>{t("vlAssembly.common.delete")}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

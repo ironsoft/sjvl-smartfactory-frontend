@@ -11,11 +11,13 @@ import QRCode from "qrcode";
  */
 export default function VlAssemblyScheduleProductionDailyOutputQr({
   vlAssemblySchedulePk,
+  vlAssemblySjNoPk,
   disabled,
   showTopDivider = true,
   variant = "card"
 }: {
   vlAssemblySchedulePk: number;
+  vlAssemblySjNoPk?: number;
   disabled?: boolean;
   showTopDivider?: boolean;
   variant?: "inline" | "card";
@@ -27,13 +29,14 @@ export default function VlAssemblyScheduleProductionDailyOutputQr({
   const frameBorder = useColorModeValue("blue.400", "blue.300");
   const [qrDataUrl, setQrDataUrl] = useState("");
 
-  const scheduleQueryPath = useMemo(
-    () =>
-      Number.isFinite(vlAssemblySchedulePk) && vlAssemblySchedulePk >= 1
-        ? `/vl-assembly-production/schedule-daily-outputs?vl_assembly_schedule=${vlAssemblySchedulePk}`
-        : "",
-    [vlAssemblySchedulePk]
-  );
+  const scheduleQueryPath = useMemo(() => {
+    if (!Number.isFinite(vlAssemblySchedulePk) || vlAssemblySchedulePk < 1) return "";
+    let path = `/vl-assembly-production/schedule-daily-outputs?vl_assembly_schedule=${vlAssemblySchedulePk}`;
+    if (vlAssemblySjNoPk != null && Number.isFinite(vlAssemblySjNoPk) && vlAssemblySjNoPk >= 1) {
+      path += `&vl_assembly_sj_no=${vlAssemblySjNoPk}`;
+    }
+    return path;
+  }, [vlAssemblySchedulePk, vlAssemblySjNoPk]);
 
   const url = useMemo(
     () =>

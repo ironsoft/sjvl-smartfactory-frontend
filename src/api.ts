@@ -1142,11 +1142,21 @@ export interface IJigListResponse {
   current_page: number;
   total_pages: number;
   total_results: number;
+  kpi?: {
+    total: number;
+    handed_over: number;
+    returned: number;
+    not_returned: number;
+  };
 }
 // Jig 리스트 가져오기 (search, page 지원)
 export const getJigs = async (params?: {
   search?: string;
   page?: number;
+  filter?: string;
+  status?: string;
+  shape?: string;
+  material?: string;
 }) => {
   try {
     const response = await instance.get(`jigs/`, { params });
@@ -1441,6 +1451,14 @@ interface IJigForm {
   material?: string;
   location?: number | null;
   sj_style?: number | null;
+  manufactured_date?: string | null;
+  handed_over_at?: string | null;
+  handed_over_by?: string;
+  handed_over_dept?: string;
+  returned_at?: string | null;
+  returned_by?: string;
+  returned_dept?: string;
+  memo?: string;
 }
 
 interface IJigCreateForm {
@@ -1780,9 +1798,15 @@ export interface IBindingGuideListResponse {
   current_page: number;
   total_pages: number;
   total_results: number;
+  kpi?: {
+    total: number;
+    handed_over: number;
+    returned: number;
+    not_returned: number;
+  };
 }
 
-export const getBindingGuides = async (params?: { search?: string; page?: number }) => {
+export const getBindingGuides = async (params?: { search?: string; page?: number; filter?: string; status?: string; shape?: string; material?: string }) => {
   try {
     const response = await instance.get(`binding-guides/`, { params });
     return response.data;
@@ -1861,6 +1885,14 @@ interface IBindingGuideForm {
   material?: string;
   location?: number | null;
   sj_style?: number | null;
+  manufactured_date?: string | null;
+  handed_over_at?: string | null;
+  handed_over_by?: string;
+  handed_over_dept?: string;
+  returned_at?: string | null;
+  returned_by?: string;
+  returned_dept?: string;
+  memo?: string;
 }
 
 interface IBindingGuideCreateForm {
@@ -2040,9 +2072,15 @@ export interface IAluminumMoldListResponse {
   current_page: number;
   total_pages: number;
   total_results: number;
+  kpi?: {
+    total: number;
+    handed_over: number;
+    returned: number;
+    not_returned: number;
+  };
 }
 
-export const getAluminumMolds = async (params?: { search?: string; page?: number }) => {
+export const getAluminumMolds = async (params?: { search?: string; page?: number; filter?: string; status?: string; shape?: string; material?: string }) => {
   try {
     const response = await instance.get(`aluminum-molds/`, { params });
     return response.data;
@@ -2139,6 +2177,14 @@ interface IAluminumMoldForm {
   material?: string;
   location?: number | null;
   sj_style?: number | null;
+  manufactured_date?: string | null;
+  handed_over_at?: string | null;
+  handed_over_by?: string;
+  handed_over_dept?: string;
+  returned_at?: string | null;
+  returned_by?: string;
+  returned_dept?: string;
+  memo?: string;
 }
 
 interface IAluminumMoldCreateForm {
@@ -3497,6 +3543,7 @@ export interface ISjOrderSearchResult {
   pk: number;
   sj_po_number: string;
   sj_no_value: string | null;
+  sj_style_code?: string | null;
   style_name: string | null;
   color: string | null;
   total_order_qty: number | null;
@@ -4196,7 +4243,8 @@ export const getEpDailyInspectionReport = (date?: string) => {
 export type IVlAssemblyProcessCopy = IEpProcessCopy;
 export type IVlAssemblyModuleCopy = IEpModuleCopy;
 export type IVlAssemblySjNoCopy = IEpSjNoCopy;
-export type IVlAssemblySchedule = IEpSchedule & {
+export type IVlAssemblySchedule = Omit<IEpSchedule, "sj_order"> & {
+  sj_order?: number | null;
   vl_assembly_sj_nos?: IVlAssemblySjNoCopy[];
 };
 
@@ -4429,8 +4477,45 @@ export const getVlAssemblyScheduleDetail = (pk: number) =>
 export const getVlAssemblyColumnPreference = () => instance.get("vl-assembly-production/column-preferences/").then((r) => r.data as { visible_columns: string[] });
 export const saveVlAssemblyColumnPreference = (visible_columns: string[]) => instance.put("vl-assembly-production/column-preferences/", { visible_columns }, { headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" } });
 
-export const createVlAssemblySchedule = (data: Partial<IVlAssemblySchedule> & { ex_factory_date?: string | null; module_category_ids: number[] }) =>
+export type IVlAssemblyScheduleCreate = Partial<IVlAssemblySchedule> & {
+  ex_factory_date?: string | null;
+  module_category_ids: number[];
+  /** 다중 SJ Order 선택 (권장). 단일 `sj_order` 도 하위 호환으로 지원 */
+  sj_order_ids?: number[];
+};
+
+export const createVlAssemblySchedule = (data: IVlAssemblyScheduleCreate) =>
   instance.post("vl-assembly-production/schedules/", data, { headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" } }).then((r) => r.data as IVlAssemblySchedule);
+
+export const addSjNoToVlAssemblySchedule = (
+  schedulePk: number,
+  data: { sj_order: number; module_category_ids?: number[] },
+) =>
+  instance
+    .post(`vl-assembly-production/schedules/${schedulePk}/add-sj-no/`, data, {
+      headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+    })
+    .then((r) => normalizeVlAssemblySchedule(r.data) as IVlAssemblySchedule);
+
+export type IVlAssemblySjNoMovePayload =
+  | { target_schedule: number; create_new_schedule?: false }
+  | {
+      create_new_schedule: true;
+      target_schedule?: never;
+      production_line?: number | null;
+      status?: string;
+    };
+
+export const moveVlAssemblySjNo = (sjNoPk: number, data: IVlAssemblySjNoMovePayload) =>
+  instance
+    .patch(`vl-assembly-production/sj-nos/${sjNoPk}/move/`, data, {
+      headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+    })
+    .then((r) => r.data as {
+      sj_no: IVlAssemblySjNoDetail;
+      source_schedule_pk: number;
+      target_schedule_pk: number;
+    });
 /** PATCH 본문: 스케줄 필드 + `ex_factory_date`/CMT·FOB 등 SJ Order write_only 필드 */
 export type IVlAssemblySchedulePatch = Partial<IVlAssemblySchedule> &
   Partial<
@@ -4522,6 +4607,8 @@ export const deleteVlAssemblyProductionDailyOutput = (pk: number) =>
 export interface IVlAssemblyScheduleProductionDailyOutput {
   pk: number;
   vl_assembly_schedule: number;
+  vl_assembly_sj_no: number | null;
+  vl_assembly_sj_no_sj_no: string | null;
   sj_po_number?: string | null;
   production_line_name?: string | null;
   qty: number;
@@ -4587,6 +4674,7 @@ export const getVlAssemblyScheduleProductionDailyOutputs = (params?: {
 
 export const createVlAssemblyScheduleProductionDailyOutput = (data: {
   vl_assembly_schedule: number;
+  vl_assembly_sj_no?: number;
   qty: number;
   recorded_at?: string;
   remark?: string;
@@ -5133,3 +5221,66 @@ export const updateMachinePlacement = (
 
 export const removeMachinePlacement = (pk: number): Promise<void> =>
   instance.delete(`welding-room/placements/${pk}/`).then((r) => r.data);
+
+export const getVlFactoryLiveDashboard = (date?: string): Promise<{
+  ErrCode: string;
+  Data: {
+    LINE_NAME: string;
+    H_TARGET: string | number;
+    MP_NO: string;
+    STYLE_NO: string;
+    EXFTY1: string;
+    ORDER_Q: string | number;
+    Bal_Qty: string | number;
+    TD_PROD_QTY: string | number;
+    TIME_NO: string | number;
+    target_per: string | number;
+    ACT_Q01?: string | number;
+    ACT_Q02?: string | number;
+    ACT_Q03?: string | number;
+    ACT_Q04?: string | number;
+    ACT_Q05?: string | number;
+    ACT_Q06?: string | number;
+    ACT_Q07?: string | number;
+    ACT_Q08?: string | number;
+    ACT_Q09?: string | number;
+    ACT_Q10?: string | number;
+    ACT_Q11?: string | number;
+    ACT_Q12?: string | number;
+    ACT_Q13?: string | number;
+    [key: string]: string | number | undefined;
+  }[];
+  error?: string;
+}> =>
+  instance
+    .get("vl-assembly-production/factory-live/", { params: date ? { date } : {} })
+    .then((r) => r.data);
+
+export type VlLiveSjNo = { pk: number; sj_no: string; output_qty: number; target_qty_per_hour: number | null };
+export type VlLiveHourly = { h: number; qty: number };
+export type VlLiveModule = { code: string; name: string; total_qty: number; output_qty: number; status: string; target_qty_per_hour: number | null; hourly: VlLiveHourly[] };
+export type VlLiveSchedule = {
+  pk: number;
+  po_no: string;
+  style_name: string;
+  ex_factory_date: string;
+  thumbnail: string | null;
+  total_order_qty: number;
+  assembly_output_qty: number;
+  assembly_target_qty_per_hour: number | null;
+  output_qty: number;
+  status: string;
+  progress_pct: number;
+  assembly_start: string;
+  assembly_end: string;
+  hourly: VlLiveHourly[];
+  sj_nos: VlLiveSjNo[];
+  modules_by_code: VlLiveModule[];
+};
+export type VlLiveLine = { line_name: string; schedules: VlLiveSchedule[] };
+export type VlLiveScheduleResponse = { date: string; lines: VlLiveLine[] };
+
+export const getVlFactoryLiveSchedules = (date?: string): Promise<VlLiveScheduleResponse> =>
+  instance
+    .get("vl-assembly-production/factory-live/schedules/", { params: date ? { date } : {} })
+    .then((r) => r.data);

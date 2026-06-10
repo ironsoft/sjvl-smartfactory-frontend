@@ -110,6 +110,7 @@ import EpInspectionDefectCategorySettings from "./routes/EpInspectionDefectCateg
 import EpDailyOutputReport from "./routes/EpDailyOutputReport";
 import EpDailyInspectionReport from "./routes/EpDailyInspectionReport";
 import VlAssemblyScheduleList from "./routes/VlAssemblyScheduleList";
+import VlAssemblyScheduleManagementList from "./routes/VlAssemblyScheduleManagementList";
 import VlAssemblyScheduleDetail from "./routes/VlAssemblyScheduleDetail";
 import VlAssemblySjNoDetail from "./routes/VlAssemblySjNoDetail";
 import VlAssemblySjNoScheduleProductionDailyOutputList from "./routes/VlAssemblySjNoScheduleProductionDailyOutputList";
@@ -135,6 +136,8 @@ import HotColdPressIoTList from "./routes/HotColdPressIoTList";
 import HotColdPressIoTCycleDetail from "./routes/HotColdPressIoTCycleDetail";
 import WeldingRoom from "./routes/WeldingRoom";
 import IotSetupMobile from "./routes/IotSetupMobile";
+import VlFactoryLive from "./routes/VlFactoryLive";
+import VlErpDashboard from "./routes/VlErpDashboard";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -556,6 +559,7 @@ const router = createBrowserRouter([
         path: "vl-assembly-production",
         children: [
           { path: "", element: <VlAssemblyScheduleList /> },
+          { path: "schedules", element: <VlAssemblyScheduleManagementList /> },
           {
             path: "schedule-daily-outputs/new",
             element: (
@@ -688,6 +692,14 @@ const router = createBrowserRouter([
       {
         path: "welding-room",
         element: <WeldingRoom />
+      },
+      {
+        path: "vl-factory-live",
+        element: <VlFactoryLive />
+      },
+      {
+        path: "vl-erp-dashboard",
+        element: <VlErpDashboard />
       }
     ]
   },

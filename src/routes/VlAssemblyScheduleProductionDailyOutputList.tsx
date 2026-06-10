@@ -49,6 +49,7 @@ import {
   createVlAssemblyScheduleProductionDailyOutput,
   getVlAssemblySchedules,
   getVlAssemblyScheduleDetail,
+  getVlAssemblySjNoDetail,
   IVlAssemblySchedule,
   searchSjOrders,
   ISjOrderSearchResult
@@ -94,9 +95,16 @@ export default function VlAssemblyScheduleProductionDailyOutputList() {
   const orderSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [modalScheduleId, setModalScheduleId] = useState("");
+  const [modalSjNoId, setModalSjNoId] = useState("");
   const [modalQty, setModalQty] = useState("");
   const [modalRecordedAt, setModalRecordedAt] = useState("");
   const [modalRemark, setModalRemark] = useState("");
+
+  const { data: modalSjNoRow } = useQuery({
+    queryKey: ["vlSjNo", modalSjNoId],
+    queryFn: () => getVlAssemblySjNoDetail(Number(modalSjNoId)),
+    enabled: isOpen && !!modalSjNoId && qrSchedPrefill
+  });
 
   useEffect(() => {
     const sp = searchParams.get("vl_assembly_schedule");
@@ -108,8 +116,11 @@ export default function VlAssemblyScheduleProductionDailyOutputList() {
       try {
         await getVlAssemblyScheduleDetail(sid);
         if (cancelled) return;
+        const sjNoParam = searchParams.get("vl_assembly_sj_no");
+        const sjNoId = sjNoParam ? Number(sjNoParam) : null;
         setQrSchedPrefill(true);
         setModalScheduleId(String(sid));
+        setModalSjNoId(sjNoId && Number.isFinite(sjNoId) && sjNoId >= 1 ? String(sjNoId) : "");
         setModalQty("");
         const now = new Date();
         const pad = (n: number) => String(n).padStart(2, "0");
@@ -213,6 +224,7 @@ export default function VlAssemblyScheduleProductionDailyOutputList() {
     setOrderQuery("");
     setOrderResults([]);
     setModalScheduleId("");
+    setModalSjNoId("");
     setQrSchedPrefill(false);
   };
 
@@ -310,8 +322,10 @@ export default function VlAssemblyScheduleProductionDailyOutputList() {
       const d = new Date(modalRecordedAt);
       if (!Number.isNaN(d.getTime())) recordedAt = d.toISOString();
     }
+    const sjNoId = modalSjNoId ? Number(modalSjNoId) : undefined;
     createMut.mutate({
       vl_assembly_schedule: Number(modalScheduleId),
+      ...(sjNoId != null && Number.isFinite(sjNoId) ? { vl_assembly_sj_no: sjNoId } : {}),
       qty,
       ...(recordedAt !== undefined ? { recorded_at: recordedAt } : {}),
       remark: modalRemark.trim()
@@ -614,6 +628,11 @@ export default function VlAssemblyScheduleProductionDailyOutputList() {
                 {modalScheduleRow && (
                   <Text as="span" display="block" fontWeight="semibold" mt={1}>
                     {formatScheduleLabel(modalScheduleRow as IVlAssemblySchedule)}
+                  </Text>
+                )}
+                {modalSjNoRow && (
+                  <Text as="span" display="block" color="purple.600" fontWeight="semibold" mt={0.5}>
+                    SJ No: {modalSjNoRow.sj_no}
                   </Text>
                 )}
               </Text>

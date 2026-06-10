@@ -72,7 +72,7 @@ function formatScheduleLabel(s: IVlAssemblySchedule): string {
 function scheduleToSelectedOrder(sched: IVlAssemblySchedule): ISjOrderSearchResult {
   const o = sched.sj_order_info;
   return {
-    pk: sched.sj_order,
+    pk: sched.sj_order ?? sched.sj_order_info?.pk ?? 0,
     sj_po_number: o?.sj_po_number ?? "",
     sj_no_value: o?.sj_no?.sj_no ?? null,
     style_name: o?.style_name ?? o?.sj_style?.style_name ?? null,

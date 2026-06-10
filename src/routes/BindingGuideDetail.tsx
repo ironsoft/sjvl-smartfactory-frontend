@@ -101,6 +101,14 @@ interface IBindingGuideDetail {
   sj_style_detail?: { pk: number; code: string; style_name: string } | null;
   created_at?: string;
   updated_at?: string;
+  manufactured_date?: string | null;
+  handed_over_at?: string | null;
+  handed_over_by?: string;
+  handed_over_dept?: string;
+  returned_at?: string | null;
+  returned_by?: string;
+  returned_dept?: string;
+  memo?: string;
 }
 
 const STATUS_OPTIONS = [
@@ -162,6 +170,14 @@ export default function BindingGuideDetail() {
     status: "",
     location: "" as string,
     sj_style: null as number | null,
+    manufactured_date: "",
+    handed_over_at: "",
+    handed_over_by: "",
+    handed_over_dept: "",
+    returned_at: "",
+    returned_by: "",
+    returned_dept: "",
+    memo: "",
   });
 
   const [styleSearch, setStyleSearch] = useState("");
@@ -273,6 +289,14 @@ export default function BindingGuideDetail() {
         status: item.status ?? "",
         location: item.location != null ? String(item.location) : "",
         sj_style: item.sj_style ?? null,
+        manufactured_date: item.manufactured_date ?? "",
+        handed_over_at: item.handed_over_at ?? "",
+        handed_over_by: item.handed_over_by ?? "",
+        handed_over_dept: item.handed_over_dept ?? "",
+        returned_at: item.returned_at ?? "",
+        returned_by: item.returned_by ?? "",
+        returned_dept: item.returned_dept ?? "",
+        memo: item.memo ?? "",
       });
       if (item.sj_style_detail) {
         setSelectedStyle({ pk: item.sj_style_detail.pk, code: item.sj_style_detail.code, style_name: item.sj_style_detail.style_name } as ISjStyle);
@@ -318,6 +342,14 @@ export default function BindingGuideDetail() {
       status: form.status,
       location: form.location ? Number(form.location) : null,
       sj_style: selectedStyle ? selectedStyle.pk : null,
+      manufactured_date: form.manufactured_date || null,
+      handed_over_at: form.handed_over_at || null,
+      handed_over_by: form.handed_over_by,
+      handed_over_dept: form.handed_over_dept,
+      returned_at: form.returned_at || null,
+      returned_by: form.returned_by,
+      returned_dept: form.returned_dept,
+      memo: form.memo,
     });
   };
 
@@ -850,6 +882,78 @@ export default function BindingGuideDetail() {
                   <SjStyleThumbnailRow stylePk={item.sj_style_detail.pk} code={item.sj_style_detail.code} styleName={item.sj_style_detail.style_name} />
                 ) : (
                   <Text color="gray.400">-</Text>
+                )}
+              </Box>
+
+              {/* 제작일 */}
+              <Box>
+                <Text fontSize="sm" color={labelColor} mb={1}>{t("bindingGuideDetail.manufacturedDate")}</Text>
+                {isEditing ? (
+                  <Input size="sm" type="date" value={form.manufactured_date} onChange={(e) => setForm((p) => ({ ...p, manufactured_date: e.target.value }))} />
+                ) : (
+                  <Text>{item.manufactured_date ?? "-"}</Text>
+                )}
+              </Box>
+
+              {/* 인계 정보 */}
+              <Box>
+                <Text fontSize="sm" color={labelColor} mb={1}>{t("bindingGuideDetail.handedOverAt")}</Text>
+                {isEditing ? (
+                  <Input size="sm" type="date" value={form.handed_over_at} onChange={(e) => setForm((p) => ({ ...p, handed_over_at: e.target.value }))} />
+                ) : (
+                  <Text>{item.handed_over_at ?? "-"}</Text>
+                )}
+              </Box>
+              <Box>
+                <Text fontSize="sm" color={labelColor} mb={1}>{t("bindingGuideDetail.handedOverBy")}</Text>
+                {isEditing ? (
+                  <Input size="sm" value={form.handed_over_by} onChange={(e) => setForm((p) => ({ ...p, handed_over_by: e.target.value }))} />
+                ) : (
+                  <Text>{item.handed_over_by || "-"}</Text>
+                )}
+              </Box>
+              <Box>
+                <Text fontSize="sm" color={labelColor} mb={1}>{t("bindingGuideDetail.handedOverDept")}</Text>
+                {isEditing ? (
+                  <Input size="sm" value={form.handed_over_dept} onChange={(e) => setForm((p) => ({ ...p, handed_over_dept: e.target.value }))} />
+                ) : (
+                  <Text>{item.handed_over_dept || "-"}</Text>
+                )}
+              </Box>
+
+              {/* 반납 정보 */}
+              <Box>
+                <Text fontSize="sm" color={labelColor} mb={1}>{t("bindingGuideDetail.returnedAt")}</Text>
+                {isEditing ? (
+                  <Input size="sm" type="date" value={form.returned_at} onChange={(e) => setForm((p) => ({ ...p, returned_at: e.target.value }))} />
+                ) : (
+                  <Text>{item.returned_at ?? "-"}</Text>
+                )}
+              </Box>
+              <Box>
+                <Text fontSize="sm" color={labelColor} mb={1}>{t("bindingGuideDetail.returnedBy")}</Text>
+                {isEditing ? (
+                  <Input size="sm" value={form.returned_by} onChange={(e) => setForm((p) => ({ ...p, returned_by: e.target.value }))} />
+                ) : (
+                  <Text>{item.returned_by || "-"}</Text>
+                )}
+              </Box>
+              <Box>
+                <Text fontSize="sm" color={labelColor} mb={1}>{t("bindingGuideDetail.returnedDept")}</Text>
+                {isEditing ? (
+                  <Input size="sm" value={form.returned_dept} onChange={(e) => setForm((p) => ({ ...p, returned_dept: e.target.value }))} />
+                ) : (
+                  <Text>{item.returned_dept || "-"}</Text>
+                )}
+              </Box>
+
+              {/* 메모 */}
+              <Box>
+                <Text fontSize="sm" color={labelColor} mb={1}>{t("bindingGuideDetail.memo")}</Text>
+                {isEditing ? (
+                  <Textarea size="sm" value={form.memo} onChange={(e) => setForm((p) => ({ ...p, memo: e.target.value }))} rows={3} />
+                ) : (
+                  <Text whiteSpace="pre-wrap">{item.memo || "-"}</Text>
                 )}
               </Box>
 

@@ -483,6 +483,7 @@ export default function VlAssemblySjNoDetail() {
               </HStack>
               <VlAssemblyScheduleProductionDailyOutputQr
                 vlAssemblySchedulePk={data.ep_schedule_pk}
+                vlAssemblySjNoPk={pk}
                 variant="card"
               />
             </Box>

@@ -57,7 +57,18 @@
     "colLight": "Light",
     "lightOn": "Light",
     "lightError": "Light request failed.",
-    "fetchError": "Failed to fetch jig list"
+    "fetchError": "Failed to fetch jig list",
+    "colManufacturedDate": "Manufactured Date",
+    "colHandedOverAt": "Handed Over",
+    "colHandedOverBy": "Handed Over By",
+    "colHandedOverDept": "Dept. (H.O.)",
+    "colReturnedAt": "Returned",
+    "colReturnedBy": "Returned By",
+    "colReturnedDept": "Dept. (Ret.)",
+    "colMemo": "Memo",
+    "kpiHandedOver": "Handed Over",
+    "kpiReturned": "Returned",
+    "kpiNotReturned": "Not Returned"
   },
   "jigDetail": {
     "backToList": "Back to Jig List",
@@ -100,7 +111,15 @@
     "locationSlot": "Slot",
     "qrExistsTitle": "QR Code Already Exists",
     "qrExistsConfirm": "A QR code image already exists. Do you want to delete it and create a new one?",
-    "qrExistsConfirmBtn": "Regenerate"
+    "qrExistsConfirmBtn": "Regenerate",
+    "manufacturedDate": "Manufactured Date",
+    "handedOverAt": "Handed Over",
+    "handedOverBy": "Handed Over By",
+    "handedOverDept": "Dept. (H.O.)",
+    "returnedAt": "Returned",
+    "returnedBy": "Returned By",
+    "returnedDept": "Dept. (Ret.)",
+    "memo": "Memo"
   },
   "jigCreate": {
     "backToList": "Back to Jig List",
@@ -403,7 +422,18 @@
     "colLight": "Light",
     "lightOn": "Light",
     "lightError": "Light request failed.",
-    "fetchError": "Failed to fetch aluminum mold list"
+    "fetchError": "Failed to fetch aluminum mold list",
+    "colManufacturedDate": "Manufactured Date",
+    "colHandedOverAt": "Handed Over",
+    "colHandedOverBy": "Handed Over By",
+    "colHandedOverDept": "Dept. (H.O.)",
+    "colReturnedAt": "Returned",
+    "colReturnedBy": "Returned By",
+    "colReturnedDept": "Dept. (Ret.)",
+    "colMemo": "Memo",
+    "kpiHandedOver": "Handed Over",
+    "kpiReturned": "Returned",
+    "kpiNotReturned": "Not Returned"
   },
   "aluminumMoldDetail": {
     "backToList": "Back to Aluminum Mold List",
@@ -446,7 +476,15 @@
     "locationSlot": "Slot",
     "qrExistsTitle": "QR Code Already Exists",
     "qrExistsConfirm": "A QR code image already exists. Do you want to delete it and create a new one?",
-    "qrExistsConfirmBtn": "Regenerate"
+    "qrExistsConfirmBtn": "Regenerate",
+    "manufacturedDate": "Manufactured Date",
+    "handedOverAt": "Handed Over",
+    "handedOverBy": "Handed Over By",
+    "handedOverDept": "Dept. (H.O.)",
+    "returnedAt": "Returned",
+    "returnedBy": "Returned By",
+    "returnedDept": "Dept. (Ret.)",
+    "memo": "Memo"
   },
   "aluminumMoldCreate": {
     "backToList": "Back to Aluminum Mold List",
@@ -575,7 +613,18 @@
     "colLight": "Light",
     "lightOn": "Light",
     "lightError": "Light request failed.",
-    "fetchError": "Failed to fetch binding guide list"
+    "fetchError": "Failed to fetch binding guide list",
+    "colManufacturedDate": "Manufactured Date",
+    "colHandedOverAt": "Handed Over",
+    "colHandedOverBy": "Handed Over By",
+    "colHandedOverDept": "Dept. (H.O.)",
+    "colReturnedAt": "Returned",
+    "colReturnedBy": "Returned By",
+    "colReturnedDept": "Dept. (Ret.)",
+    "colMemo": "Memo",
+    "kpiHandedOver": "Handed Over",
+    "kpiReturned": "Returned",
+    "kpiNotReturned": "Not Returned"
   },
   "bindingGuideDetail": {
     "backToList": "Back to Binding Guide List",
@@ -618,7 +667,15 @@
     "locationSlot": "Slot",
     "qrExistsTitle": "QR Code Already Exists",
     "qrExistsConfirm": "A QR code image already exists. Do you want to delete it and create a new one?",
-    "qrExistsConfirmBtn": "Regenerate"
+    "qrExistsConfirmBtn": "Regenerate",
+    "manufacturedDate": "Manufactured Date",
+    "handedOverAt": "Handed Over",
+    "handedOverBy": "Handed Over By",
+    "handedOverDept": "Dept. (H.O.)",
+    "returnedAt": "Returned",
+    "returnedBy": "Returned By",
+    "returnedDept": "Dept. (Ret.)",
+    "memo": "Memo"
   },
   "bindingGuideCreate": {
     "backToList": "Back to Binding Guide List",
@@ -1205,6 +1262,7 @@
     "hotColdPressIoTRecord": "HC Press IoT Record",
     "weldingRoom": "Welding Room",
     "vlAssemblyProduction": "VL Realtime Production",
+    "vlAssemblyScheduleList": "VL Assembly Schedules",
     "vlAssemblyProcessOutputRecord": "VL Assembly Process Output Record",
     "vlAssemblyScheduleProductionDailyOutput": "VL Assembly Production Daily Output",
     "vlAssemblyDailyOutput": "VL Assembly Process Production Daily Output",
@@ -1213,6 +1271,8 @@
     "vlAssemblyModuleOutputReport": "VL Assembly Module Output Report",
     "vlAssemblyInspectionRecord": "VL Assembly Inspection Records",
     "vlAssemblyDailyInspectionReportNav": "VL Assembly Daily Inspection Report",
+    "vlFactoryLive": "VL Factory Live",
+    "vlErpDashboard": "ERP Dashboard",
     "kaizen": "SJ Kaizen",
     "tgBindingGuideManagement": "TG Binding Guide Management",
     "tgJigManagement": "TG Jig Management"
@@ -1415,6 +1475,28 @@
     "colDefectType": "Defect Type",
     "defectPhotos": "Defect Photos ({{count}})",
     "defectCount": "{{count}} defects"
+  },
+  "vlAssemblyScheduleList": {
+    "pageTitle": "VL Assembly Schedule List",
+    "heading": "VL Assembly Schedules",
+    "searchPlaceholder": "Search SJ PO#",
+    "allYears": "All Years",
+    "allMonths": "All Months",
+    "monthSuffix": "",
+    "count": "{{count}} records",
+    "empty": "No schedules found.",
+    "viewInGantt": "View in Gantt chart",
+    "col": {
+      "sjOrder": "SJ Order",
+      "status": "Status",
+      "productionLine": "Production Line",
+      "assemblyStart": "Assembly Start",
+      "assemblyFinish": "Assembly Finish",
+      "processStart": "Process Start",
+      "processFinish": "Process Finish",
+      "outputQty": "Output Qty",
+      "remark": "Remark"
+    }
   },
   "vlAssembly": {
     "status": {
@@ -1697,7 +1779,22 @@
       "showAll": "Show All",
       "hideAll": "Hide All",
       "saveSettings": "Save Settings",
+      "pinColumn": "Pin column",
+      "unpinColumn": "Unpin column",
       "newSchedule": "New VL Assembly Schedule",
+      "sjOrderMultiHint": "Search and add multiple SJ Orders. Each will be copied as a VL Assembly SJ No on one schedule.",
+      "sjOrderAlreadySelected": "This SJ Order is already selected",
+      "styleMismatchError": "SJ Style code mismatch. Only SJ Orders with the same SJ Style code ({{expected}}) can be grouped in one schedule. Selected order style code: {{got}}",
+      "addSjNo": "Add SJ No",
+      "addSjNoTitle": "Add SJ No to Schedule",
+      "sjNoAdded": "SJ No added to schedule",
+      "moveSjNo": "Move / Split SJ No",
+      "moveToSchedule": "Move to another schedule",
+      "splitToNewSchedule": "Split to new schedule",
+      "targetSchedule": "Target schedule",
+      "targetSchedulePlaceholder": "Select target schedule",
+      "sjNoMoved": "SJ No moved successfully",
+      "sjNoSplit": "SJ No split to new schedule",
       "factoryField": "Factory",
       "factoryPlaceholder": "Select factory",
       "factoryNone": "— None —",
@@ -1707,6 +1804,7 @@
       "productionLineHint": "First choose the factory, then the line under that factory. Leave both empty if not needed.",
       "exFactoryHint": "EX-Factory for the selected SJ Order. Leave empty to kevl assembly the order’s current date; set a date to save it on the order.",
       "noSchedules": "No schedules found.",
+      "balanceInBar": "Bal. {{qty}}",
       "lineGroup": {
         "unassignedLine": "Unassigned line",
         "scheduleCount": "{{count}} schedules",
@@ -1722,7 +1820,7 @@
       },
       "columnSettingsSaved": "Column settings saved",
       "scheduleCreated": "Schedule created",
-      "sjOrderRequired": "SJ Order is required",
+      "sjOrderRequired": "Select at least one SJ Order",
       "moduleCategoryLabel": "Module categories to copy",
       "moduleCategoryHint": "Pick any category level (top-level or sub-category). Only modules in the selected categories—and their descendant categories on the server—are copied into VL Assembly.",
       "moduleCategoryRequired": "Select at least one module category",
@@ -1948,7 +2046,13 @@
       "orderExtraFields": "Order / cost (CMT, FOB)",
       "extendedFields": "Extra schedule & progress",
       "assemblyOutputExceedsTotal": "Assembly output qty cannot exceed total order qty ({{cap}}).",
-      "assemblyOutputMaxHint": "Enter at most the total qty (max {{cap}})."
+      "assemblyOutputMaxHint": "Enter at most the total qty (max {{cap}}).",
+      "scheduleNo": "Schedule #{{no}}",
+      "addSjNo": "Add SJ No",
+      "existingStyleCode": "Current style code",
+      "sjOrderSearch": "Search SJ Order",
+      "deleteSjNo": "Delete SJ No",
+      "deleteSjNoConfirm": "will be removed from this schedule. Continue?"
     },
     "sjNoDetail": {
       "pageTitle": "VL Assembly SJ No Detail",
@@ -2059,6 +2163,7 @@
       "dailyOutputQr": "Daily output QR",
       "dailyOutputQrHint": "Scan to open VL Assembly Process Output Record with this process pre-selected. Enter quantity and save.",
       "copyDailyOutputLink": "Copy link",
+      "enterQuantityButton": "Enter quantity",
       "dailyOutputLinkCopied": "Link copied.",
       "dailyOutputLinkCopyFailed": "Could not copy link.",
       "standardWorkVideoQr": "Standard work video QR",

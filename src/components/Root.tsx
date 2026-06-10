@@ -22,6 +22,15 @@ export default function Root() {
     }
   }, [userLoading, user, location.pathname, navigate]);
 
+  // DEVELOPMENT 계정: /home 접근 시 /jigs로 리다이렉트
+  useEffect(() => {
+    if (!userLoading && user?.factory_access === "DEVELOPMENT") {
+      if (location.pathname === "/home") {
+        navigate("/jigs", { replace: true });
+      }
+    }
+  }, [userLoading, user, location.pathname, navigate]);
+
   // 페이지가 로드될 때, favicon을 sungjin_logo로 설정
   useEffect(() => {
     const faviconUrl = `${process.env.PUBLIC_URL || ""}/sungjin_logo.png`;

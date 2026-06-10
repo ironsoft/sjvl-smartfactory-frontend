@@ -39,6 +39,13 @@ import {
   PopoverBody,
   PopoverHeader,
   PopoverCloseButton,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Portal,
+  Wrap,
+  WrapItem,
   Checkbox,
   SimpleGrid,
   Divider,
@@ -54,6 +61,8 @@ import { Helmet } from "react-helmet";
 import {
   getVlAssemblySchedules,
   createVlAssemblySchedule,
+  addSjNoToVlAssemblySchedule,
+  moveVlAssemblySjNo,
   editVlAssemblySchedule,
   IVlAssemblySchedule,
   getVlAssemblyColumnPreference,
@@ -101,6 +110,8 @@ import {
   FaCalendarMinus,
   FaInfoCircle,
   FaEyeSlash,
+  FaEllipsisV,
+  FaTimes,
 } from "react-icons/fa";
 import React, {
   Fragment,
@@ -112,6 +123,7 @@ import React, {
   useCallback,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import VideoModal from "../components/VideoModal";
@@ -217,10 +229,9 @@ function vlLineGroupKpis(schedules: IVlAssemblySchedule[]) {
 }
 
 function lineGroupLeftBorderProps(accent: string) {
+  const cssColor = `var(--chakra-colors-${accent.replace(".", "-")})`;
   return {
-    borderLeftWidth: "4px",
-    borderLeftStyle: "solid" as const,
-    borderLeftColor: accent,
+    boxShadow: `inset 4px 0 0 0 ${cssColor}`,
   };
 }
 
@@ -347,7 +358,7 @@ function DefectQtyLink({ defectQty, to }: { defectQty: number; to: string }) {
 
 // ── 상수 ──────────────────────────────────────────────────────────
 const emptyForm = {
-  sj_order: "" as string | number,
+  sj_order_ids: [] as number[],
   /** 생산 라인 선택 전 공장(Factory) PK */
   factory: "" as string | number,
   production_line: "" as string | number,
@@ -1465,6 +1476,8 @@ type VlCalDragRef = {
 // ── 컴포넌트 ──────────────────────────────────────────────────────
 export default function VlAssemblyScheduleList() {
   const { t, i18n } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const highlightPk = searchParams.get("highlight") ? Number(searchParams.get("highlight")) : null;
   const fmtDate = (d?: string | null) => formatIsoDateDisplay(d, i18n.language);
 
   const statusOptions = [
@@ -1544,6 +1557,8 @@ export default function VlAssemblyScheduleList() {
   const scheduleRowBg = useColorModeValue("white", "gray.800");
   const scheduleRowHoverBg = useColorModeValue("blue.50", "blue.900");
   const scheduleRowSelectedBg = useColorModeValue("yellow.50", "yellow.900");
+  const sjSubRowBg = useColorModeValue("gray.50", "gray.750");
+  const sjSubRowHoverBg = useColorModeValue("gray.100", "gray.700");
   const moduleRowBg = useColorModeValue("blue.50", "blue.900");
   const moduleRowHoverBg = useColorModeValue("blue.100", "blue.800");
   const processRowBg = useColorModeValue("gray.50", "gray.700");
@@ -1630,12 +1645,23 @@ export default function VlAssemblyScheduleList() {
 
   const today = new Date();
   const calendarTodayYmd = ymdFromLocalDate(today);
-  const [selectedYear, setSelectedYear] = useState(() => getInitialYearMonth().year);
-  const [selectedMonth, setSelectedMonth] = useState(() => getInitialYearMonth().month); // 1-based
+  const [flashPk, setFlashPk] = useState<number | null>(null);
+  const highlightScrolledRef = useRef(false);
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const urlYear = searchParams.get("year");
+    return urlYear ? Number(urlYear) : getInitialYearMonth().year;
+  });
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const urlMonth = searchParams.get("month");
+    return urlMonth ? Number(urlMonth) : getInitialYearMonth().month;
+  }); // 1-based
 
   // 5개월 윈도우: 선택 월이 가운데(3번째)에 오도록 초기화 (localStorage 복원 시에도 해당 월이 보이게)
   const [windowStart, setWindowStart] = useState(() => {
-    const { year, month } = getInitialYearMonth();
+    const urlYear = searchParams.get("year");
+    const urlMonth = searchParams.get("month");
+    const year = urlYear ? Number(urlYear) : getInitialYearMonth().year;
+    const month = urlMonth ? Number(urlMonth) : getInitialYearMonth().month;
     const d = new Date(year, month - 1 - 2, 1);
     return { year: d.getFullYear(), month: d.getMonth() + 1 };
   });
@@ -2103,7 +2129,23 @@ export default function VlAssemblyScheduleList() {
 
   const [infoCollapsed, setInfoCollapsed] = useState(false);
 
-  const [pinnedCols, setPinnedCols] = useState<Set<ColKey>>(new Set(["sj_po_number"] as ColKey[]));
+  const [pinnedCols, setPinnedColsRaw] = useState<Set<ColKey>>(() => {
+    try {
+      const saved = localStorage.getItem("vlAssembly_pinnedCols");
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[];
+        const allKeys = ALL_COLUMNS.map((c) => c.key) as ColKey[];
+        return new Set(parsed.filter((k) => allKeys.includes(k as ColKey)) as ColKey[]);
+      }
+    } catch {}
+    return new Set(["sj_po_number"] as ColKey[]);
+  });
+  const setPinnedCols = (val: Set<ColKey> | ((prev: Set<ColKey>) => Set<ColKey>)) =>
+    setPinnedColsRaw((prev) => {
+      const next = typeof val === "function" ? val(prev) : val;
+      try { localStorage.setItem("vlAssembly_pinnedCols", JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
 
   // ── 컬럼 너비 (localStorage 유지) ──────────────────────────────────────
   const [columnWidths, setColumnWidths] = useState<Partial<Record<ColKey, number>>>(() => {
@@ -2310,8 +2352,33 @@ export default function VlAssemblyScheduleList() {
   const [orderQuery, setOrderQuery] = useState("");
   const [orderResults, setOrderResults] = useState<ISjOrderSearchResult[]>([]);
   const [orderSearching, setOrderSearching] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<ISjOrderSearchResult | null>(null);
+  const [selectedOrders, setSelectedOrders] = useState<ISjOrderSearchResult[]>([]);
   const orderSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [addSjNoSchedulePk, setAddSjNoSchedulePk] = useState<number | null>(null);
+  const [addSjNoExistingStyleCode, setAddSjNoExistingStyleCode] = useState<string | null>(null);
+  const [addSjNoOrderQuery, setAddSjNoOrderQuery] = useState("");
+  const [addSjNoOrderResults, setAddSjNoOrderResults] = useState<ISjOrderSearchResult[]>([]);
+  const [addSjNoOrderSearching, setAddSjNoOrderSearching] = useState(false);
+  const [addSjNoSelectedOrder, setAddSjNoSelectedOrder] = useState<ISjOrderSearchResult | null>(null);
+  const [addSjNoModuleCategoryIds, setAddSjNoModuleCategoryIds] = useState<number[]>([]);
+  const addSjNoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    isOpen: isAddSjNoOpen,
+    onOpen: onAddSjNoOpen,
+    onClose: onAddSjNoClose,
+  } = useDisclosure();
+
+  const [moveSjNoPk, setMoveSjNoPk] = useState<number | null>(null);
+  const [moveSourceSchedulePk, setMoveSourceSchedulePk] = useState<number | null>(null);
+  const [moveMode, setMoveMode] = useState<"existing" | "new">("existing");
+  const [moveTargetSchedulePk, setMoveTargetSchedulePk] = useState<string | number>("");
+  const [moveTargetSearch, setMoveTargetSearch] = useState("");
+  const {
+    isOpen: isMoveSjNoOpen,
+    onOpen: onMoveSjNoOpen,
+    onClose: onMoveSjNoClose,
+  } = useDisclosure();
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
   // ── 커스텀 가로 스크롤바 상태 ────────────────────────────────────────────
@@ -2361,8 +2428,6 @@ export default function VlAssemblyScheduleList() {
 
   const handleOrderSearch = (q: string) => {
     setOrderQuery(q);
-    setSelectedOrder(null);
-    setForm((f) => ({ ...f, sj_order: "", ex_factory_date: "" }));
     if (orderSearchTimer.current) clearTimeout(orderSearchTimer.current);
     if (!q.trim()) { setOrderResults([]); return; }
     orderSearchTimer.current = setTimeout(async () => {
@@ -2376,27 +2441,196 @@ export default function VlAssemblyScheduleList() {
     }, 300);
   };
 
-  const selectOrder = (order: ISjOrderSearchResult) => {
-    setSelectedOrder(order);
-    setOrderQuery(order.sj_po_number);
+  const addSelectedOrder = (order: ISjOrderSearchResult) => {
+    if (selectedOrders.some((o) => o.pk === order.pk)) {
+      toast({
+        title: t("vlAssembly.list.sjOrderAlreadySelected"),
+        status: "info",
+        duration: 2000,
+        position: "bottom-right",
+      });
+      return;
+    }
+    if (selectedOrders.length > 0) {
+      const refStyle = selectedOrders[0].sj_style_code;
+      if (refStyle != null && order.sj_style_code != null && refStyle !== order.sj_style_code) {
+        toast({
+          title: t("vlAssembly.list.styleMismatchError", { expected: refStyle, got: order.sj_style_code }),
+          status: "warning",
+          duration: 4000,
+          position: "bottom-right",
+        });
+        return;
+      }
+    }
+    const nextOrders = [...selectedOrders, order];
+    setSelectedOrders(nextOrders);
+    setOrderQuery("");
     setOrderResults([]);
     const exRaw = order.ex_factory_date;
-    const exDate =
-      exRaw && typeof exRaw === "string" ? exRaw.slice(0, 10) : "";
-    setForm((f) => ({ ...f, sj_order: order.pk, ex_factory_date: exDate }));
+    const exDate = exRaw && typeof exRaw === "string" ? exRaw.slice(0, 10) : "";
+    setForm((f) => ({
+      ...f,
+      sj_order_ids: nextOrders.map((o) => o.pk),
+      ex_factory_date: f.ex_factory_date || exDate,
+    }));
+  };
+
+  const removeSelectedOrder = (pk: number) => {
+    const nextOrders = selectedOrders.filter((o) => o.pk !== pk);
+    setSelectedOrders(nextOrders);
+    setForm((f) => ({ ...f, sj_order_ids: nextOrders.map((o) => o.pk) }));
   };
 
   const resetModal = () => {
     setForm({ ...emptyForm });
     setOrderQuery("");
     setOrderResults([]);
-    setSelectedOrder(null);
+    setSelectedOrders([]);
+  };
+
+  const resetAddSjNoModal = () => {
+    setAddSjNoSchedulePk(null);
+    setAddSjNoExistingStyleCode(null);
+    setAddSjNoOrderQuery("");
+    setAddSjNoOrderResults([]);
+    setAddSjNoSelectedOrder(null);
+    setAddSjNoModuleCategoryIds([]);
+  };
+
+  const openAddSjNoModal = (schedule: IVlAssemblySchedule) => {
+    resetAddSjNoModal();
+    setAddSjNoSchedulePk(schedule.pk);
+    setAddSjNoExistingStyleCode(schedule.sj_order_info?.sj_style?.code ?? null);
+    setAddSjNoModuleCategoryIds(schedule.module_category_selection ?? []);
+    onAddSjNoOpen();
+  };
+
+  const handleAddSjNoOrderSearch = (q: string) => {
+    setAddSjNoOrderQuery(q);
+    setAddSjNoSelectedOrder(null);
+    if (addSjNoSearchTimer.current) clearTimeout(addSjNoSearchTimer.current);
+    if (!q.trim()) { setAddSjNoOrderResults([]); return; }
+    addSjNoSearchTimer.current = setTimeout(async () => {
+      setAddSjNoOrderSearching(true);
+      try {
+        const results = await searchSjOrders(q);
+        setAddSjNoOrderResults(results);
+      } finally {
+        setAddSjNoOrderSearching(false);
+      }
+    }, 300);
+  };
+
+  const selectAddSjNoOrder = (order: ISjOrderSearchResult) => {
+    if (addSjNoExistingStyleCode != null && order.sj_style_code != null && addSjNoExistingStyleCode !== order.sj_style_code) {
+      toast({
+        title: t("vlAssembly.list.styleMismatchError", { expected: addSjNoExistingStyleCode, got: order.sj_style_code }),
+        status: "warning",
+        duration: 4000,
+        position: "bottom-right",
+      });
+      return;
+    }
+    setAddSjNoSelectedOrder(order);
+    setAddSjNoOrderQuery(order.sj_po_number);
+    setAddSjNoOrderResults([]);
+  };
+
+  const toggleAddSjNoModuleCategory = (pk: number) => {
+    const subtree = collectDescendantCategoryIds(pk, moduleCategoryChildrenByParent);
+    setAddSjNoModuleCategoryIds((prev) => {
+      const allOn = subtree.length > 0 && subtree.every((id) => prev.includes(id));
+      if (allOn) {
+        const remove = new Set(subtree);
+        return prev.filter((id) => !remove.has(id));
+      }
+      return Array.from(new Set([...prev, ...subtree]));
+    });
+  };
+
+  const handleAddSjNo = async () => {
+    if (!addSjNoSchedulePk || !addSjNoSelectedOrder) {
+      toast({ title: t("vlAssembly.list.sjOrderRequired"), status: "warning", duration: 2000, position: "bottom-right" });
+      return;
+    }
+    if (addSjNoModuleCategoryIds.length === 0) {
+      toast({ title: t("vlAssembly.list.moduleCategoryRequired"), status: "warning", duration: 2000, position: "bottom-right" });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await addSjNoToVlAssemblySchedule(addSjNoSchedulePk, {
+        sj_order: addSjNoSelectedOrder.pk,
+        module_category_ids: addSjNoModuleCategoryIds,
+      });
+      toast({ title: t("vlAssembly.list.sjNoAdded"), status: "success", duration: 2000, position: "bottom-right" });
+      queryClient.invalidateQueries({ queryKey: vlKeys.all() });
+      resetAddSjNoModal();
+      onAddSjNoClose();
+    } catch (e: any) {
+      const msg = e?.response?.data?.detail ?? (e?.response?.data ? JSON.stringify(e.response.data) : "Failed to add SJ No");
+      toast({ title: String(msg), status: "error", duration: 3000, position: "bottom-right" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openMoveSjNoModal = (sjPk: number, schedulePk: number, mode: "existing" | "new") => {
+    setMoveSjNoPk(sjPk);
+    setMoveSourceSchedulePk(schedulePk);
+    setMoveMode(mode);
+    setMoveTargetSchedulePk("");
+    setMoveTargetSearch("");
+    onMoveSjNoOpen();
+  };
+
+  const resetMoveSjNoModal = () => {
+    setMoveSjNoPk(null);
+    setMoveSourceSchedulePk(null);
+    setMoveMode("existing");
+    setMoveTargetSchedulePk("");
+    setMoveTargetSearch("");
+  };
+
+  const handleMoveSjNo = async () => {
+    if (!moveSjNoPk) return;
+    setIsSaving(true);
+    try {
+      if (moveMode === "existing") {
+        if (!moveTargetSchedulePk) {
+          toast({ title: t("vlAssembly.list.targetSchedulePlaceholder"), status: "warning", duration: 2000, position: "bottom-right" });
+          return;
+        }
+        await moveVlAssemblySjNo(moveSjNoPk, { target_schedule: Number(moveTargetSchedulePk) });
+        toast({ title: t("vlAssembly.list.sjNoMoved"), status: "success", duration: 2000, position: "bottom-right" });
+      } else {
+        const schedule = schedules.find((s) => s.pk === moveSourceSchedulePk);
+        await moveVlAssemblySjNo(moveSjNoPk, {
+          create_new_schedule: true,
+          production_line: schedule?.production_line ?? null,
+          status: schedule?.status ?? "not_started",
+        });
+        toast({ title: t("vlAssembly.list.sjNoSplit"), status: "success", duration: 2000, position: "bottom-right" });
+      }
+      queryClient.invalidateQueries({ queryKey: vlKeys.all() });
+      resetMoveSjNoModal();
+      onMoveSjNoClose();
+    } catch (e: any) {
+      const msg = e?.response?.data?.detail ?? (e?.response?.data ? JSON.stringify(e.response.data) : "Failed to move SJ No");
+      toast({ title: String(msg), status: "error", duration: 3000, position: "bottom-right" });
+    } finally {
+      setIsSaving(false);
+    }
   };
   const [expandedSjNos, setExpandedSjNosRaw] = useState<Set<number>>(() => {
     try { const s = sessionStorage.getItem("ep_expandedSjNos"); return s ? new Set<number>(JSON.parse(s)) : new Set(); } catch { return new Set(); }
   });
   const [expandedModules, setExpandedModulesRaw] = useState<Set<number>>(() => {
     try { const s = sessionStorage.getItem("ep_expandedModules"); return s ? new Set<number>(JSON.parse(s)) : new Set(); } catch { return new Set(); }
+  });
+  const [expandedSchedules, setExpandedSchedulesRaw] = useState<Set<number>>(() => {
+    try { const s = sessionStorage.getItem("ep_expandedSchedules"); return s ? new Set<number>(JSON.parse(s)) : new Set(); } catch { return new Set(); }
   });
   /** 접힌 라인 키 Set — 기본값은 모두 펼침(비어 있음) */
   const [collapsedLines, setCollapsedLinesRaw] = useState<Set<string>>(() => {
@@ -2424,6 +2658,12 @@ export default function VlAssemblyScheduleList() {
     setExpandedModulesRaw((prev) => {
       const next = typeof val === "function" ? val(prev) : val;
       try { sessionStorage.setItem("ep_expandedModules", JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  const setExpandedSchedules = (val: Set<number> | ((prev: Set<number>) => Set<number>)) =>
+    setExpandedSchedulesRaw((prev) => {
+      const next = typeof val === "function" ? val(prev) : val;
+      try { sessionStorage.setItem("ep_expandedSchedules", JSON.stringify(Array.from(next))); } catch {}
       return next;
     });
   const [editingModuleQty, setEditingModuleQty] = useState<{pk: number; val: string} | null>(null);
@@ -2562,6 +2802,22 @@ export default function VlAssemblyScheduleList() {
     epSchedulesOverlapQuery.isFetching ||
     epScheduleMonthQueries.some((q) => q.isFetching);
 
+  useEffect(() => {
+    if (!highlightPk || data.length === 0 || highlightScrolledRef.current) return;
+    const found = data.find((s) => s.pk === highlightPk);
+    if (!found) return;
+    const timer = setTimeout(() => {
+      const el = tableContainerRef.current?.querySelector(`[data-schedule-pk="${highlightPk}"]`);
+      if (el && tableContainerRef.current) {
+        tableContainerRef.current.scrollTop = Math.max(0, (el as HTMLElement).offsetTop - 120);
+        highlightScrolledRef.current = true;
+        setFlashPk(highlightPk);
+        setTimeout(() => setFlashPk(null), 3000);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [data, highlightPk]);
+
   const calendarDayHeaderMeta = useMemo(() => {
     const fmt = new Intl.DateTimeFormat(i18n.language, { weekday: "short" });
     return calendarDayColumns.map((col) => {
@@ -2636,6 +2892,21 @@ export default function VlAssemblyScheduleList() {
     }
     return m;
   }, [scheduleDailyRows]);
+
+  const dailyQtyBySjNo = useMemo(() => {
+    const m = new Map<number, Map<string, number>>();
+    for (const row of scheduleDailyRows) {
+      const sjPk = row.vl_assembly_sj_no;
+      if (sjPk == null) continue;
+      const d = new Date(row.recorded_at);
+      const ymd = ymdFromLocalDate(d);
+      if (!m.has(sjPk)) m.set(sjPk, new Map());
+      const inner = m.get(sjPk)!;
+      inner.set(ymd, (inner.get(ymd) ?? 0) + row.qty);
+    }
+    return m;
+  }, [scheduleDailyRows]);
+
 
   const dailyQtyByModule = useMemo(() => {
     const m = new Map<number, Map<string, number>>();
@@ -2738,6 +3009,7 @@ export default function VlAssemblyScheduleList() {
             showScheduleDailyQty: boolean;
             showSchedulePeriodInCalendar: boolean;
             firstSJTotalQty: number | null;
+            overrideByDay?: Map<string, number>;
           }
         | { kind: "module"; mod: IEpModuleCopy; rowBg: string }
         | { kind: "process"; p: IEpProcessCopy; rowBg: string }
@@ -2788,15 +3060,31 @@ export default function VlAssemblyScheduleList() {
                 vlPlanHolidayYmdSet
               )
             : null;
-        byDay = showDailyQty
-          ? dailyQtyBySchedule.get(entityPk)
-          : undefined;
+        // SJ No가 있으면 각 SJ No의 daily qty를 합산해서 표시 (SJ No들은 병렬 생산)
+        if (showDailyQty) {
+          const sjNos = schedule.ep_sj_nos ?? [];
+          if (opts.overrideByDay) {
+            byDay = opts.overrideByDay;
+          } else if (sjNos.length > 0) {
+            const merged = new Map<string, number>();
+            for (const sj of sjNos) {
+              const sjMap = dailyQtyBySjNo.get(sj.pk);
+              if (!sjMap) continue;
+              Array.from(sjMap.entries()).forEach(([ymd, qty]) => {
+                merged.set(ymd, (merged.get(ymd) ?? 0) + qty);
+              });
+            }
+            byDay = merged.size > 0 ? merged : dailyQtyBySchedule.get(entityPk);
+          } else {
+            byDay = dailyQtyBySchedule.get(entityPk);
+          }
+        }
         planTotalForTooltip = firstSJTotalQty ?? 0;
         rowDragCtx = { kind: "schedule", schedule: effSchedule };
         barStyleThumb = schedule.sj_order_info?.sj_style?.thumbnail ?? null;
         barStyleName = schedule.sj_order_info?.sj_style?.code ?? null;
         barOutputQty = schedule.production_assembly_output_qty ?? null;
-        barTotalQty = schedule.sj_order_info?.total_order_qty ?? null;
+        barTotalQty = firstSJTotalQty ?? schedule.sj_order_info?.total_order_qty ?? null;
         barLabelColor = schedule.status === "completed"
           ? barLabelColorCompleted
           : schedule.status === "in_progress"
@@ -3164,21 +3452,39 @@ export default function VlAssemblyScheduleList() {
                       {barStyleName}
                     </Text>
                   )}
-                  {(barOutputQty != null || barTotalQty != null) && (
-                    <Text
-                      as="span"
-                      fontSize="9px"
-                      fontWeight="medium"
-                      color={barLabelColor}
-                      lineHeight="1.2"
-                      opacity={0.9}
-                    >
-                      {barOutputQty?.toLocaleString() ?? "—"}
-                      {barTotalQty != null && ` / ${barTotalQty.toLocaleString()}`}
-                      {barTotalQty != null && barTotalQty > 0 && barOutputQty != null &&
-                        ` (${Math.round((barOutputQty / barTotalQty) * 100)}%)`}
-                    </Text>
-                  )}
+                  {(barOutputQty != null || barTotalQty != null) && (() => {
+                    const balanceQty = barTotalQty != null
+                      ? Math.max(0, barTotalQty - (barOutputQty ?? 0))
+                      : null;
+                    return (
+                      <VStack spacing={0} align="flex-start">
+                        <Text
+                          as="span"
+                          fontSize="9px"
+                          fontWeight="medium"
+                          color={barLabelColor}
+                          lineHeight="1.2"
+                          opacity={0.9}
+                        >
+                          {barOutputQty?.toLocaleString() ?? "—"}
+                          {barTotalQty != null && ` / ${barTotalQty.toLocaleString()}`}
+                          {barTotalQty != null && barTotalQty > 0 && barOutputQty != null &&
+                            ` (${Math.round((barOutputQty / barTotalQty) * 100)}%)`}
+                        </Text>
+                        {balanceQty != null && (
+                          <Text
+                            as="span"
+                            fontSize="9px"
+                            color={barLabelColor}
+                            lineHeight="1.2"
+                            opacity={0.75}
+                          >
+                            {t("vlAssembly.list.balanceInBar", { qty: balanceQty.toLocaleString() })}
+                          </Text>
+                        )}
+                      </VStack>
+                    );
+                  })()}
                 </VStack>
               </Box>
             )}
@@ -3325,6 +3631,7 @@ export default function VlAssemblyScheduleList() {
       dailyQtyByModule,
       dailyQtyByProcess,
       dailyQtyBySchedule,
+      dailyQtyBySjNo,
       fmtDate,
       moduleCalEdge,
       moduleCalPeriodOverlay,
@@ -3414,8 +3721,16 @@ export default function VlAssemblyScheduleList() {
   );
 
 
+
   const toggleSjNo = (pk: number) =>
     setExpandedSjNos((prev) => {
+      const next = new Set(prev);
+      if (next.has(pk)) next.delete(pk); else next.add(pk);
+      return next;
+    });
+
+  const toggleSchedule = (pk: number) =>
+    setExpandedSchedules((prev) => {
       const next = new Set(prev);
       if (next.has(pk)) next.delete(pk); else next.add(pk);
       return next;
@@ -3435,13 +3750,18 @@ export default function VlAssemblyScheduleList() {
     const allModulePks = new Set(
       (data ?? []).flatMap((s) => (s.ep_sj_nos ?? []).flatMap((sj) => sj.ep_modules.map((m) => m.pk)))
     );
+    const allSchedulePks = new Set(
+      (data ?? []).filter((s) => (s.ep_sj_nos ?? []).length > 1).map((s) => s.pk)
+    );
     setExpandedSjNos(allSjNoPks);
     setExpandedModules(allModulePks);
+    setExpandedSchedules(allSchedulePks);
   };
 
   const collapseAll = () => {
     setExpandedSjNos(new Set());
     setExpandedModules(new Set());
+    setExpandedSchedules(new Set());
   };
 
   const submitPlanHoliday = async () => {
@@ -3672,7 +3992,7 @@ export default function VlAssemblyScheduleList() {
   };
 
   const handleCreate = async () => {
-    if (!form.sj_order) {
+    if (form.sj_order_ids.length === 0) {
       toast({ title: t("vlAssembly.list.sjOrderRequired"), status: "warning", duration: 2000, position: "bottom-right" });
       return;
     }
@@ -3689,7 +4009,7 @@ export default function VlAssemblyScheduleList() {
     try {
       const exTrim = String(form.ex_factory_date ?? "").trim();
       await createVlAssemblySchedule({
-        sj_order: Number(form.sj_order),
+        sj_order_ids: form.sj_order_ids,
         production_line: form.production_line ? Number(form.production_line) : null,
         status: form.status,
         output_qty: form.output_qty !== "" ? Number(form.output_qty) : null,
@@ -3961,17 +4281,34 @@ export default function VlAssemblyScheduleList() {
                     <Divider mb={3} />
                     <SimpleGrid columns={2} spacing={2} mb={4}>
                       {ALL_COLUMNS.map((col) => (
-                        <Checkbox
-                          key={col.key}
-                          isChecked={vis(col.key)}
-                          onChange={() => toggleCol(col.key)}
-                          size="sm"
-                          opacity={vis(col.key) ? 1 : 0.45}
-                        >
-                          <Text fontSize="xs" textDecoration={vis(col.key) ? undefined : "line-through"}>
-                            {colLabels[col.key]}
-                          </Text>
-                        </Checkbox>
+                        <HStack key={col.key} spacing={1} align="center">
+                          <Checkbox
+                            isChecked={vis(col.key)}
+                            onChange={() => toggleCol(col.key)}
+                            size="sm"
+                            opacity={vis(col.key) ? 1 : 0.45}
+                            flex={1}
+                          >
+                            <Text fontSize="xs" textDecoration={vis(col.key) ? undefined : "line-through"}>
+                              {colLabels[col.key]}
+                            </Text>
+                          </Checkbox>
+                          <Tooltip label={isPinned(col.key) ? t("vlAssembly.list.unpinColumn") : t("vlAssembly.list.pinColumn")} placement="top">
+                            <Box
+                              as="span"
+                              display="inline-flex"
+                              cursor="pointer"
+                              color={isPinned(col.key) ? "blue.400" : "gray.200"}
+                              _hover={{ color: isPinned(col.key) ? "blue.600" : "gray.400" }}
+                              onClick={() => togglePin(col.key)}
+                              transform={isPinned(col.key) ? "rotate(0deg)" : "rotate(45deg)"}
+                              transition="transform 0.15s, color 0.15s"
+                              flexShrink={0}
+                            >
+                              <FaThumbtack size={10} />
+                            </Box>
+                          </Tooltip>
+                        </HStack>
                       ))}
                     </SimpleGrid>
                     <Divider mb={3} />
@@ -4525,10 +4862,10 @@ export default function VlAssemblyScheduleList() {
               </Thead>
               <Tbody>
                 {(isLoading || isFetching) && schedules.length === 0 && (
-                  <Tr><Td colSpan={tableColSpanWithDays}><Center py={6}><Spinner size="md" /></Center></Td></Tr>
+                  <Tr><Td colSpan={tableColSpanWithDays + 1}><Center py={6}><Spinner size="md" /></Center></Td></Tr>
                 )}
                 {!isLoading && !isFetching && schedules.length === 0 && (
-                  <Tr><Td colSpan={tableColSpanWithDays}><Text color="gray.400" textAlign="center">{t("vlAssembly.list.noSchedules")}</Text></Td></Tr>
+                  <Tr><Td colSpan={tableColSpanWithDays + 1}><Text color="gray.400" textAlign="center">{t("vlAssembly.list.noSchedules")}</Text></Td></Tr>
                 )}
 
                 {schedulesByLine.map((group, gIdx) => {
@@ -4549,18 +4886,29 @@ export default function VlAssemblyScheduleList() {
                         _hover={{ bg: "blue.100" }}
                         onClick={() => toggleLine(group.lineKey)}
                       >
+                        {/* Sticky 40px action column — ensures no gap between the toggle column and the line group header content when scrolling */}
+                        <Td
+                          w="40px"
+                          minW="40px"
+                          py={0}
+                          px={0}
+                          position="sticky"
+                          left={0}
+                          zIndex={10}
+                          bg={lineGroupHeaderBg}
+                          verticalAlign="middle"
+                          {...lineGroupLeftBorderProps(accent)}
+                        />
                         <Td
                           colSpan={tableColSpanWithDays}
                           py={0}
                           px={0}
                           bg={lineGroupHeaderBg}
                           verticalAlign="middle"
-                          {...lineGroupLeftBorderProps(accent)}
                         >
-                          {/* 내부 Box만 sticky-left → colspan이 전체 너비를 채우므로 캘린더 구간까지 배경이 이어지고, 콘텐츠는 왼쪽에 고정됨 */}
                           <Box
                             position="sticky"
-                            left={0}
+                            left="40px"
                             zIndex={15}
                             display="inline-flex"
                             alignItems="center"
@@ -4619,37 +4967,87 @@ export default function VlAssemblyScheduleList() {
                   const sjNos = s.ep_sj_nos ?? [];
                   return (
                     <Fragment key={`schedule-${s.pk}`}>
-                      {sjNos.map((sj, sjIdx) => {
-                        const isSjExpanded = expandedSjNos.has(sj.pk);
-                        const sjTotal = sj.total_qty ?? 0;
-                        const sjOut = sj.output_qty ?? 0;
-                        const sjBalance = Math.max(0, sjTotal - sjOut);
-                        const sjPct = sjTotal > 0 ? Math.min(100, Math.round((sjOut / sjTotal) * 100)) : 0;
-                        const sjBarColor = sjPct >= 100 ? "green.400" : sjPct >= 50 ? "blue.400" : "orange.400";
-                        const sjTp = vlSjThroughputDisplayFields(sj);
-                        const isRowSelected = selectedSjPk === sj.pk;
-                        const rowBg = isRowSelected ? scheduleRowSelectedBg : scheduleRowBg;
+                      {(() => {
+                        const isMultiSJ = sjNos.length > 1;
+                        const firstSj = sjNos[0];
+                        if (!firstSj) return null;
 
-                        return (
-                          <Fragment key={`sj-${sj.pk}`}>
-                            {/* ── SJ No Row (S) ── */}
-                            <Tr bgColor={rowBg} _hover={isRowSelected ? undefined : { bgColor: scheduleRowHoverBg }}
-                              borderTop="2px solid" borderTopColor={sjIdx === 0 ? "gray.300" : "gray.100"}
-                              cursor="pointer"
-                              onClick={() => {
-                                setSelectedSjPk((prev) => (prev === sj.pk ? null : sj.pk));
-                                if (sj.ep_modules.length > 0) toggleSjNo(sj.pk);
-                              }}>
-                              <Td px={1} minW="40px" position="sticky" left={0} zIndex={1} bgColor={rowBg} {...lgBorder}>
-                                {sj.ep_modules.length > 0 ? (
-                                  <IconButton aria-label="expand" icon={isSjExpanded ? <FaChevronDown /> : <FaChevronRight />}
-                                    size="xs" variant="ghost" onClick={(e) => { e.stopPropagation(); toggleSjNo(sj.pk); }} />
-                                ) : <Box w="24px" />}
-                              </Td>
+                        const renderSjRows = (isSubRow: boolean) => sjNos.map((sj, sjIdx) => {
+                          const isSjExpanded = expandedSjNos.has(sj.pk);
+                          const sjTotal = sj.total_qty ?? 0;
+                          const sjOut = sj.output_qty ?? 0;
+                          const sjBalance = Math.max(0, sjTotal - sjOut);
+                          const sjPct = sjTotal > 0 ? Math.min(100, Math.round((sjOut / sjTotal) * 100)) : 0;
+                          const sjBarColor = sjPct >= 100 ? "green.400" : sjPct >= 50 ? "blue.400" : "orange.400";
+                          const sjTp = vlSjThroughputDisplayFields(sj);
+                          const isRowSelected = selectedSjPk === sj.pk;
+                          const rowBg = isRowSelected ? scheduleRowSelectedBg : (isSubRow ? sjSubRowBg : scheduleRowBg);
+                          const rowHoverBg = isSubRow ? sjSubRowHoverBg : scheduleRowHoverBg;
+                          const modPl = isSubRow ? 9 : 5;
+                          const procPl = isSubRow ? 13 : 9;
+
+                          return (
+                            <Fragment key={`sj-${sj.pk}`}>
+                              {/* ── SJ Row ── */}
+                              <Tr bgColor={rowBg} _hover={isRowSelected ? undefined : { bgColor: rowHoverBg }}
+                                borderTop={isSubRow ? "1px solid" : "2px solid"}
+                                borderTopColor={isSubRow ? "gray.200" : (sjIdx === 0 ? "gray.300" : "gray.100")}
+                                cursor="pointer"
+                                {...(!isSubRow && sjIdx === 0 ? { "data-schedule-pk": String(s.pk) } : {})}
+                                sx={!isSubRow && sjIdx === 0 && flashPk === s.pk ? {
+                                  animation: "scheduleHighlightRing 3s ease-out forwards",
+                                  "@keyframes scheduleHighlightRing": {
+                                    "0%, 20%": { boxShadow: "inset 0 0 0 3px var(--chakra-colors-yellow-400)" },
+                                    "100%": { boxShadow: "inset 0 0 0 0px transparent" },
+                                  },
+                                } : undefined}
+                                onClick={() => {
+                                  setSelectedSjPk((prev) => (prev === sj.pk ? null : sj.pk));
+                                  if (sj.ep_modules.length > 0) toggleSjNo(sj.pk);
+                                }}>
+                                <Td px={1} pl={isSubRow ? 4 : undefined} minW="40px" position="sticky" left={0} zIndex={1} bgColor={rowBg} {...lgBorder} onClick={(e) => e.stopPropagation()}>
+                                  <VStack spacing={0} align="center">
+                                    {sj.ep_modules.length > 0 ? (
+                                      <IconButton aria-label="expand" icon={isSjExpanded ? <FaChevronDown /> : <FaChevronRight />}
+                                        size="xs" variant="ghost" onClick={(e) => { e.stopPropagation(); toggleSjNo(sj.pk); }} />
+                                    ) : <Box w="24px" />}
+                                    <Menu>
+                                      <MenuButton
+                                        as={IconButton}
+                                        aria-label={t("vlAssembly.list.moveSjNo")}
+                                        icon={<FaEllipsisV />}
+                                        size="xs"
+                                        variant="ghost"
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                      <Portal>
+                                        <MenuList minW="180px" zIndex={9999}>
+                                          <MenuItem onClick={() => openMoveSjNoModal(sj.pk, s.pk, "existing")}>
+                                            {t("vlAssembly.list.moveToSchedule")}
+                                          </MenuItem>
+                                          <MenuItem onClick={() => openMoveSjNoModal(sj.pk, s.pk, "new")}>
+                                            {t("vlAssembly.list.splitToNewSchedule")}
+                                          </MenuItem>
+                                        </MenuList>
+                                      </Portal>
+                                    </Menu>
+                                    {!isSubRow && sjIdx === sjNos.length - 1 && (
+                                      <Button
+                                        size="xs"
+                                        variant="link"
+                                        colorScheme="blue"
+                                        mt={1}
+                                        onClick={(e) => { e.stopPropagation(); openAddSjNoModal(s); }}
+                                      >
+                                        + {t("vlAssembly.list.addSjNo")}
+                                      </Button>
+                                    )}
+                                  </VStack>
+                                </Td>
                               {columnOrder.map(key => {
                                 switch (key) {
                                   case "production_line": return visInfo("production_line") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("production_line", rowBg)}>{s.production_line_name || "-"}</Td> : null;
-                                  case "sj_po_number": return vis("sj_po_number") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("sj_po_number", rowBg)} onClick={(e) => e.stopPropagation()}><Link href="#" color="blue.500" fontWeight="semibold" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openWindow(`/vl-assembly-production/${s.pk}`); }}>{o?.sj_po_number ?? s.pk}</Link></Td> : null;
+                                  case "sj_po_number": return vis("sj_po_number") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("sj_po_number", rowBg)} onClick={(e) => e.stopPropagation()}><Link href="#" color="blue.500" fontWeight="semibold" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openWindow(`/vl-assembly-production/${s.pk}`); }}>{o?.sj_po_number ?? s.pk}</Link><Text fontSize="2xs" color="gray.400" lineHeight={1.2}>#{s.pk}</Text></Td> : null;
                                   case "sj_no": return visInfo("sj_no") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("sj_no", rowBg)}><Text fontWeight="semibold">{sj.sj_no || "-"}</Text></Td> : null;
                                   case "color": return visInfo("color") ? <Td key={key} {...colStickyProps("color", rowBg)}>{o?.color || "-"}</Td> : null;
                                   case "total_qty": return visInfo("total_qty") ? <Td key={key} isNumeric fontWeight="semibold" {...colStickyProps("total_qty", rowBg)}>{sjTotal > 0 ? sjTotal.toLocaleString() : "-"}</Td> : null;
@@ -4850,9 +5248,12 @@ export default function VlAssemblyScheduleList() {
                                 kind: "schedule",
                                 schedule: s,
                                 rowBg: rowBg,
-                                showScheduleDailyQty: sjIdx === 0,
-                                showSchedulePeriodInCalendar: sjIdx === 0,
-                                firstSJTotalQty: sjIdx === 0 ? (sj.total_qty ?? null) : null,
+                                showScheduleDailyQty: true,
+                                showSchedulePeriodInCalendar: !isSubRow && sjIdx === 0,
+                                firstSJTotalQty: (!isSubRow && sjIdx === 0)
+                                  ? sjNos.reduce((sum, sj_) => sum + (sj_.total_qty ?? 0), 0) || null
+                                  : null,
+                                overrideByDay: dailyQtyBySjNo.get(sj.pk),
                               })}
                             </Tr>
 
@@ -4866,7 +5267,7 @@ export default function VlAssemblyScheduleList() {
                                     cursor={mod.ep_processes.length > 0 ? "pointer" : "default"}
                                     _hover={{ bgColor: moduleRowHoverBg }}
                                     onClick={() => { if (mod.ep_processes.length > 0) toggleModule(mod.pk); }}>
-                                    <Td px={1} pl={5} minW="40px" position="sticky" left={0} zIndex={1} bgColor={moduleRowBg} {...lgBorder}>
+                                    <Td px={1} pl={modPl} minW="40px" position="sticky" left={0} zIndex={1} bgColor={moduleRowBg} {...lgBorder}>
                                       {mod.ep_processes.length > 0 ? (
                                         <IconButton aria-label="expand module" icon={isModExpanded ? <FaChevronDown /> : <FaChevronRight />}
                                           size="xs" variant="ghost" onClick={(e) => { e.stopPropagation(); toggleModule(mod.pk); }} />
@@ -5078,7 +5479,7 @@ export default function VlAssemblyScheduleList() {
                                   {/* ── Process Rows (P) ── */}
                                   {isModExpanded && mod.ep_processes.map((p) => (
                                     <Tr key={`p-${p.pk}`} bgColor={processRowBg}>
-                                      <Td px={1} pl={9} minW="40px" position="sticky" left={0} zIndex={1} bgColor={processRowBg} {...lgBorder}><Box w="24px" /></Td>
+                                      <Td px={1} pl={procPl} minW="40px" position="sticky" left={0} zIndex={1} bgColor={processRowBg} {...lgBorder}><Box w="24px" /></Td>
                                       {columnOrder.map(key => {
                                         switch (key) {
                                           case "production_line": return visInfo("production_line") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("production_line", processRowBg)}><Text color="gray.400" fontSize="xs">{s.production_line_name || "-"}</Text></Td> : null;
@@ -5339,7 +5740,187 @@ export default function VlAssemblyScheduleList() {
                             })}
                           </Fragment>
                         );
-                      })}
+                        });
+
+                        if (!isMultiSJ) {
+                          return renderSjRows(false);
+                        }
+
+                        // MULTI-SJ: aggregate schedule header row + SJ sub-rows
+                        const scheduleTotal = sjNos.reduce((sum, sj_) => sum + (sj_.total_qty ?? 0), 0);
+                        const scheduleOut = sjNos.reduce((sum, sj_) => sum + (sj_.output_qty ?? 0), 0);
+                        const scheduleBalance = Math.max(0, scheduleTotal - scheduleOut);
+                        const schedulePct = scheduleTotal > 0 ? Math.min(100, Math.round((scheduleOut / scheduleTotal) * 100)) : 0;
+                        const scheduleBarColor = schedulePct >= 100 ? "green.400" : schedulePct >= 50 ? "blue.400" : "orange.400";
+                        const scheduleDefectQty = sjNos.reduce((sum, sj_) => sum + (sj_.total_defect_qty ?? 0), 0);
+                        const isScheduleExpanded = expandedSchedules.has(s.pk);
+                        const isAnyRowSelected = sjNos.some(sj_ => selectedSjPk === sj_.pk);
+                        const schedRowBg = isAnyRowSelected ? scheduleRowSelectedBg : scheduleRowBg;
+                        const schedTp = vlSjThroughputDisplayFields(firstSj);
+
+                        return (
+                          <>
+                            {/* ── Schedule Header Row (multi-SJ) ── */}
+                            <Tr bgColor={schedRowBg} _hover={isAnyRowSelected ? undefined : { bgColor: scheduleRowHoverBg }}
+                              borderTop="2px solid" borderTopColor="gray.300"
+                              cursor="pointer"
+                              data-schedule-pk={String(s.pk)}
+                              sx={flashPk === s.pk ? {
+                                animation: "scheduleHighlightRing 3s ease-out forwards",
+                                "@keyframes scheduleHighlightRing": {
+                                  "0%, 20%": { boxShadow: "inset 0 0 0 3px var(--chakra-colors-yellow-400)" },
+                                  "100%": { boxShadow: "inset 0 0 0 0px transparent" },
+                                },
+                              } : undefined}
+                              onClick={() => toggleSchedule(s.pk)}>
+                              <Td px={1} minW="40px" position="sticky" left={0} zIndex={1} bgColor={schedRowBg} {...lgBorder} onClick={(e) => e.stopPropagation()}>
+                                <VStack spacing={0} align="center">
+                                  <IconButton aria-label="expand" icon={isScheduleExpanded ? <FaChevronDown /> : <FaChevronRight />}
+                                    size="xs" variant="ghost" onClick={(e) => { e.stopPropagation(); toggleSchedule(s.pk); }} />
+                                  <Button size="xs" variant="link" colorScheme="blue" mt={1}
+                                    onClick={(e) => { e.stopPropagation(); openAddSjNoModal(s); }}>
+                                    + {t("vlAssembly.list.addSjNo")}
+                                  </Button>
+                                </VStack>
+                              </Td>
+                              {columnOrder.map(key => {
+                                switch (key) {
+                                  case "production_line": return visInfo("production_line") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("production_line", schedRowBg)}>{s.production_line_name || "-"}</Td> : null;
+                                  case "sj_po_number": return vis("sj_po_number") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("sj_po_number", schedRowBg)} onClick={(e) => e.stopPropagation()}><Link href="#" color="blue.500" fontWeight="semibold" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openWindow(`/vl-assembly-production/${s.pk}`); }}>{o?.sj_po_number ?? s.pk}</Link><Text fontSize="2xs" color="gray.400" lineHeight={1.2}>#{s.pk}</Text></Td> : null;
+                                  case "sj_no": return visInfo("sj_no") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("sj_no", schedRowBg)}><VStack align="flex-start" spacing={0}>{sjNos.map(sj_ => <Text key={sj_.pk} fontWeight="semibold" fontSize="xs">{sj_.sj_no || "-"}</Text>)}</VStack></Td> : null;
+                                  case "color": return visInfo("color") ? <Td key={key} {...colStickyProps("color", schedRowBg)}>{o?.color || "-"}</Td> : null;
+                                  case "total_qty": return visInfo("total_qty") ? <Td key={key} isNumeric fontWeight="semibold" {...colStickyProps("total_qty", schedRowBg)}>{scheduleTotal > 0 ? scheduleTotal.toLocaleString() : "-"}</Td> : null;
+                                  case "assembly_output_qty": return visInfo("assembly_output_qty") ? (
+                                    <Td key={key} isNumeric {...colStickyProps("assembly_output_qty", schedRowBg)} onClick={(e) => e.stopPropagation()}>
+                                      {editingAssemblyOutQty?.pk === s.pk ? (
+                                        <Input size="xs" w="80px" value={editingAssemblyOutQty.val} autoFocus
+                                          onChange={(e) => setEditingAssemblyOutQty({pk: s.pk, val: e.target.value})}
+                                          onBlur={() => saveAssemblyOutQty(s.pk, editingAssemblyOutQty.val)}
+                                          onKeyDown={(e) => { if (e.key === "Enter") saveAssemblyOutQty(s.pk, editingAssemblyOutQty.val); if (e.key === "Escape") setEditingAssemblyOutQty(null); }}
+                                        />
+                                      ) : (
+                                        <Text cursor="pointer" color={s.production_assembly_output_qty != null ? undefined : "gray.300"} _hover={{ textDecoration: "underline" }}
+                                          onClick={() => setEditingAssemblyOutQty({pk: s.pk, val: String(s.production_assembly_output_qty ?? "")})}>
+                                          {s.production_assembly_output_qty != null ? s.production_assembly_output_qty.toLocaleString() : "—"}
+                                        </Text>
+                                      )}
+                                    </Td>
+                                  ) : null;
+                                  case "ex_factory_1st": return visInfo("ex_factory_1st") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("ex_factory_1st", schedRowBg)}>{fmtDate(o?.ex_factory_date)}</Td> : null;
+                                  case "ex_factory_2nd": return vis("ex_factory_2nd") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("ex_factory_2nd", schedRowBg)}><Text fontSize="xs">{s.ex_factory_2nd ?? "—"}</Text></Td> : null;
+                                  case "ex_country": return vis("ex_country") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("ex_country", schedRowBg)}><Text fontSize="xs">{o?.ex_country ?? "—"}</Text></Td> : null;
+                                  case "air_or_vessel": return vis("air_or_vessel") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("air_or_vessel", schedRowBg)}><Text fontSize="xs">{o?.air_or_vessel ?? "—"}</Text></Td> : null;
+                                  case "ef_buffer": return vis("ef_buffer") ? (() => {
+                                    const efResult = calcEfBuffer(scheduleBalance, scheduleOut, s.production_assembly_start_date, s.production_assembly_finish_date, o?.ex_factory_date ?? s.production_assembly_finish_date, calendarTodayYmd, vlPlanHolidayYmdSet, schedTp.dailyTarget8h ?? null);
+                                    return <Td key={key} whiteSpace="nowrap" textAlign="right" {...colStickyProps("ef_buffer", schedRowBg)}><EfBufferCell result={efResult} /></Td>;
+                                  })() : null;
+                                  case "schedule_spi": return vis("schedule_spi") ? (() => {
+                                    const spiResult = calcSpi(scheduleTotal, scheduleOut, s.production_assembly_start_date, s.production_assembly_finish_date, calendarTodayYmd, vlPlanHolidayYmdSet);
+                                    return <Td key={key} whiteSpace="nowrap" textAlign="right" {...colStickyProps("schedule_spi", schedRowBg)}><SpiCell result={spiResult} /></Td>;
+                                  })() : null;
+                                  case "assembly_start": return visInfo("assembly_start") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("assembly_start", schedRowBg)}>{fmtDate(s.production_assembly_start_date)}</Td> : null;
+                                  case "assembly_finish": return visInfo("assembly_finish") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("assembly_finish", schedRowBg)}>{fmtDate(s.production_assembly_finish_date)}</Td> : null;
+                                  case "flow_memo": return vis("flow_memo") ? <Td key={key} {...colStickyProps("flow_memo", schedRowBg)}><Text color="gray.300">—</Text></Td> : null;
+                                  case "category": return vis("category") ? <Td key={key} {...colStickyProps("category", schedRowBg)}><VlAssemblyBadge kind="vlSj" fontSize="xs" /></Td> : null;
+                                  case "sub_category": return vis("sub_category") ? <Td key={key} {...colStickyProps("sub_category", schedRowBg)}>{renderModuleSubCategoryBadges(getAggregateSjCategoryLabels(sjNos.flatMap(sj_ => sj_.ep_modules ?? [])), `schedule-${s.pk}`)}</Td> : null;
+                                  case "media": return vis("media") ? (() => {
+                                    const thumb = firstSj.sj_style_thumbnail ?? o?.sj_style?.thumbnail ?? null;
+                                    return <Td key={key} onClick={(e) => e.stopPropagation()} {...colStickyProps("media", schedRowBg)}>{thumb ? (<Tooltip label="View Style Photo" placement="top"><Box as="img" src={thumb} alt="style" w="36px" h="36px" objectFit="cover" borderRadius="sm" cursor="pointer" onClick={() => openPhoto(thumb)} /></Tooltip>) : <Text color="gray.300">—</Text>}</Td>;
+                                  })() : null;
+                                  case "work_order": return vis("work_order") ? <Td key={key} {...colStickyProps("work_order", schedRowBg)}><Text color="gray.300">—</Text></Td> : null;
+                                  case "code": return vis("code") ? <Td key={key} whiteSpace="nowrap" onClick={(e) => e.stopPropagation()} {...colStickyProps("code", schedRowBg)}><VStack align="flex-start" spacing={0}>{sjNos.map(sj_ => sj_.sj_no ? <Link key={sj_.pk} href="#" title={sj_.sj_no} fontWeight="semibold" fontSize="xs" color="blue.600" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openWindow(`/vl-assembly-production/sj-nos/${sj_.pk}`); }}>{sj_.sj_no}</Link> : null)}</VStack></Td> : null;
+                                  case "style_name": return vis("style_name") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("style_name", schedRowBg)}>{o?.style_name || "-"}</Td> : null;
+                                  case "today_output_qty": return vis("today_output_qty") ? (() => {
+                                    const sTodayOut = (() => {
+                                      const sjNos = s.ep_sj_nos ?? [];
+                                      if (sjNos.length > 0) {
+                                        return sjNos.reduce((sum, sj) => sum + (dailyQtyBySjNo.get(sj.pk)?.get(calendarTodayYmd) ?? 0), 0);
+                                      }
+                                      return dailyQtyBySchedule.get(s.pk)?.get(calendarTodayYmd) ?? 0;
+                                    })();
+                                    const sDailyPlan = getAssemblyDailyPlannedQtyFromTotal(s, scheduleTotal, vlPlanHolidayYmdSet)?.daily ?? null;
+                                    return <Td key={key} isNumeric {...colStickyProps("today_output_qty", schedRowBg)} bg="teal.50" _dark={{ bg: "teal.900" }} onClick={(e) => e.stopPropagation()}><TodayOutputBreakdown todayOut={sTodayOut} dailyTarget={schedTp.dailyTarget8h ?? null} dailyPlan={sDailyPlan} /></Td>;
+                                  })() : null;
+                                  case "output_qty": return vis("output_qty") ? <Td key={key} isNumeric {...colStickyProps("output_qty", schedRowBg)} onClick={(e) => e.stopPropagation()}><EpFlashQty value={scheduleOut}>{scheduleOut.toLocaleString()}</EpFlashQty></Td> : null;
+                                  case "defect_qty": return vis("defect_qty") ? <Td key={key} isNumeric {...colStickyProps("defect_qty", schedRowBg)} onClick={(e) => e.stopPropagation()}><DefectQtyLink defectQty={scheduleDefectQty} to={`/vl-assembly-production/inspections?vl_assembly_schedule=${s.pk}`} /></Td> : null;
+                                  case "balance_qty": return vis("balance_qty") ? <Td key={key} isNumeric fontWeight="semibold" {...colStickyProps("balance_qty", schedRowBg)}>{scheduleTotal > 0 ? scheduleBalance.toLocaleString() : "-"}</Td> : null;
+                                  case "daily_required_qty": return vis("daily_required_qty") ? (() => {
+                                    const deadline = s.production_assembly_finish_date ?? s.sj_order_info?.ex_factory_date ?? null;
+                                    const result = calcDailyRequired(scheduleBalance, deadline, calendarTodayYmd, vlPlanHolidayYmdSet, schedTp.dailyTarget8h ?? null);
+                                    return <Td key={key} {...colStickyProps("daily_required_qty", schedRowBg)}><DailyReqCell result={result} /></Td>;
+                                  })() : null;
+                                  case "progress": return vis("progress") ? <Td key={key} {...colStickyProps("progress", schedRowBg)}>{scheduleTotal > 0 ? (<Box><Text fontSize="xs" mb={0.5}>{schedulePct}%</Text><Box w="80px" h="5px" bg="gray.200" borderRadius="full" overflow="hidden"><Box w={`${schedulePct}%`} h="100%" bg={scheduleBarColor} borderRadius="full" /></Box></Box>) : <Text color="gray.300">—</Text>}</Td> : null;
+                                  case "status": return vis("status") ? <Td key={key} onClick={(e) => e.stopPropagation()} {...colStickyProps("status", schedRowBg)} {...statusColumnWidthProps}><Text fontSize="xs" color="gray.400">—</Text></Td> : null;
+                                  case "cycle_time": return vis("cycle_time") ? <Td key={key} isNumeric {...colStickyProps("cycle_time", schedRowBg)}>{schedTp.cycleDisplay ?? <Text color="gray.300">—</Text>}</Td> : null;
+                                  case "target_per_hour": return vis("target_per_hour") ? <Td key={key} isNumeric {...colStickyProps("target_per_hour", schedRowBg)}>{schedTp.targetPerHour != null ? schedTp.targetPerHour.toLocaleString() : <Text color="gray.300">—</Text>}</Td> : null;
+                                  case "daily_target": return vis("daily_target") ? <Td key={key} isNumeric {...colStickyProps("daily_target", schedRowBg)}>{schedTp.dailyTarget8h != null ? schedTp.dailyTarget8h.toLocaleString() : <Text color="gray.300">—</Text>}</Td> : null;
+                                  case "process_start": return vis("process_start") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("process_start", schedRowBg)}>{fmtDate(s.process_start_date)}</Td> : null;
+                                  case "process_finish": return vis("process_finish") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("process_finish", schedRowBg)}>{fmtDate(s.process_finish_date)}</Td> : null;
+                                  case "lead_time": return vis("lead_time") ? <Td key={key} isNumeric {...colStickyProps("lead_time", schedRowBg)}>{s.process_lead_time_days != null ? (<Box textAlign="right"><Text as="span" fontWeight="semibold">{s.process_lead_time_days}d</Text>{(s.process_sundays_excluded_count ?? 0) > 0 && (<Text fontSize="10px" color="orange.400" whiteSpace="nowrap">{t("vlAssembly.common.sundayExcluded", { count: s.process_sundays_excluded_count })}</Text>)}</Box>) : <Text color="gray.300">—</Text>}</Td> : null;
+                                  case "po_date": return vis("po_date") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("po_date", schedRowBg)}><Text fontSize="xs">{o?.po_date ?? "—"}</Text></Td> : null;
+                                  case "material_due_inbound": return vis("material_due_inbound") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("material_due_inbound", schedRowBg)}>{fmtDate(s.due_inbound_date_prep_material)}</Td> : null;
+                                  case "expected_inbound": return vis("expected_inbound") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("expected_inbound", schedRowBg)}>{fmtDate(s.expected_prep_material_inbound_date)}</Td> : null;
+                                  case "actual_inbound_qty": return vis("actual_inbound_qty") ? (
+                                    <Td key={key} isNumeric onClick={(e) => e.stopPropagation()} {...colStickyProps("actual_inbound_qty", schedRowBg)}>
+                                      {editingActualInboundQty?.pk === s.pk ? (
+                                        <Input size="xs" w="80px" type="number" min={0} autoFocus value={editingActualInboundQty.val}
+                                          onChange={(e) => setEditingActualInboundQty({ pk: s.pk, val: e.target.value })}
+                                          onBlur={() => saveActualInboundQty(s.pk, editingActualInboundQty.val)}
+                                          onKeyDown={(e) => { if (e.key === "Enter") saveActualInboundQty(s.pk, editingActualInboundQty.val); if (e.key === "Escape") setEditingActualInboundQty(null); }}
+                                        />
+                                      ) : (
+                                        <Text cursor="pointer" _hover={{ textDecoration: "underline" }} color={s.actual_inbound_prep_material_qty != null ? undefined : "gray.300"}
+                                          onClick={() => setEditingActualInboundQty({ pk: s.pk, val: String(s.actual_inbound_prep_material_qty ?? "") })}>
+                                          {s.actual_inbound_prep_material_qty != null ? s.actual_inbound_prep_material_qty.toLocaleString() : "—"}
+                                        </Text>
+                                      )}
+                                    </Td>
+                                  ) : null;
+                                  case "cutting_start_date": return vis("cutting_start_date") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("cutting_start_date", schedRowBg)}><Text fontSize="xs">{s.cutting_start_date ?? "—"}</Text></Td> : null;
+                                  case "vien_laser": return vis("vien_laser") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("vien_laser", schedRowBg)}><Text fontSize="xs">{s.vien_laser ?? "—"}</Text></Td> : null;
+                                  case "printing_folding": return vis("printing_folding") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("printing_folding", schedRowBg)}><Text fontSize="xs">{s.printing_folding ?? "—"}</Text></Td> : null;
+                                  case "sub_tg": return vis("sub_tg") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("sub_tg", schedRowBg)}><Text fontSize="xs">{s.sub_tg ?? "—"}</Text></Td> : null;
+                                  case "sub_vl": return vis("sub_vl") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("sub_vl", schedRowBg)}><Text fontSize="xs">{s.sub_vl ?? "—"}</Text></Td> : null;
+                                  case "pre": return vis("pre") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("pre", schedRowBg)}><Text fontSize="xs">{s.pre ?? "—"}</Text></Td> : null;
+                                  case "scom": return vis("scom") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("scom", schedRowBg)}><Text fontSize="xs">{s.scom ?? "—"}</Text></Td> : null;
+                                  case "expected_date_finished": return vis("expected_date_finished") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("expected_date_finished", schedRowBg)}><Text fontSize="xs">{s.expected_date_finished ?? "—"}</Text></Td> : null;
+                                  case "ex_fty_from_today": return vis("ex_fty_from_today") ? (() => {
+                                    const efDate = o?.ex_factory_date ? parseLocalMidnightFromIso(o.ex_factory_date) : null;
+                                    const todayMs = parseYmdLocal(calendarTodayYmd).getTime();
+                                    const days = efDate ? Math.ceil((efDate.getTime() - todayMs) / 86400000) : null;
+                                    return <Td key={key} isNumeric {...colStickyProps("ex_fty_from_today", schedRowBg)}>{days != null ? <Text fontWeight="semibold" color={days < 0 ? "red.500" : days <= 7 ? "orange.500" : "green.600"} fontSize="xs">{days}d</Text> : <Text color="gray.300">—</Text>}</Td>;
+                                  })() : null;
+                                  case "newness_or_repeat": return vis("newness_or_repeat") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("newness_or_repeat", schedRowBg)}><Text fontSize="xs">{o?.newness_or_repeat ?? "—"}</Text></Td> : null;
+                                  case "keep": return vis("keep") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("keep", schedRowBg)}><Text fontSize="xs">{s.keep ?? "—"}</Text></Td> : null;
+                                  case "balance_expected_finish_date": return vis("balance_expected_finish_date") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("balance_expected_finish_date", schedRowBg)}><Text fontSize="xs">{s.balance_expected_finish_date ?? "—"}</Text></Td> : null;
+                                  case "issue_or_not": return vis("issue_or_not") ? <Td key={key} {...colStickyProps("issue_or_not", schedRowBg)}><Text fontSize="xs">{s.issue_or_not ?? "—"}</Text></Td> : null;
+                                  case "final": return vis("final") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("final", schedRowBg)}><Text fontSize="xs">{s.final ?? "—"}</Text></Td> : null;
+                                  case "daily_target_80": return vis("daily_target_80") ? <Td key={key} isNumeric {...colStickyProps("daily_target_80", schedRowBg)}>{schedTp.dailyTarget8h != null ? <Text fontWeight="semibold" fontSize="xs">{Math.round(schedTp.dailyTarget8h * 0.8).toLocaleString()}</Text> : <Text color="gray.300">—</Text>}</Td> : null;
+                                  case "gong_in": return vis("gong_in") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("gong_in", schedRowBg)}><Text fontSize="xs">{o?.gong_in ?? "—"}</Text></Td> : null;
+                                  case "total_cmt": return vis("total_cmt") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("total_cmt", schedRowBg)}><Text fontSize="xs">{o?.total_cmt ?? "—"}</Text></Td> : null;
+                                  case "actual_cmt": return vis("actual_cmt") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("actual_cmt", schedRowBg)}><Text fontSize="xs">{o?.actual_cmt ?? "—"}</Text></Td> : null;
+                                  case "unit_fob": return vis("unit_fob") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("unit_fob", schedRowBg)}><Text fontSize="xs">{o?.unit_fob ?? "—"}</Text></Td> : null;
+                                  case "total_fob": return vis("total_fob") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("total_fob", schedRowBg)}><Text fontSize="xs">{o?.total_fob ?? "—"}</Text></Td> : null;
+                                  case "actual_fob": return vis("actual_fob") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("actual_fob", schedRowBg)}><Text fontSize="xs">{o?.actual_fob ?? "—"}</Text></Td> : null;
+                                  case "remark": return vis("remark") ? <Td key={key} {...colStickyProps("remark", schedRowBg)}>{s.remark ? (<Tooltip label={s.remark} placement="top" hasArrow><Text fontSize="xs" noOfLines={2} cursor="default">{s.remark}</Text></Tooltip>) : <Text color="gray.300">—</Text>}</Td> : null;
+                                  default: return null;
+                                }
+                              })}
+                              {renderVlCalendarCells({
+                                kind: "schedule",
+                                schedule: s,
+                                rowBg: schedRowBg,
+                                showScheduleDailyQty: true,
+                                showSchedulePeriodInCalendar: true,
+                                firstSJTotalQty: scheduleTotal || null,
+                              })}
+                            </Tr>
+
+                            {/* ── SJ Sub-rows (multi-SJ, when expanded) ── */}
+                            {isScheduleExpanded && renderSjRows(true)}
+                          </>
+                        );
+                      })()}
                     </Fragment>
                   );
                 })}
@@ -5480,9 +6061,10 @@ export default function VlAssemblyScheduleList() {
           <ModalBody pb={2}>
             <Grid templateColumns="1fr 1fr" gap={4}>
 
-              {/* ── SJ Order 검색 ── */}
+              {/* ── SJ Order 검색 (다중 선택) ── */}
               <FormControl isRequired gridColumn="1 / -1">
                 <FormLabel fontSize="sm">SJ Order <Text as="span" color="gray.400" fontWeight="normal">(SJ PO# 또는 SJ No 검색)</Text></FormLabel>
+                <Text fontSize="xs" color="gray.500" mb={2}>{t("vlAssembly.list.sjOrderMultiHint")}</Text>
                 <Box position="relative">
                   <InputGroup>
                     <Input
@@ -5490,12 +6072,12 @@ export default function VlAssemblyScheduleList() {
                       onChange={(e) => handleOrderSearch(e.target.value)}
                       placeholder="예: SJ-2024-001 또는 SJ-NO-123"
                       autoComplete="off"
-                      borderColor={selectedOrder ? "green.400" : undefined}
+                      borderColor={selectedOrders.length > 0 ? "green.400" : undefined}
                     />
                     {orderSearching && (
                       <InputRightElement><Spinner size="sm" color="gray.400" /></InputRightElement>
                     )}
-                    {selectedOrder && !orderSearching && (
+                    {selectedOrders.length > 0 && !orderSearching && (
                       <InputRightElement color="green.400" fontSize="lg">✓</InputRightElement>
                     )}
                   </InputGroup>
@@ -5523,7 +6105,7 @@ export default function VlAssemblyScheduleList() {
                           py={2}
                           cursor="pointer"
                           _hover={{ bg: "blue.50" }}
-                          onClick={() => selectOrder(order)}
+                          onClick={() => addSelectedOrder(order)}
                           borderBottom="1px solid"
                           borderColor="gray.100"
                         >
@@ -5546,19 +6128,29 @@ export default function VlAssemblyScheduleList() {
                     </List>
                   )}
                 </Box>
-                {/* 선택된 오더 요약 */}
-                {selectedOrder && (
-                  <Box mt={2} p={2} bg="green.50" borderRadius="md" border="1px solid" borderColor="green.200">
-                    <HStack justify="space-between">
-                      <Box>
-                        <Text fontSize="xs" color="green.700" fontWeight="bold">{selectedOrder.sj_po_number}</Text>
-                        <Text fontSize="xs" color="gray.600">
-                          {[selectedOrder.sj_no_value, selectedOrder.style_name, selectedOrder.color].filter(Boolean).join(" · ")}
-                        </Text>
-                      </Box>
-                      <Text fontSize="xs" color="gray.500">PK: {selectedOrder.pk}</Text>
-                    </HStack>
-                  </Box>
+                {selectedOrders.length > 0 && (
+                  <Wrap mt={2} spacing={2}>
+                    {selectedOrders.map((order) => (
+                      <WrapItem key={order.pk}>
+                        <Badge colorScheme="green" px={2} py={1} borderRadius="md" display="flex" alignItems="center" gap={1}>
+                          <Box>
+                            <Text fontSize="xs" fontWeight="bold">{order.sj_po_number}</Text>
+                            <Text fontSize="10px" color="green.700">
+                              {[order.sj_no_value, order.style_name].filter(Boolean).join(" · ")}
+                            </Text>
+                          </Box>
+                          <IconButton
+                            aria-label="Remove order"
+                            icon={<FaTimes />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="green"
+                            onClick={() => removeSelectedOrder(order.pk)}
+                          />
+                        </Badge>
+                      </WrapItem>
+                    ))}
+                  </Wrap>
                 )}
               </FormControl>
 
@@ -5701,6 +6293,239 @@ export default function VlAssemblyScheduleList() {
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={() => { resetModal(); onClose(); }}>Cancel</Button>
             <Button colorScheme="blue" isLoading={isSaving} onClick={handleCreate}>Create</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Add SJ No Modal */}
+      <Modal isOpen={isAddSjNoOpen} onClose={() => { resetAddSjNoModal(); onAddSjNoClose(); }} size="lg" isCentered scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{t("vlAssembly.list.addSjNoTitle")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={2}>
+            <FormControl isRequired mb={4}>
+              <FormLabel fontSize="sm">SJ Order</FormLabel>
+              <Box position="relative">
+                <InputGroup>
+                  <Input
+                    value={addSjNoOrderQuery}
+                    onChange={(e) => handleAddSjNoOrderSearch(e.target.value)}
+                    placeholder="예: SJ-2024-001 또는 SJ-NO-123"
+                    autoComplete="off"
+                  />
+                  {addSjNoOrderSearching && (
+                    <InputRightElement><Spinner size="sm" color="gray.400" /></InputRightElement>
+                  )}
+                </InputGroup>
+                {addSjNoOrderResults.length > 0 && (
+                  <List
+                    position="absolute"
+                    top="100%"
+                    left={0}
+                    right={0}
+                    zIndex={10}
+                    bg="white"
+                    border="1px solid"
+                    borderColor="gray.200"
+                    borderRadius="md"
+                    boxShadow="lg"
+                    maxH="200px"
+                    overflowY="auto"
+                    mt={1}
+                  >
+                    {addSjNoOrderResults.map((order) => (
+                      <ListItem
+                        key={order.pk}
+                        px={3}
+                        py={2}
+                        cursor="pointer"
+                        _hover={{ bg: "blue.50" }}
+                        onClick={() => selectAddSjNoOrder(order)}
+                      >
+                        <Text fontSize="sm" fontWeight="bold">{order.sj_po_number}</Text>
+                        {order.sj_no_value && <Text fontSize="xs" color="gray.500">SJ No: {order.sj_no_value}</Text>}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Box>
+              {addSjNoSelectedOrder && (
+                <Badge mt={2} colorScheme="green">{addSjNoSelectedOrder.sj_po_number}</Badge>
+              )}
+            </FormControl>
+            <FormControl isRequired>
+              <FormLabel fontSize="sm">{t("vlAssembly.list.moduleCategoryLabel")}</FormLabel>
+              {moduleCategoriesLoading ? (
+                <Spinner size="sm" color="gray.400" />
+              ) : (
+                <Box maxH="220px" overflowY="auto" pr={1}>
+                  <ModuleCategoryCheckboxTree
+                    parentPk={null}
+                    depth={0}
+                    childrenByParent={moduleCategoryChildrenByParent}
+                    selectedIds={addSjNoModuleCategoryIds}
+                    onToggle={toggleAddSjNoModuleCategory}
+                  />
+                </Box>
+              )}
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={() => { resetAddSjNoModal(); onAddSjNoClose(); }}>Cancel</Button>
+            <Button colorScheme="blue" isLoading={isSaving} onClick={handleAddSjNo}>Add</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Move / Split SJ No Modal */}
+      <Modal
+        isOpen={isMoveSjNoOpen}
+        onClose={() => { resetMoveSjNoModal(); onMoveSjNoClose(); }}
+        size="lg"
+        isCentered
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{t("vlAssembly.list.moveSjNo")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {moveMode === "existing" ? (
+              <FormControl isRequired>
+                <FormLabel fontSize="sm">{t("vlAssembly.list.targetSchedule")}</FormLabel>
+                {/* 검색 인풋 */}
+                <InputGroup mb={2} size="sm">
+                  <Input
+                    placeholder="SJ PO#, Style, SJ No, Line 검색..."
+                    value={moveTargetSearch}
+                    onChange={(e) => setMoveTargetSearch(e.target.value)}
+                    autoFocus
+                  />
+                  {moveTargetSearch && (
+                    <InputRightElement>
+                      <IconButton
+                        size="xs"
+                        variant="ghost"
+                        icon={<Icon as={FaTimes} />}
+                        aria-label="clear search"
+                        onClick={() => setMoveTargetSearch("")}
+                      />
+                    </InputRightElement>
+                  )}
+                </InputGroup>
+                {/* 스케줄 카드 리스트 */}
+                <Box
+                  maxH="380px"
+                  overflowY="auto"
+                  borderWidth="1px"
+                  borderRadius="md"
+                  borderColor="gray.200"
+                  _dark={{ borderColor: "gray.600" }}
+                >
+                  {(() => {
+                    const q = moveTargetSearch.trim().toLowerCase();
+                    const filtered = schedules.filter((sch) => {
+                      if (sch.pk === moveSourceSchedulePk) return false;
+                      if (!q) return true;
+                      const sjNos = (sch.ep_sj_nos ?? []).map((sn) => sn.sj_no ?? "").join(" ");
+                      const haystack = [
+                        sch.sj_order_info?.sj_po_number ?? "",
+                        sch.sj_order_info?.style_name ?? "",
+                        sch.sj_order_info?.sj_style?.style_name ?? "",
+                        sch.production_line_name ?? "",
+                        sjNos,
+                        `#${sch.pk}`,
+                      ].join(" ").toLowerCase();
+                      return haystack.includes(q);
+                    });
+                    if (filtered.length === 0) {
+                      return (
+                        <Text py={6} textAlign="center" color="gray.400" fontSize="sm">
+                          일치하는 스케줄이 없습니다
+                        </Text>
+                      );
+                    }
+                    return filtered.map((sch, idx) => {
+                      const isSelected = moveTargetSchedulePk === sch.pk;
+                      const sjNoLabels = (sch.ep_sj_nos ?? []).map((sn) => sn.sj_no).filter(Boolean);
+                      const poNumber = sch.sj_order_info?.sj_po_number;
+                      const styleName = sch.sj_order_info?.style_name || sch.sj_order_info?.sj_style?.style_name;
+                      const totalQty = (sch.ep_sj_nos ?? []).reduce((s, sn) => s + (sn.total_qty ?? 0), 0);
+                      const assemblyOut = sch.production_assembly_output_qty;
+                      return (
+                        <Box
+                          key={sch.pk}
+                          px={3}
+                          py={2.5}
+                          cursor="pointer"
+                          bg={isSelected ? "blue.50" : "transparent"}
+                          _hover={{ bg: isSelected ? "blue.100" : "gray.50" }}
+                          _dark={{ bg: isSelected ? "blue.900" : "transparent", _hover: { bg: isSelected ? "blue.800" : "gray.700" } }}
+                          onClick={() => setMoveTargetSchedulePk(sch.pk)}
+                          borderBottomWidth={idx < filtered.length - 1 ? "1px" : 0}
+                          borderBottomColor="gray.100"
+                        >
+                          <HStack spacing={2} align="flex-start">
+                            <Badge
+                              colorScheme={isSelected ? "blue" : "gray"}
+                              fontSize="2xs"
+                              flexShrink={0}
+                              mt={0.5}
+                            >
+                              #{sch.pk}
+                            </Badge>
+                            <VStack align="flex-start" spacing={0.5} flex={1} minW={0}>
+                              <HStack spacing={2} flexWrap="wrap">
+                                <Text fontWeight="semibold" fontSize="sm" color={isSelected ? "blue.700" : undefined}>
+                                  {poNumber ?? `Schedule #${sch.pk}`}
+                                </Text>
+                                {styleName && (
+                                  <Text fontSize="xs" color="gray.500">{styleName}</Text>
+                                )}
+                              </HStack>
+                              {sjNoLabels.length > 0 && (
+                                <HStack spacing={1} flexWrap="wrap">
+                                  {sjNoLabels.map((sn) => (
+                                    <Badge key={sn} colorScheme="purple" fontSize="2xs" variant="subtle">{sn}</Badge>
+                                  ))}
+                                </HStack>
+                              )}
+                              <HStack spacing={3} flexWrap="wrap" mt={0.5}>
+                                {sch.production_line_name && (
+                                  <Text fontSize="2xs" color="blue.500" fontWeight="medium">{sch.production_line_name}</Text>
+                                )}
+                                {sch.production_assembly_start_date && (
+                                  <Text fontSize="2xs" color="gray.400">
+                                    {sch.production_assembly_start_date}{sch.production_assembly_finish_date ? ` ~ ${sch.production_assembly_finish_date}` : ""}
+                                  </Text>
+                                )}
+                                {totalQty > 0 && (
+                                  <Text fontSize="2xs" color="gray.500">
+                                    Total {totalQty.toLocaleString()}
+                                    {assemblyOut != null ? ` · Asm ${assemblyOut.toLocaleString()}` : ""}
+                                  </Text>
+                                )}
+                                <Badge fontSize="2xs" colorScheme="gray" variant="outline">{sch.status_display}</Badge>
+                              </HStack>
+                            </VStack>
+                          </HStack>
+                        </Box>
+                      );
+                    });
+                  })()}
+                </Box>
+              </FormControl>
+            ) : (
+              <Text fontSize="sm" color="gray.600">
+                {t("vlAssembly.list.splitToNewSchedule")}
+              </Text>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={() => { resetMoveSjNoModal(); onMoveSjNoClose(); }}>Cancel</Button>
+            <Button colorScheme="blue" isLoading={isSaving} onClick={handleMoveSjNo}>
+              {moveMode === "existing" ? t("vlAssembly.list.moveToSchedule") : t("vlAssembly.list.splitToNewSchedule")}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

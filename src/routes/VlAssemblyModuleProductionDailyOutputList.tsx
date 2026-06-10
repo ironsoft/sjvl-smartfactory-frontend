@@ -128,7 +128,7 @@ export default function VlAssemblyModuleProductionDailyOutputList() {
         const o = sched.sj_order_info;
         const sjRow = sched.ep_sj_nos?.find((s) => s.pk === mod.ep_sj_no_pk);
         const selected: ISjOrderSearchResult = {
-          pk: sched.sj_order,
+          pk: sched.sj_order != null ? sched.sj_order : (sched.sj_order_info?.pk ?? 0),
           sj_po_number: o?.sj_po_number ?? "",
           sj_no_value: sjRow?.sj_no ?? null,
           style_name: o?.style_name ?? null,

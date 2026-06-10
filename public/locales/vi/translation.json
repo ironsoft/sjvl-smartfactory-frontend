@@ -57,7 +57,18 @@
     "colLight": "Đèn",
     "lightOn": "Đèn",
     "lightError": "Yêu cầu đèn thất bại.",
-    "fetchError": "Không thể tải danh sách jig."
+    "fetchError": "Không thể tải danh sách jig.",
+    "colManufacturedDate": "Ngày sản xuất",
+    "colHandedOverAt": "Ngày bàn giao",
+    "colHandedOverBy": "Người bàn giao",
+    "colHandedOverDept": "BP bàn giao",
+    "colReturnedAt": "Ngày hoàn trả",
+    "colReturnedBy": "Người hoàn trả",
+    "colReturnedDept": "BP hoàn trả",
+    "colMemo": "Ghi chú",
+    "kpiHandedOver": "Đã bàn giao",
+    "kpiReturned": "Đã hoàn trả",
+    "kpiNotReturned": "Chưa hoàn trả"
   },
   "jigDetail": {
     "backToList": "Quay lại danh sách Jig",
@@ -100,7 +111,15 @@
     "locationSlot": "Ngăn",
     "qrExistsTitle": "Mã QR đã tồn tại",
     "qrExistsConfirm": "Đã có ảnh mã QR. Bạn có muốn xóa và tạo mới không?",
-    "qrExistsConfirmBtn": "Tạo lại"
+    "qrExistsConfirmBtn": "Tạo lại",
+    "manufacturedDate": "Ngày sản xuất",
+    "handedOverAt": "Ngày bàn giao",
+    "handedOverBy": "Người bàn giao",
+    "handedOverDept": "BP bàn giao",
+    "returnedAt": "Ngày hoàn trả",
+    "returnedBy": "Người hoàn trả",
+    "returnedDept": "BP hoàn trả",
+    "memo": "Ghi chú"
   },
   "jigCreate": {
     "backToList": "Quay lại danh sách Jig",
@@ -403,7 +422,18 @@
     "colLight": "Đèn",
     "lightOn": "Đèn",
     "lightError": "Yêu cầu đèn thất bại.",
-    "fetchError": "Không thể tải danh sách khuôn nhôm"
+    "fetchError": "Không thể tải danh sách khuôn nhôm",
+    "colManufacturedDate": "Ngày sản xuất",
+    "colHandedOverAt": "Ngày bàn giao",
+    "colHandedOverBy": "Người bàn giao",
+    "colHandedOverDept": "BP bàn giao",
+    "colReturnedAt": "Ngày hoàn trả",
+    "colReturnedBy": "Người hoàn trả",
+    "colReturnedDept": "BP hoàn trả",
+    "colMemo": "Ghi chú",
+    "kpiHandedOver": "Đã bàn giao",
+    "kpiReturned": "Đã hoàn trả",
+    "kpiNotReturned": "Chưa hoàn trả"
   },
   "aluminumMoldDetail": {
     "backToList": "Về danh sách khuôn nhôm",
@@ -446,7 +476,15 @@
     "locationSlot": "Ngăn",
     "qrExistsTitle": "Mã QR đã tồn tại",
     "qrExistsConfirm": "Ảnh mã QR đã có. Xóa và tạo mới?",
-    "qrExistsConfirmBtn": "Tạo lại"
+    "qrExistsConfirmBtn": "Tạo lại",
+    "manufacturedDate": "Ngày sản xuất",
+    "handedOverAt": "Ngày bàn giao",
+    "handedOverBy": "Người bàn giao",
+    "handedOverDept": "BP bàn giao",
+    "returnedAt": "Ngày hoàn trả",
+    "returnedBy": "Người hoàn trả",
+    "returnedDept": "BP hoàn trả",
+    "memo": "Ghi chú"
   },
   "aluminumMoldCreate": {
     "backToList": "Về danh sách khuôn nhôm",
@@ -575,7 +613,18 @@
     "colLight": "Đèn",
     "lightOn": "Đèn",
     "lightError": "Yêu cầu đèn thất bại.",
-    "fetchError": "Không thể tải danh sách viền"
+    "fetchError": "Không thể tải danh sách viền",
+    "colManufacturedDate": "Ngày sản xuất",
+    "colHandedOverAt": "Ngày bàn giao",
+    "colHandedOverBy": "Người bàn giao",
+    "colHandedOverDept": "BP bàn giao",
+    "colReturnedAt": "Ngày hoàn trả",
+    "colReturnedBy": "Người hoàn trả",
+    "colReturnedDept": "BP hoàn trả",
+    "colMemo": "Ghi chú",
+    "kpiHandedOver": "Đã bàn giao",
+    "kpiReturned": "Đã hoàn trả",
+    "kpiNotReturned": "Chưa hoàn trả"
   },
   "bindingGuideDetail": {
     "backToList": "Quay lại danh sách viền",
@@ -618,7 +667,15 @@
     "locationSlot": "Ngăn",
     "qrExistsTitle": "QR Code đã tồn tại",
     "qrExistsConfirm": "Ảnh QR code đã có. Bạn có muốn xóa và tạo mới không?",
-    "qrExistsConfirmBtn": "Tạo lại"
+    "qrExistsConfirmBtn": "Tạo lại",
+    "manufacturedDate": "Ngày sản xuất",
+    "handedOverAt": "Ngày bàn giao",
+    "handedOverBy": "Người bàn giao",
+    "handedOverDept": "BP bàn giao",
+    "returnedAt": "Ngày hoàn trả",
+    "returnedBy": "Người hoàn trả",
+    "returnedDept": "BP hoàn trả",
+    "memo": "Ghi chú"
   },
   "bindingGuideCreate": {
     "backToList": "Quay lại danh sách viền",
@@ -1205,6 +1262,7 @@
     "hotColdPressIoTRecord": "Hồ Sơ IoT HC Press",
     "weldingRoom": "Phòng Hàn",
     "vlAssemblyProduction": "VL Realtime Production",
+    "vlAssemblyScheduleList": "Danh Sách Lịch VL Assembly",
     "vlAssemblyProcessOutputRecord": "Bản ghi đầu ra quy trình VL Assembly",
     "vlAssemblyScheduleProductionDailyOutput": "VL Assembly Production Daily Output",
     "vlAssemblyDailyOutput": "VL Assembly Process Production Daily Output",
@@ -1213,6 +1271,8 @@
     "vlAssemblyModuleOutputReport": "Báo cáo đầu ra module hàng ngày VL Assembly",
     "vlAssemblyInspectionRecord": "Bản ghi kiểm tra VL Assembly",
     "vlAssemblyDailyInspectionReportNav": "Báo cáo kiểm tra hàng ngày VL Assembly",
+    "vlFactoryLive": "VL Factory Live",
+    "vlErpDashboard": "ERP Dashboard",
     "kaizen": "SJ Kaizen",
     "tgBindingGuideManagement": "Quản lý viền TG",
     "tgJigManagement": "Quản lý jig TG"
@@ -1415,6 +1475,28 @@
     "colDefectType": "Loại lỗi",
     "defectPhotos": "Ảnh lỗi ({{count}})",
     "defectCount": "{{count}} lỗi"
+  },
+  "vlAssemblyScheduleList": {
+    "pageTitle": "Danh Sách Lịch VL Assembly",
+    "heading": "Danh Sách Lịch VL Assembly",
+    "searchPlaceholder": "Tìm kiếm SJ PO#",
+    "allYears": "Tất cả năm",
+    "allMonths": "Tất cả tháng",
+    "monthSuffix": "",
+    "count": "{{count}} bản ghi",
+    "empty": "Không có lịch nào.",
+    "viewInGantt": "Xem trên biểu đồ Gantt",
+    "col": {
+      "sjOrder": "Đơn SJ",
+      "status": "Trạng thái",
+      "productionLine": "Dây chuyền",
+      "assemblyStart": "Ngày bắt đầu lắp ráp",
+      "assemblyFinish": "Ngày hoàn thành lắp ráp",
+      "processStart": "Ngày bắt đầu công đoạn",
+      "processFinish": "Ngày hoàn thành công đoạn",
+      "outputQty": "SL Sản xuất",
+      "remark": "Ghi chú"
+    }
   },
   "vlAssembly": {
     "status": {
@@ -1697,7 +1779,22 @@
       "showAll": "Hiện tất cả",
       "hideAll": "Ẩn tất cả",
       "saveSettings": "Lưu cài đặt",
+      "pinColumn": "Ghim cột",
+      "unpinColumn": "Bỏ ghim",
       "newSchedule": "Lịch VL Assembly mới",
+      "sjOrderMultiHint": "Tìm và thêm nhiều SJ Order. Mỗi đơn sẽ được sao chép thành một VL Assembly SJ No trong cùng một lịch.",
+      "sjOrderAlreadySelected": "SJ Order này đã được chọn",
+      "styleMismatchError": "Mã SJ Style không khớp. Chỉ có thể nhóm các SJ Order có cùng mã SJ Style ({{expected}}) vào một lịch. Mã style của đơn đã chọn: {{got}}",
+      "addSjNo": "Thêm SJ No",
+      "addSjNoTitle": "Thêm SJ No vào lịch",
+      "sjNoAdded": "Đã thêm SJ No vào lịch",
+      "moveSjNo": "Di chuyển / Tách SJ No",
+      "moveToSchedule": "Chuyển sang lịch khác",
+      "splitToNewSchedule": "Tách sang lịch mới",
+      "targetSchedule": "Lịch đích",
+      "targetSchedulePlaceholder": "Chọn lịch đích",
+      "sjNoMoved": "Đã di chuyển SJ No",
+      "sjNoSplit": "Đã tách SJ No sang lịch mới",
       "factoryField": "Nhà máy",
       "factoryPlaceholder": "Chọn nhà máy",
       "factoryNone": "— Không chọn —",
@@ -1707,6 +1804,7 @@
       "productionLineHint": "Chọn nhà máy trước, sau đó chọn chuyền thuộc nhà máy đó. Để trống cả hai nếu không cần.",
       "exFactoryHint": "Ngày xuất hàng của SJ Order đã chọn. Để trống để giữ ngày hiện tại trên đơn; nhập ngày để lưu vào đơn.",
       "noSchedules": "Không có lịch nào.",
+      "balanceInBar": "Còn {{qty}}",
       "lineGroup": {
         "unassignedLine": "Chưa gán chuyền",
         "scheduleCount": "{{count}} lịch",
@@ -1722,7 +1820,7 @@
       },
       "columnSettingsSaved": "Đã lưu cài đặt cột",
       "scheduleCreated": "Đã tạo lịch",
-      "sjOrderRequired": "Vui lòng chọn SJ Order",
+      "sjOrderRequired": "Vui lòng chọn ít nhất một SJ Order",
       "moduleCategoryLabel": "Nhóm module cần sao chép",
       "moduleCategoryHint": "Có thể chọn nhóm cấp trên hoặc nhóm con để chi tiết hóa. Chỉ module thuộc các nhóm đã chọn được sao chép; phạm vi nhóm con được mở rộng trên máy chủ.",
       "moduleCategoryRequired": "Chọn ít nhất một nhóm module",
@@ -1948,7 +2046,13 @@
       "orderExtraFields": "Đơn hàng / chi phí (CMT, FOB)",
       "extendedFields": "Thông tin lịch & tiến độ bổ sung",
       "assemblyOutputExceedsTotal": "SL đầu ra lắp ráp không được vượt quá tổng SL đơn hàng ({{cap}}).",
-      "assemblyOutputMaxHint": "Nhập không quá tổng SL (tối đa {{cap}})."
+      "assemblyOutputMaxHint": "Nhập không quá tổng SL (tối đa {{cap}}).",
+      "scheduleNo": "Lịch #{{no}}",
+      "addSjNo": "Thêm SJ No",
+      "existingStyleCode": "Mã style hiện tại",
+      "sjOrderSearch": "Tìm kiếm SJ Order",
+      "deleteSjNo": "Xóa SJ No",
+      "deleteSjNoConfirm": "sẽ bị xóa khỏi lịch này. Tiếp tục?"
     },
     "sjNoDetail": {
       "pageTitle": "Chi tiết VL Assembly SJ No",
@@ -2059,6 +2163,7 @@
       "dailyOutputQr": "QR nhập sản lượng ngày",
       "dailyOutputQrHint": "Quét để mở Bản ghi đầu ra quy trình VL Assembly với công đoạn này đã chọn sẵn. Nhập số lượng và lưu.",
       "copyDailyOutputLink": "Sao chép liên kết",
+      "enterQuantityButton": "Nhập số lượng",
       "dailyOutputLinkCopied": "Đã sao chép liên kết.",
       "dailyOutputLinkCopyFailed": "Không sao chép được liên kết.",
       "standardWorkVideoQr": "QR video tiêu chuẩn",

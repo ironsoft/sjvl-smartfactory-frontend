@@ -17,20 +17,20 @@ import {
   Text,
   Button,
   IconButton,
-  useToast,
   Link,
   HStack,
   Image,
-  Skeleton
+  Skeleton,
+  VStack,
+  Select
 } from "@chakra-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Helmet } from "react-helmet";
-import { getJigs, IJigListResponse, jigLightOn, getJigPhotos, IFilePhotos } from "../api";
+import { getJigs, IJigListResponse, getJigPhotos, getSjStylePhotos, IFilePhotos } from "../api";
 import SearchInput from "../components/SearchInput";
-import { RiFlashlightFill } from "react-icons/ri";
 import { Link as RouterLink } from "react-router-dom";
 import { FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface IJigLocation {
@@ -65,6 +65,14 @@ interface IJig {
   location_detail?: IJigLocation | null;
   sj_style?: number | null;
   sj_style_detail?: ISjStyleDetail | null;
+  manufactured_date?: string | null;
+  handed_over_at?: string | null;
+  handed_over_by?: string;
+  handed_over_dept?: string;
+  returned_at?: string | null;
+  returned_by?: string;
+  returned_dept?: string;
+  memo?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -79,7 +87,7 @@ function JigPhotoCell({ jigId }: { jigId: string }) {
   /** QR 라벨용 이미지는 썸네일에서 제외 (JigDetail과 동일) */
   const jigPhotosOnly = photos?.filter((p) => p.description !== "QR Code") ?? [];
 
-  if (isLoading) return <Skeleton w="50px" h="50px" borderRadius="md" />;
+  if (isLoading) return <Skeleton w="36px" h="36px" borderRadius="md" />;
   if (jigPhotosOnly.length === 0) return <Text color="gray.400">-</Text>;
 
   return (
@@ -87,7 +95,7 @@ function JigPhotoCell({ jigId }: { jigId: string }) {
       <Image
         src={jigPhotosOnly[0].file}
         alt="jig photo"
-        boxSize="50px"
+        boxSize="36px"
         objectFit="cover"
         borderRadius="md"
         _hover={{ opacity: 0.8, transform: "scale(1.05)", transition: "all 0.2s" }}
@@ -96,78 +104,43 @@ function JigPhotoCell({ jigId }: { jigId: string }) {
   );
 }
 
+function SjStylePhotoCell({ stylePk, styleCode }: { stylePk: number; styleCode: string }) {
+  const { data: photos, isLoading } = useQuery<IFilePhotos[]>({
+    queryKey: ["sjStylePhotos", stylePk],
+    queryFn: () => getSjStylePhotos(stylePk),
+    enabled: !!stylePk,
+  });
+  const thumbnail = photos?.filter((p) => p.description !== "QR Code")[0];
+  if (isLoading) return <Skeleton w="32px" h="32px" borderRadius="md" />;
+  if (!thumbnail) return null;
+  return (
+    <Link as={RouterLink} to={`/sjstyles/${stylePk}`}>
+      <Image src={thumbnail.file} alt={styleCode} boxSize="32px" objectFit="cover" borderRadius="md"
+        _hover={{ opacity: 0.8, transform: "scale(1.05)", transition: "all 0.2s" }} />
+    </Link>
+  );
+}
+
 export default function JigList() {
   const { t } = useTranslation();
   const tableBgColor = useColorModeValue("gray.50", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const [timers, setTimers] = useState<Record<string, number>>({});
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeFilter, setActiveFilter] = useState<"" | "handed_over" | "returned" | "not_returned">("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [shapeFilter, setShapeFilter] = useState("");
+  const [materialFilter, setMaterialFilter] = useState("");
 
   const { data, isLoading, isFetching, error } = useQuery<IJigListResponse>({
-    queryKey: ["jigs", searchQuery, currentPage],
-    queryFn: () => getJigs({ search: searchQuery, page: currentPage })
+    queryKey: ["jigs", searchQuery, currentPage, activeFilter, statusFilter, shapeFilter, materialFilter],
+    queryFn: () => getJigs({ search: searchQuery, page: currentPage, filter: activeFilter, status: statusFilter, shape: shapeFilter, material: materialFilter })
   });
 
   const totalPages = data?.total_pages ?? 1;
 
-  // 조명 켜기 뮤테이션
-  const jigLightOnMutation = useMutation({
-    mutationFn: jigLightOn,
-    onSuccess: (_data, jigId) => {
-      if (jigId) {
-        setTimers((prev) => ({
-          ...prev,
-          [jigId]: 30
-        }));
-      }
-      toast({
-        title: "Light ON",
-        description: "Light is On",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-        position: "bottom-right"
-      });
-      queryClient.invalidateQueries({ queryKey: ["jigs"] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: t("jigList.lightError"),
-        status: "error",
-        duration: 2000,
-        isClosable: true,
-        position: "bottom-right"
-      });
-    }
-  });
-
-  // 조명 켜기 이벤트 핸들러
-  const onJigLightOn = (jigId: string) => {
-    if (!jigId) return;
-    jigLightOnMutation.mutate(jigId);
-  };
-
-  // 타이머 갱신 타이머
-  useEffect(() => {
-    const hasActiveTimer = Object.values(timers).some((value) => value > 0);
-    if (!hasActiveTimer) return;
-
-    const intervalId = window.setInterval(() => {
-      setTimers((prev) => {
-        const next: Record<string, number> = {};
-        Object.entries(prev).forEach(([key, value]) => {
-          next[key] = value > 0 ? value - 1 : 0;
-        });
-        return next;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, [timers]);
 
 
   const errorMessage = error
@@ -205,7 +178,7 @@ export default function JigList() {
         py={{ base: "6", md: "8", lg: "8" }}
       >
       <Box
-        maxW={{ base: "3xl", lg: "8xl" }}
+        w="100%"
         mx="auto"
       >
         {/* 헤딩 */}
@@ -216,18 +189,37 @@ export default function JigList() {
             onInputChange={(v) => { if (v === "") { setSearchQuery(""); setCurrentPage(1); } }}
           />
         </HStack>
-        {/* 전체지그수 */}
-        <Stat mb={"5"}>
-          <StatLabel>{t("jigList.totalJig")}</StatLabel>
-          <StatNumber>{data?.total_results ?? jigs.length}</StatNumber>
-        </Stat>
+        {/* KPI 카드 */}
+        <HStack spacing={4} mb={5} flexWrap="wrap">
+          {[
+            { label: t("jigList.totalJig"), value: data?.kpi?.total ?? data?.total_results ?? jigs.length, filter: "" as const, colorScheme: "gray" },
+            { label: t("jigList.kpiHandedOver"), value: data?.kpi?.handed_over ?? 0, filter: "handed_over" as const, colorScheme: "orange" },
+            { label: t("jigList.kpiReturned"), value: data?.kpi?.returned ?? 0, filter: "returned" as const, colorScheme: "green" },
+            { label: t("jigList.kpiNotReturned"), value: data?.kpi?.not_returned ?? 0, filter: "not_returned" as const, colorScheme: "red" },
+          ].map((kpi) => (
+            <Stat
+              key={kpi.filter}
+              p={3}
+              bg={activeFilter === kpi.filter ? `${kpi.colorScheme}.100` : cardBg}
+              borderWidth="1px"
+              borderColor={activeFilter === kpi.filter ? `${kpi.colorScheme}.400` : borderColor}
+              borderRadius="lg"
+              cursor="pointer"
+              minW="120px"
+              onClick={() => { setActiveFilter(activeFilter === kpi.filter ? "" : kpi.filter); setCurrentPage(1); }}
+              _hover={{ borderColor: `${kpi.colorScheme}.400` }}
+            >
+              <StatLabel fontSize="xs">{kpi.label}</StatLabel>
+              <StatNumber fontSize="xl" color={activeFilter === kpi.filter ? `${kpi.colorScheme}.600` : undefined}>{kpi.value}</StatNumber>
+            </Stat>
+          ))}
+        </HStack>
         {/* 버튼 영역 */}
         <HStack justify="flex-end" mt={6} mb={4} spacing={2}>
           <Button
-            as={RouterLink}
-            to="/jigs/locations"
             variant="outline"
             size="sm"
+            onClick={() => window.open("/jigs/locations", "_blank")}
           >
             {t("jigList.location")}
           </Button>
@@ -242,20 +234,61 @@ export default function JigList() {
           </Button>
         </HStack>
         {/* 테이블 */}
-        <TableContainer>
-          <Table variant="striped">
+        <TableContainer overflowX="auto" w="100%">
+          <Table variant="striped" size="sm">
             <Thead bgColor={tableBgColor}>
               <Tr>
-                <Th>{t("jigList.colPhoto")}</Th>
-                <Th>{t("jigList.colName")}</Th>
-                <Th>{t("jigList.colSerialNumber")}</Th>
-                <Th>{t("jigList.colBuyer")}</Th>
-                <Th>{t("jigList.colShape")}</Th>
-                <Th>{t("jigList.colMaterial")}</Th>
-                <Th>{t("jigList.colStatus")}</Th>
-                <Th>{t("jigList.colLocation")}</Th>
-                <Th>SJ Style</Th>
-                <Th isNumeric>{t("jigList.colLight")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colPhoto")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colName")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colSerialNumber")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colBuyer")}</Th>
+                <Th fontSize="xs" px={2} py={2}>
+                  <VStack spacing={1} align="start">
+                    <Text>{t("jigList.colShape")}</Text>
+                    <Select size="xs" value={shapeFilter} onChange={(e) => { setShapeFilter(e.target.value); setCurrentPage(1); }} minW="80px">
+                      <option value="">All</option>
+                      <option value="bar">Bar</option>
+                      <option value="square">Square</option>
+                      <option value="platen">Platen</option>
+                      <option value="other">Other</option>
+                    </Select>
+                  </VStack>
+                </Th>
+                <Th fontSize="xs" px={2} py={2}>
+                  <VStack spacing={1} align="start">
+                    <Text>{t("jigList.colMaterial")}</Text>
+                    <Select size="xs" value={materialFilter} onChange={(e) => { setMaterialFilter(e.target.value); setCurrentPage(1); }} minW="80px">
+                      <option value="">All</option>
+                      <option value="plastic">Plastic</option>
+                      <option value="aluminum">Aluminum</option>
+                      <option value="Silicon">Silicon</option>
+                      <option value="wood">Wood</option>
+                      <option value="other">Other</option>
+                    </Select>
+                  </VStack>
+                </Th>
+                <Th fontSize="xs" px={2} py={2}>
+                  <VStack spacing={1} align="start">
+                    <Text>{t("jigList.colStatus")}</Text>
+                    <Select size="xs" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} minW="80px">
+                      <option value="">All</option>
+                      <option value="in_use">In Use</option>
+                      <option value="obsolete">Obsolete</option>
+                      <option value="removed">Removed</option>
+                      <option value="lost">Lost</option>
+                    </Select>
+                  </VStack>
+                </Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colLocation")}</Th>
+                <Th fontSize="xs" px={2} py={2}>SJ Style</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colManufacturedDate")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colHandedOverAt")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colHandedOverBy")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colHandedOverDept")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colReturnedAt")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colReturnedBy")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colReturnedDept")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("jigList.colMemo")}</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -271,11 +304,11 @@ export default function JigList() {
               )}
               {/* 지그 목록 */}
               {jigs.map((jig, index) => (
-                <Tr key={jig.id ?? index}>
-                  <Td>
+                <Tr key={jig.id ?? index} h="44px" sx={{ "& td": { verticalAlign: "middle" } }}>
+                  <Td fontSize="xs" px={2} py={1}>
                     {jig.id ? <JigPhotoCell jigId={jig.id} /> : <Text color="gray.400">-</Text>}
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {/* 지그 이름 */}
                     <Link
                       as={RouterLink}
@@ -285,25 +318,25 @@ export default function JigList() {
                       {jig.name ?? `Jig ${index + 1}`}
                     </Link>
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {jig.serial_number ? (
                       jig.serial_number
                     ) : (
                       <Text color="gray.400">-</Text>
                     )}
                   </Td>
-                  <Td>{jig.buyer || "-"}</Td>
-                  <Td>{jig.shape_display ?? jig.shape ?? "-"}</Td>
-                  <Td>{jig.material_display ?? jig.material ?? "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.buyer || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.shape_display ?? jig.shape ?? "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.material_display ?? jig.material ?? "-"}</Td>
                   {/* 지그 상태 */}
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {jig.status_display ? (
                       <Text>{jig.status_display}</Text>
                     ) : (
                       "-"
                     )}
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {/* 지그 위치 */}
                     {(() => {
                       const detail = jig.location_detail;
@@ -311,42 +344,33 @@ export default function JigList() {
                       return <Text>{detail.code ?? "-"}</Text>;
                     })()}
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {jig.sj_style_detail ? (
-                      <Link
-                        as={RouterLink}
-                        to={`/sjstyles/${jig.sj_style_detail.pk}`}
-                        color="blue.500"
-                        fontWeight="semibold"
-                        fontSize="sm"
-                      >
-                        {jig.sj_style_detail.code}
-                      </Link>
+                      <HStack spacing={2} align="center">
+                        <SjStylePhotoCell stylePk={jig.sj_style_detail.pk} styleCode={jig.sj_style_detail.code} />
+                        <Link
+                          as={RouterLink}
+                          to={`/sjstyles/${jig.sj_style_detail.pk}`}
+                          color="blue.500"
+                          fontWeight="semibold"
+                          fontSize="sm"
+                        >
+                          {jig.sj_style_detail.code}
+                        </Link>
+                      </HStack>
                     ) : (
                       <Text color="gray.400">-</Text>
                     )}
                   </Td>
-                  <Td isNumeric>
-                    {/* 조명 켜기 버튼 */}
-                    {(() => {
-                      const key = jig.id?.toString() ?? "";
-                      const remaining = key ? (timers[key] ?? 0) : 0;
-                      const isCounting = remaining > 0;
-
-                      return (
-                        // 조명 켜기 버튼
-                        <Button
-                          size="sm"
-                          leftIcon={<RiFlashlightFill />}
-                          colorScheme="yellow"
-                          variant="outline"
-                          isDisabled={isCounting}
-                          onClick={() => onJigLightOn(key)}
-                        >
-                          {isCounting ? `${remaining}s` : t("jigList.lightOn")}
-                        </Button>
-                      );
-                    })()}
+                  <Td fontSize="xs" px={2} py={1}>{jig.manufactured_date ?? "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.handed_over_at ?? "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.handed_over_by || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.handed_over_dept || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.returned_at ?? "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.returned_by || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{jig.returned_dept || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1} maxW="160px" whiteSpace="normal">
+                    <Text fontSize="xs" noOfLines={2}>{jig.memo || "-"}</Text>
                   </Td>
                 </Tr>
               ))}

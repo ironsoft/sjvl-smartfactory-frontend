@@ -17,20 +17,20 @@ import {
   Text,
   Button,
   IconButton,
-  useToast,
   Link,
   HStack,
   Image,
-  Skeleton
+  Skeleton,
+  VStack,
+  Select
 } from "@chakra-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Helmet } from "react-helmet";
-import { getAluminumMolds, IAluminumMoldListResponse, aluminumMoldLightOn, getAluminumMoldPhotos, getSjStylePhotos, IFilePhotos } from "../api";
+import { getAluminumMolds, IAluminumMoldListResponse, getAluminumMoldPhotos, getSjStylePhotos, IFilePhotos } from "../api";
 import SearchInput from "../components/SearchInput";
-import { RiFlashlightFill } from "react-icons/ri";
 import { Link as RouterLink } from "react-router-dom";
 import { FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface IAluminumMoldLocation {
@@ -59,6 +59,14 @@ interface IAluminumMold {
   location_detail?: IAluminumMoldLocation | null;
   sj_style?: number | null;
   sj_style_detail?: ISjStyleDetail | null;
+  manufactured_date?: string | null;
+  handed_over_at?: string | null;
+  handed_over_by?: string;
+  handed_over_dept?: string;
+  returned_at?: string | null;
+  returned_by?: string;
+  returned_dept?: string;
+  memo?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -72,7 +80,7 @@ function SjStylePhotoCell({ stylePk, styleCode }: { stylePk: number; styleCode: 
 
   const thumbnail = photos?.filter((p) => p.description !== "QR Code")[0];
 
-  if (isLoading) return <Skeleton w="40px" h="40px" borderRadius="md" />;
+  if (isLoading) return <Skeleton w="32px" h="32px" borderRadius="md" />;
   if (!thumbnail) return null;
 
   return (
@@ -80,7 +88,7 @@ function SjStylePhotoCell({ stylePk, styleCode }: { stylePk: number; styleCode: 
       <Image
         src={thumbnail.file}
         alt={styleCode}
-        boxSize="40px"
+        boxSize="32px"
         objectFit="cover"
         borderRadius="md"
         _hover={{ opacity: 0.8, transform: "scale(1.05)", transition: "all 0.2s" }}
@@ -98,7 +106,7 @@ function AluminumMoldPhotoCell({ aluminumMoldId }: { aluminumMoldId: string }) {
 
   const photosOnly = photos?.filter((p) => p.description !== "QR Code") ?? [];
 
-  if (isLoading) return <Skeleton w="50px" h="50px" borderRadius="md" />;
+  if (isLoading) return <Skeleton w="36px" h="36px" borderRadius="md" />;
   if (photosOnly.length === 0) return <Text color="gray.400">-</Text>;
 
   return (
@@ -106,7 +114,7 @@ function AluminumMoldPhotoCell({ aluminumMoldId }: { aluminumMoldId: string }) {
       <Image
         src={photosOnly[0].file}
         alt="aluminum mold photo"
-        boxSize="50px"
+        boxSize="36px"
         objectFit="cover"
         borderRadius="md"
         _hover={{ opacity: 0.8, transform: "scale(1.05)", transition: "all 0.2s" }}
@@ -119,68 +127,22 @@ export default function AluminumMoldList() {
   const { t } = useTranslation();
   const tableBgColor = useColorModeValue("gray.50", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const [timers, setTimers] = useState<Record<string, number>>({});
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeFilter, setActiveFilter] = useState<"" | "handed_over" | "returned" | "not_returned">("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [shapeFilter, setShapeFilter] = useState("");
+  const [materialFilter, setMaterialFilter] = useState("");
 
   const { data, isLoading, isFetching, error } = useQuery<IAluminumMoldListResponse>({
-    queryKey: ["aluminumMolds", searchQuery, currentPage],
-    queryFn: () => getAluminumMolds({ search: searchQuery, page: currentPage })
+    queryKey: ["aluminumMolds", searchQuery, currentPage, activeFilter, statusFilter, shapeFilter, materialFilter],
+    queryFn: () => getAluminumMolds({ search: searchQuery, page: currentPage, filter: activeFilter, status: statusFilter, shape: shapeFilter, material: materialFilter })
   });
 
   const totalPages = data?.total_pages ?? 1;
 
-  const lightOnMutation = useMutation({
-    mutationFn: aluminumMoldLightOn,
-    onSuccess: (_data, id) => {
-      if (id) {
-        setTimers((prev) => ({ ...prev, [id]: 30 }));
-      }
-      toast({
-        title: "Light ON",
-        description: "Light is On",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-        position: "bottom-right"
-      });
-      queryClient.invalidateQueries({ queryKey: ["aluminumMolds"] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: t("aluminumMoldList.lightError"),
-        status: "error",
-        duration: 2000,
-        isClosable: true,
-        position: "bottom-right"
-      });
-    }
-  });
-
-  const onLightOn = (id: string) => {
-    if (!id) return;
-    lightOnMutation.mutate(id);
-  };
-
-  useEffect(() => {
-    const hasActiveTimer = Object.values(timers).some((value) => value > 0);
-    if (!hasActiveTimer) return;
-
-    const intervalId = window.setInterval(() => {
-      setTimers((prev) => {
-        const next: Record<string, number> = {};
-        Object.entries(prev).forEach(([key, value]) => {
-          next[key] = value > 0 ? value - 1 : 0;
-        });
-        return next;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, [timers]);
 
   const errorMessage = error
     ? error instanceof Error ? error.message : t("aluminumMoldList.fetchError")
@@ -213,7 +175,7 @@ export default function AluminumMoldList() {
         px={{ base: "4", md: "8", lg: "12" }}
         py={{ base: "6", md: "8", lg: "8" }}
       >
-      <Box maxW={{ base: "3xl", lg: "8xl" }} mx="auto">
+      <Box w="100%" mx="auto">
         <HStack justify="space-between" align="center" mb={"5"}>
           <Heading size={"md"}>{t("aluminumMoldList.title")}</Heading>
           <SearchInput
@@ -221,16 +183,36 @@ export default function AluminumMoldList() {
             onInputChange={(v) => { if (v === "") { setSearchQuery(""); setCurrentPage(1); } }}
           />
         </HStack>
-        <Stat mb={"5"}>
-          <StatLabel>{t("aluminumMoldList.total")}</StatLabel>
-          <StatNumber>{data?.total_results ?? items.length}</StatNumber>
-        </Stat>
+        {/* KPI 카드 */}
+        <HStack spacing={4} mb={5} flexWrap="wrap">
+          {[
+            { label: t("aluminumMoldList.total"), value: data?.kpi?.total ?? data?.total_results ?? items.length, filter: "" as const, colorScheme: "gray" },
+            { label: t("aluminumMoldList.kpiHandedOver"), value: data?.kpi?.handed_over ?? 0, filter: "handed_over" as const, colorScheme: "orange" },
+            { label: t("aluminumMoldList.kpiReturned"), value: data?.kpi?.returned ?? 0, filter: "returned" as const, colorScheme: "green" },
+            { label: t("aluminumMoldList.kpiNotReturned"), value: data?.kpi?.not_returned ?? 0, filter: "not_returned" as const, colorScheme: "red" },
+          ].map((kpi) => (
+            <Stat
+              key={kpi.filter}
+              p={3}
+              bg={activeFilter === kpi.filter ? `${kpi.colorScheme}.100` : cardBg}
+              borderWidth="1px"
+              borderColor={activeFilter === kpi.filter ? `${kpi.colorScheme}.400` : borderColor}
+              borderRadius="lg"
+              cursor="pointer"
+              minW="120px"
+              onClick={() => { setActiveFilter(activeFilter === kpi.filter ? "" : kpi.filter); setCurrentPage(1); }}
+              _hover={{ borderColor: `${kpi.colorScheme}.400` }}
+            >
+              <StatLabel fontSize="xs">{kpi.label}</StatLabel>
+              <StatNumber fontSize="xl" color={activeFilter === kpi.filter ? `${kpi.colorScheme}.600` : undefined}>{kpi.value}</StatNumber>
+            </Stat>
+          ))}
+        </HStack>
         <HStack justify="flex-end" mt={6} mb={4} spacing={2}>
           <Button
-            as={RouterLink}
-            to="/aluminum-molds/locations"
             variant="outline"
             size="sm"
+            onClick={() => window.open("/aluminum-molds/locations", "_blank")}
           >
             {t("aluminumMoldList.location")}
           </Button>
@@ -244,17 +226,35 @@ export default function AluminumMoldList() {
             {t("aluminumMoldList.addItem")}
           </Button>
         </HStack>
-        <TableContainer>
-          <Table variant="striped">
+        <TableContainer overflowX="auto" w="100%">
+          <Table variant="striped" size="sm">
             <Thead bgColor={tableBgColor}>
               <Tr>
-                <Th>{t("aluminumMoldList.colPhoto")}</Th>
-                <Th>{t("aluminumMoldList.colName")}</Th>
-                <Th>{t("aluminumMoldList.colSerialNumber")}</Th>
-                <Th>{t("aluminumMoldList.colStatus")}</Th>
-                <Th>{t("aluminumMoldList.colLocation")}</Th>
-                <Th>SJ Style</Th>
-                <Th isNumeric>{t("aluminumMoldList.colLight")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colPhoto")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colName")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colSerialNumber")}</Th>
+                <Th fontSize="xs" px={2} py={2}>
+                  <VStack spacing={1} align="start">
+                    <Text>{t("aluminumMoldList.colStatus")}</Text>
+                    <Select size="xs" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} minW="80px">
+                      <option value="">All</option>
+                      <option value="in_use">In Use</option>
+                      <option value="obsolete">Obsolete</option>
+                      <option value="removed">Removed</option>
+                      <option value="lost">Lost</option>
+                    </Select>
+                  </VStack>
+                </Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colLocation")}</Th>
+                <Th fontSize="xs" px={2} py={2}>SJ Style</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colManufacturedDate")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colHandedOverAt")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colHandedOverBy")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colHandedOverDept")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colReturnedAt")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colReturnedBy")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colReturnedDept")}</Th>
+                <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colMemo")}</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -268,11 +268,11 @@ export default function AluminumMoldList() {
                 <Tr><Td colSpan={7}><Text color="gray.400" textAlign="center">No results found.</Text></Td></Tr>
               )}
               {items.map((item, index) => (
-                <Tr key={item.id ?? index}>
-                  <Td>
+                <Tr key={item.id ?? index} h="44px" sx={{ "& td": { verticalAlign: "middle" } }}>
+                  <Td fontSize="xs" px={2} py={1}>
                     {item.id ? <AluminumMoldPhotoCell aluminumMoldId={item.id} /> : <Text color="gray.400">-</Text>}
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     <Link
                       as={RouterLink}
                       to={`/aluminum-molds/${item.id ?? index + 1}`}
@@ -281,20 +281,20 @@ export default function AluminumMoldList() {
                       {item.name ?? `Aluminum Mold ${index + 1}`}
                     </Link>
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {item.serial_number ? item.serial_number : <Text color="gray.400">-</Text>}
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {item.status_display ? <Text>{item.status_display}</Text> : "-"}
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {(() => {
                       const detail = item.location_detail;
                       if (!detail) return item.location ?? "-";
                       return <Text>{detail.code ?? "-"}</Text>;
                     })()}
                   </Td>
-                  <Td>
+                  <Td fontSize="xs" px={2} py={1}>
                     {item.sj_style_detail ? (
                       <HStack spacing={2} align="center">
                         <SjStylePhotoCell
@@ -315,24 +315,15 @@ export default function AluminumMoldList() {
                       <Text color="gray.400">-</Text>
                     )}
                   </Td>
-                  <Td isNumeric>
-                    {(() => {
-                      const key = item.id?.toString() ?? "";
-                      const remaining = key ? (timers[key] ?? 0) : 0;
-                      const isCounting = remaining > 0;
-                      return (
-                        <Button
-                          size="sm"
-                          leftIcon={<RiFlashlightFill />}
-                          colorScheme="yellow"
-                          variant="outline"
-                          isDisabled={isCounting}
-                          onClick={() => onLightOn(key)}
-                        >
-                          {isCounting ? `${remaining}s` : t("aluminumMoldList.lightOn")}
-                        </Button>
-                      );
-                    })()}
+                  <Td fontSize="xs" px={2} py={1}>{item.manufactured_date ?? "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{item.handed_over_at ?? "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{item.handed_over_by || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{item.handed_over_dept || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{item.returned_at ?? "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{item.returned_by || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1}>{item.returned_dept || "-"}</Td>
+                  <Td fontSize="xs" px={2} py={1} maxW="160px" whiteSpace="normal">
+                    <Text fontSize="xs" noOfLines={2}>{item.memo || "-"}</Text>
                   </Td>
                 </Tr>
               ))}

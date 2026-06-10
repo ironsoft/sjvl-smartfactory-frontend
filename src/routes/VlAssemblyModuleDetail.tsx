@@ -132,12 +132,14 @@ export default function VlAssemblyModuleDetail() {
   const [savingProcStatus, setSavingProcStatus] = useState<number | null>(null);
   const [dailyOutputQrDataUrl, setDailyOutputQrDataUrl] = useState("");
 
+  const moduleDailyOutputPath = pk ? `/vl-assembly-production/module-daily-outputs?vl_assembly_module=${pk}` : "";
+
   const moduleDailyOutputUrl = useMemo(
     () =>
-      typeof window !== "undefined"
-        ? `${window.location.origin}/vl-assembly-production/module-daily-outputs?vl_assembly_module=${pk}`
+      typeof window !== "undefined" && moduleDailyOutputPath
+        ? `${window.location.origin}${moduleDailyOutputPath}`
         : "",
-    [pk]
+    [moduleDailyOutputPath]
   );
 
   const { data, isLoading } = useQuery<IVlAssemblyModuleDetail>({
@@ -782,15 +784,28 @@ export default function VlAssemblyModuleDetail() {
                   />
                 </Box>
                 <Box flex="1" minW={{ base: "0", sm: "200px" }} w="100%">
-                  <Button
-                    size="sm"
-                    leftIcon={<FaCopy />}
-                    variant="outline"
-                    w={{ base: "100%", sm: "auto" }}
-                    onClick={copyModuleDailyOutputLink}
-                  >
-                    {t("vlAssembly.processDetail.copyDailyOutputLink")}
-                  </Button>
+                  <HStack spacing={2} flexWrap="wrap" align="stretch">
+                    <Button
+                      size="sm"
+                      leftIcon={<FaCopy />}
+                      variant="outline"
+                      flex={{ base: "1", sm: "0 1 auto" }}
+                      minW={{ base: "120px", sm: "auto" }}
+                      onClick={copyModuleDailyOutputLink}
+                    >
+                      {t("vlAssembly.processDetail.copyDailyOutputLink")}
+                    </Button>
+                    <Button
+                      as={RouterLink}
+                      to={moduleDailyOutputPath}
+                      size="sm"
+                      colorScheme="blue"
+                      flex={{ base: "1", sm: "0 1 auto" }}
+                      minW={{ base: "120px", sm: "auto" }}
+                    >
+                      {t("vlAssembly.processDetail.enterQuantityButton")}
+                    </Button>
+                  </HStack>
                   <Text fontSize="xs" color="gray.500" mt={2} wordBreak="break-all">
                     {moduleDailyOutputUrl}
                   </Text>

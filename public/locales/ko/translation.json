@@ -57,7 +57,18 @@
     "colLight": "조명",
     "lightOn": "조명",
     "lightError": "조명 요청에 실패했습니다.",
-    "fetchError": "지그 목록을 불러오지 못했습니다."
+    "fetchError": "지그 목록을 불러오지 못했습니다.",
+    "colManufacturedDate": "제작일",
+    "colHandedOverAt": "인계일",
+    "colHandedOverBy": "인계자",
+    "colHandedOverDept": "인계 소속",
+    "colReturnedAt": "반납일",
+    "colReturnedBy": "반납자",
+    "colReturnedDept": "반납 소속",
+    "colMemo": "메모",
+    "kpiHandedOver": "인계",
+    "kpiReturned": "반납",
+    "kpiNotReturned": "미반납"
   },
   "jigDetail": {
     "backToList": "지그 목록으로",
@@ -100,7 +111,15 @@
     "locationSlot": "슬롯",
     "qrExistsTitle": "QR 코드가 이미 존재합니다",
     "qrExistsConfirm": "QR 코드 이미지가 이미 있습니다. 삭제하고 새로 생성하시겠습니까?",
-    "qrExistsConfirmBtn": "재생성"
+    "qrExistsConfirmBtn": "재생성",
+    "manufacturedDate": "제작일",
+    "handedOverAt": "인계일",
+    "handedOverBy": "인계자",
+    "handedOverDept": "인계 소속",
+    "returnedAt": "반납일",
+    "returnedBy": "반납자",
+    "returnedDept": "반납 소속",
+    "memo": "메모"
   },
   "jigCreate": {
     "backToList": "지그 목록으로",
@@ -403,7 +422,18 @@
     "colLight": "조명",
     "lightOn": "조명",
     "lightError": "조명 요청에 실패했습니다.",
-    "fetchError": "납바 목록을 불러오지 못했습니다."
+    "fetchError": "납바 목록을 불러오지 못했습니다.",
+    "colManufacturedDate": "제작일",
+    "colHandedOverAt": "인계일",
+    "colHandedOverBy": "인계자",
+    "colHandedOverDept": "인계 소속",
+    "colReturnedAt": "반납일",
+    "colReturnedBy": "반납자",
+    "colReturnedDept": "반납 소속",
+    "colMemo": "메모",
+    "kpiHandedOver": "인계",
+    "kpiReturned": "반납",
+    "kpiNotReturned": "미반납"
   },
   "bindingGuideDetail": {
     "backToList": "납바 목록으로",
@@ -446,7 +476,15 @@
     "locationSlot": "슬롯",
     "qrExistsTitle": "QR 코드가 이미 존재합니다",
     "qrExistsConfirm": "QR 코드 이미지가 이미 있습니다. 삭제하고 새로 생성하시겠습니까?",
-    "qrExistsConfirmBtn": "재생성"
+    "qrExistsConfirmBtn": "재생성",
+    "manufacturedDate": "제작일",
+    "handedOverAt": "인계일",
+    "handedOverBy": "인계자",
+    "handedOverDept": "인계 소속",
+    "returnedAt": "반납일",
+    "returnedBy": "반납자",
+    "returnedDept": "반납 소속",
+    "memo": "메모"
   },
   "bindingGuideCreate": {
     "backToList": "납바 목록으로",
@@ -575,7 +613,18 @@
     "colLight": "조명",
     "lightOn": "조명",
     "lightError": "조명 요청에 실패했습니다.",
-    "fetchError": "알루미늄 몰드 목록을 불러오지 못했습니다."
+    "fetchError": "알루미늄 몰드 목록을 불러오지 못했습니다.",
+    "colManufacturedDate": "제작일",
+    "colHandedOverAt": "인계일",
+    "colHandedOverBy": "인계자",
+    "colHandedOverDept": "인계 소속",
+    "colReturnedAt": "반납일",
+    "colReturnedBy": "반납자",
+    "colReturnedDept": "반납 소속",
+    "colMemo": "메모",
+    "kpiHandedOver": "인계",
+    "kpiReturned": "반납",
+    "kpiNotReturned": "미반납"
   },
   "aluminumMoldDetail": {
     "backToList": "알루미늄 몰드 목록으로",
@@ -618,7 +667,15 @@
     "locationSlot": "슬롯",
     "qrExistsTitle": "QR 코드가 이미 존재합니다",
     "qrExistsConfirm": "QR 코드 이미지가 이미 있습니다. 삭제하고 새로 생성하시겠습니까?",
-    "qrExistsConfirmBtn": "재생성"
+    "qrExistsConfirmBtn": "재생성",
+    "manufacturedDate": "제작일",
+    "handedOverAt": "인계일",
+    "handedOverBy": "인계자",
+    "handedOverDept": "인계 소속",
+    "returnedAt": "반납일",
+    "returnedBy": "반납자",
+    "returnedDept": "반납 소속",
+    "memo": "메모"
   },
   "aluminumMoldCreate": {
     "backToList": "알루미늄 몰드 목록으로",
@@ -1205,6 +1262,7 @@
     "hotColdPressIoTRecord": "HC Press IoT Record",
     "weldingRoom": "웰딩룸",
     "vlAssemblyProduction": "VL Realtime Production",
+    "vlAssemblyScheduleList": "VL Assembly 스케줄 목록",
     "vlAssemblyProcessOutputRecord": "VL Assembly 공정 실적 기록",
     "vlAssemblyScheduleProductionDailyOutput": "VL Assembly Production Daily Output",
     "vlAssemblyDailyOutput": "VL Assembly Process Production Daily Output",
@@ -1213,6 +1271,8 @@
     "vlAssemblyModuleOutputReport": "VL Assembly 모듈 일일 실적 리포트",
     "vlAssemblyInspectionRecord": "VL Assembly 검사 기록",
     "vlAssemblyDailyInspectionReportNav": "VL Assembly 일일 검사 리포트",
+    "vlFactoryLive": "VL Factory Live",
+    "vlErpDashboard": "ERP Dashboard",
     "kaizen": "SJ Kaizen",
     "tgBindingGuideManagement": "TG 납바 관리",
     "tgJigManagement": "TG 지그 관리"
@@ -1415,6 +1475,28 @@
     "colDefectType": "불량 종류",
     "defectPhotos": "불량 사진 ({{count}}장)",
     "defectCount": "불량 {{count}}개"
+  },
+  "vlAssemblyScheduleList": {
+    "pageTitle": "VL Assembly 스케줄 목록",
+    "heading": "VL Assembly 스케줄 목록",
+    "searchPlaceholder": "SJ PO# 검색",
+    "allYears": "전체 연도",
+    "allMonths": "전체 월",
+    "monthSuffix": "월",
+    "count": "{{count}}건",
+    "empty": "스케줄이 없습니다.",
+    "viewInGantt": "Gantt 차트에서 보기",
+    "col": {
+      "sjOrder": "SJ 오더",
+      "status": "상태",
+      "productionLine": "생산 라인",
+      "assemblyStart": "조립 시작일",
+      "assemblyFinish": "조립 완료일",
+      "processStart": "공정 시작일",
+      "processFinish": "공정 완료일",
+      "outputQty": "생산 수량",
+      "remark": "비고"
+    }
   },
   "vlAssembly": {
     "status": {
@@ -1697,7 +1779,22 @@
       "showAll": "전체 표시",
       "hideAll": "전체 숨기기",
       "saveSettings": "설정 저장",
+      "pinColumn": "컬럼 고정",
+      "unpinColumn": "고정 해제",
       "newSchedule": "새 VL Assembly 스케줄",
+      "sjOrderMultiHint": "SJ Order를 검색해 여러 개 추가할 수 있습니다. 하나의 스케줄에 각각 VL Assembly SJ No로 복사됩니다.",
+      "sjOrderAlreadySelected": "이미 선택된 SJ Order입니다",
+      "styleMismatchError": "SJ Style 코드가 다릅니다. 같은 SJ Style ({{expected}}) 의 SJ Order만 하나의 스케줄에 묶을 수 있습니다. 선택하신 오더의 Style 코드: {{got}}",
+      "addSjNo": "SJ No 추가",
+      "addSjNoTitle": "스케줄에 SJ No 추가",
+      "sjNoAdded": "스케줄에 SJ No가 추가되었습니다",
+      "moveSjNo": "SJ No 이동/분리",
+      "moveToSchedule": "다른 스케줄로 이동",
+      "splitToNewSchedule": "새 스케줄로 분리",
+      "targetSchedule": "대상 스케줄",
+      "targetSchedulePlaceholder": "대상 스케줄 선택",
+      "sjNoMoved": "SJ No가 이동되었습니다",
+      "sjNoSplit": "SJ No가 새 스케줄로 분리되었습니다",
       "factoryField": "공장",
       "factoryPlaceholder": "공장 선택",
       "factoryNone": "— 선택 안 함 —",
@@ -1707,6 +1804,7 @@
       "productionLineHint": "먼저 공장을 고른 뒤, 해당 공장의 생산 라인을 선택하세요. 불필요하면 둘 다 비워 두세요.",
       "exFactoryHint": "선택한 SJ Order의 선적 예정일입니다. 비우면 기존 오더 값을 그대로 둡니다. 입력하면 해당 오더에 저장됩니다.",
       "noSchedules": "스케줄이 없습니다.",
+      "balanceInBar": "잔량 {{qty}}",
       "lineGroup": {
         "unassignedLine": "생산 라인 미지정",
         "scheduleCount": "스케줄 {{count}}건",
@@ -1722,7 +1820,7 @@
       },
       "columnSettingsSaved": "컬럼 설정이 저장되었습니다",
       "scheduleCreated": "스케줄이 생성되었습니다",
-      "sjOrderRequired": "SJ Order를 선택해주세요",
+      "sjOrderRequired": "SJ Order를 하나 이상 선택해주세요",
       "moduleCategoryLabel": "딥카피할 모듈 분류",
       "moduleCategoryHint": "대분류뿐 아니라 하위 분류만 골라 세분화할 수 있습니다. 선택한 분류에 해당하는 모듈만 복사되며, 서버에서 하위 분류 범위는 자동으로 확장됩니다.",
       "moduleCategoryRequired": "모듈 분류를 하나 이상 선택해주세요",
@@ -1948,7 +2046,13 @@
       "orderExtraFields": "오더 / 비용 (CMT·FOB 등)",
       "extendedFields": "추가 스케줄·진행 정보",
       "assemblyOutputExceedsTotal": "조립 출력 수량은 합계 수량({{cap}})을 초과할 수 없습니다.",
-      "assemblyOutputMaxHint": "합계 수량 이하로 입력하세요 (최대 {{cap}})."
+      "assemblyOutputMaxHint": "합계 수량 이하로 입력하세요 (최대 {{cap}}).",
+      "scheduleNo": "스케줄 #{{no}}",
+      "addSjNo": "SJ No 추가",
+      "existingStyleCode": "현재 스타일 코드",
+      "sjOrderSearch": "SJ Order 검색",
+      "deleteSjNo": "SJ No 삭제",
+      "deleteSjNoConfirm": "을(를) 이 스케줄에서 삭제하시겠습니까?"
     },
     "sjNoDetail": {
       "pageTitle": "VL Assembly SJ No 상세",
@@ -2059,6 +2163,7 @@
       "dailyOutputQr": "일별 실적 QR",
       "dailyOutputQrHint": "스캔 시 VL Assembly 공정 실적 기록에서 이 공정이 미리 선택됩니다. 수량을 입력하고 저장하세요.",
       "copyDailyOutputLink": "링크 복사",
+      "enterQuantityButton": "수량 입력",
       "dailyOutputLinkCopied": "링크를 복사했습니다.",
       "dailyOutputLinkCopyFailed": "링크를 복사하지 못했습니다.",
       "standardWorkVideoQr": "표준 작업 영상 QR",

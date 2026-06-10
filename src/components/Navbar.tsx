@@ -37,6 +37,7 @@ import {
   FaProjectDiagram,
   FaChartArea,
   FaChartBar,
+  FaBroadcastTower,
   FaShoppingBag,
   FaSun,
   FaTape,
@@ -138,6 +139,11 @@ const VL_FACTORY_NAV_LINKS: NavDef[] = [
     icon: EpRealtimeBarNavIcon as IconType
   },
   {
+    labelKey: "navbar.vlAssemblyScheduleList",
+    path: "/vl-assembly-production/schedules",
+    icon: FaProjectDiagram
+  },
+  {
     labelKey: "navbar.vlAssemblyScheduleProductionDailyOutput",
     path: "/vl-assembly-production/schedule-daily-outputs",
     icon: FaFileAlt
@@ -171,6 +177,16 @@ const VL_FACTORY_NAV_LINKS: NavDef[] = [
     labelKey: "navbar.vlAssemblyDailyInspectionReportNav",
     path: "/vl-assembly-production/daily-inspection-report",
     icon: FaChartArea
+  },
+  {
+    labelKey: "navbar.vlFactoryLive",
+    path: "/vl-factory-live",
+    icon: FaBroadcastTower
+  },
+  {
+    labelKey: "navbar.vlErpDashboard",
+    path: "/vl-erp-dashboard",
+    icon: FaChartBar
   }
 ];
 
@@ -446,7 +462,7 @@ export default function Navbar() {
                   _hover={{ textDecoration: "none" }}
                   lineHeight={1.2}
                 >
-                  SJ Smart Factory
+                  VL Factory
                 </Text>
                 <Badge
                   colorScheme="purple"
