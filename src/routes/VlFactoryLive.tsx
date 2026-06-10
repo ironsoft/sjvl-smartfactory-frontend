@@ -523,7 +523,6 @@ function LineColumn({ line }: { line: VlLiveLine }) {
       overflow="hidden"
       w="280px"
       flexShrink={0}
-      maxH="100%"
     >
       {/* 라인 헤더 */}
       <Box bg={headerBg} px={3.5} py={2.5} flexShrink={0}>
@@ -559,7 +558,7 @@ function LineColumn({ line }: { line: VlLiveLine }) {
       </Box>
 
       {/* 스케줄 카드 목록 */}
-      <VStack gap={2.5} p={2.5} pb={6} align="stretch" overflowY="auto" flex={1}>
+      <VStack gap={2.5} p={2.5} pb={4} align="stretch">
         {line.schedules.length === 0 ? (
           <Center py={10}>
             <VStack gap={1}>
@@ -881,8 +880,7 @@ export default function VlFactoryLive() {
         bg={bgPage}
         display="flex"
         flexDirection="column"
-        height="max(calc(100vh - 170px), 680px)"
-        overflow="hidden"
+        pb={10}
       >
         {/* 헤더 */}
         <Box
@@ -927,7 +925,7 @@ export default function VlFactoryLive() {
         </Box>
 
         {/* 컨텐츠 */}
-        <Flex direction="column" flex={1} overflow="hidden" px={4} py={3} gap={3}>
+        <Flex direction="column" px={4} py={3} gap={3}>
           {isLoading ? (
             <Center h="100%">
               <Spinner size="xl" color="blue.400" thickness="3px" />
@@ -1012,8 +1010,8 @@ export default function VlFactoryLive() {
               </Box>
 
               {/* 라인 컬럼 */}
-              <Box flex={1} overflowX="auto" overflowY="hidden" minH={0}>
-                <Flex gap={3} align="stretch" width="max-content" h="100%">
+              <Box overflowX="auto">
+                <Flex gap={3} align="flex-start" width="max-content">
                   {lines.map((line) => (
                     <LineColumn key={line.line_name} line={line} />
                   ))}
