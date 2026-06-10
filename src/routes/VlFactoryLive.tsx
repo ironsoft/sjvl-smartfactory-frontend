@@ -213,8 +213,8 @@ function HourlyBadge({
         direction="column"
         align="center"
         justify="center"
-        flex={1}
-        minW="20px"
+        flexShrink={0}
+        w="22px"
         h="34px"
         bg={bg}
         borderRadius="4px"
@@ -255,15 +255,17 @@ function HourlyHeatmap({
   for (const e of hourly ?? []) hourMap[e.h] = e.qty;
 
   return (
-    <Flex gap="3px" align="stretch">
-      {DAY_SLOTS.map((slot) => (
-        <HourlyBadge key={slot.label} label={slot.label} qty={hourMap[slot.h] ?? 0} target={target} />
-      ))}
-      <Box w="1px" bg={otDividerColor} borderRadius="full" my="4px" flexShrink={0} />
-      {OT_SLOTS.map((slot) => (
-        <HourlyBadge key={slot.label} label={slot.label} qty={hourMap[slot.h] ?? 0} target={target} />
-      ))}
-    </Flex>
+    <Box overflowX="auto">
+      <Flex gap="3px" align="stretch" width="max-content">
+        {DAY_SLOTS.map((slot) => (
+          <HourlyBadge key={slot.label} label={slot.label} qty={hourMap[slot.h] ?? 0} target={target} />
+        ))}
+        <Box w="1px" bg={otDividerColor} borderRadius="full" my="4px" flexShrink={0} />
+        {OT_SLOTS.map((slot) => (
+          <HourlyBadge key={slot.label} label={slot.label} qty={hourMap[slot.h] ?? 0} target={target} />
+        ))}
+      </Flex>
+    </Box>
   );
 }
 
