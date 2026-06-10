@@ -559,7 +559,7 @@ function LineColumn({ line }: { line: VlLiveLine }) {
       </Box>
 
       {/* 스케줄 카드 목록 */}
-      <VStack gap={2.5} p={2.5} align="stretch" overflowY="auto" flex={1}>
+      <VStack gap={2.5} p={2.5} pb={6} align="stretch" overflowY="auto" flex={1}>
         {line.schedules.length === 0 ? (
           <Center py={10}>
             <VStack gap={1}>
