@@ -881,7 +881,7 @@ export default function VlFactoryLive() {
         bg={bgPage}
         display="flex"
         flexDirection="column"
-        height="max(calc(100vh - 105px), 760px)"
+        height="max(calc(100vh - 170px), 680px)"
         overflow="hidden"
       >
         {/* 헤더 */}
