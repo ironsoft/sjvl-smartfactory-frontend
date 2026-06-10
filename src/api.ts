@@ -36,7 +36,7 @@ function getApiBaseURL(): string {
     }
     return "http://127.0.0.1:8000/api/v1/";
   }
-  return "https://backend.sjep.space/api/v1/";
+  return "https://backend.sjinnovation.space/api/v1/";
 }
 
 // axios 인스턴스 생성
