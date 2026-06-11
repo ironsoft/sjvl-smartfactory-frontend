@@ -296,7 +296,7 @@ function ModuleRow({ mod }: { mod: VlLiveModule }) {
           <Center
             w={5}
             h={5}
-            bg={isMissingTarget ? "red.400" : `${color}.400`}
+            bg="gray.400"
             color="white"
             borderRadius="md"
             fontSize="9px"
@@ -428,6 +428,18 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
         {/* 수량 요약 */}
         <Flex justify="space-between" align="center" mb={1.5}>
           <HStack gap={1.5}>
+            <Center
+              w={5}
+              h={5}
+              bg="gray.400"
+              color="white"
+              borderRadius="md"
+              fontSize="9px"
+              fontWeight="bold"
+              flexShrink={0}
+            >
+              A
+            </Center>
             <Text fontSize="10px" color={labelColor} fontWeight="medium">
               Assembly
             </Text>
