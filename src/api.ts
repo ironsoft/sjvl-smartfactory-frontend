@@ -4934,7 +4934,7 @@ export const deleteKaizenVideo = ({
 // 백엔드가 AllowAny + CORS_ALLOW_CREDENTIALS=True 이므로
 // 기존 instance(withCredentials:true)를 그대로 사용 — 쿠키가 없으면 AnonymousUser로 처리됨.
 export const getJigDetailPublic = async (jigId: string) => {
-  const response = await instance.get(`jigs/${jigId}`);
+  const response = await instance.get(`jigs/${jigId}/`);
   return response.data;
 };
 
@@ -4944,7 +4944,7 @@ export const getJigPhotosPublic = async (jigId: string): Promise<IFilePhotos[]> 
 };
 
 export const getBindingGuideDetailPublic = async (id: string) => {
-  const response = await instance.get(`binding-guides/${id}`);
+  const response = await instance.get(`binding-guides/${id}/`);
   return response.data;
 };
 
@@ -4954,7 +4954,7 @@ export const getBindingGuidePhotosPublic = async (id: string): Promise<IFilePhot
 };
 
 export const getTgBindingGuideDetailPublic = async (id: string) => {
-  const response = await instance.get(`tg-binding-guides/${id}`);
+  const response = await instance.get(`tg-binding-guides/${id}/`);
   return response.data;
 };
 
@@ -4964,7 +4964,7 @@ export const getTgBindingGuidePhotosPublic = async (id: string): Promise<IFilePh
 };
 
 export const getTgJigDetailPublic = async (tgJigId: string) => {
-  const response = await instance.get(`tg-jigs/${tgJigId}`);
+  const response = await instance.get(`tg-jigs/${tgJigId}/`);
   return response.data;
 };
 
@@ -4974,7 +4974,7 @@ export const getTgJigPhotosPublic = async (tgJigId: string): Promise<IFilePhotos
 };
 
 export const getAluminumMoldDetailPublic = async (id: string) => {
-  const response = await instance.get(`aluminum-molds/${id}`);
+  const response = await instance.get(`aluminum-molds/${id}/`);
   return response.data;
 };
 
