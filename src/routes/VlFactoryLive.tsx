@@ -444,15 +444,18 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
             })()}
           </Box>
 
-          {/* 진행률 */}
-          <Box textAlign="right" flexShrink={0}>
+          {/* 진행률 + 스케줄 코드 */}
+          <VStack align="flex-end" spacing={0.5} flexShrink={0}>
+            <Text fontSize="9px" color={labelColor} fontWeight="medium" letterSpacing="wide">
+              #{schedule.pk}
+            </Text>
             <Text fontSize="lg" fontWeight="bold" lineHeight={1} color={`${color}.500`}>
               {pct.toFixed(0)}
               <Text as="span" fontSize="10px" fontWeight="semibold">
                 %
               </Text>
             </Text>
-          </Box>
+          </VStack>
         </Flex>
 
         {/* 수량 요약 */}
