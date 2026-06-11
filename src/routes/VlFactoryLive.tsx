@@ -419,15 +419,29 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
               const diff = Math.round((ef.getTime() - today.getTime()) / 86400000);
               const diffLabel = diff === 0 ? "D-Day" : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
               const diffColor = diff < 0 ? "red.500" : diff <= 7 ? "orange.500" : "gray.500";
+              const balance = (schedule.total_order_qty ?? 0) - (schedule.assembly_output_qty ?? 0);
+              const dailyRequired = diff > 0 && balance > 0 ? Math.ceil(balance / diff) : null;
               return (
-                <HStack spacing={1.5}>
-                  <Text fontSize="10px" color={labelColor} noOfLines={1}>
-                    EF: {schedule.ex_factory_date}
-                  </Text>
-                  <Text fontSize="10px" fontWeight="bold" color={diffColor} flexShrink={0}>
-                    {diffLabel}
-                  </Text>
-                </HStack>
+                <VStack spacing={0} align="flex-start">
+                  <HStack spacing={1.5}>
+                    <Text fontSize="10px" color={labelColor} noOfLines={1}>
+                      EF: {schedule.ex_factory_date}
+                    </Text>
+                    <Text fontSize="10px" fontWeight="bold" color={diffColor} flexShrink={0}>
+                      {diffLabel}
+                    </Text>
+                  </HStack>
+                  <HStack spacing={1.5}>
+                    <Text fontSize="10px" color={labelColor}>
+                      잔량 {balance}
+                    </Text>
+                    {dailyRequired !== null && (
+                      <Text fontSize="10px" color={diffColor} fontWeight="medium" flexShrink={0}>
+                        · {dailyRequired}/일
+                      </Text>
+                    )}
+                  </HStack>
+                </VStack>
               );
             })()}
           </Box>
