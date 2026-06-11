@@ -5124,7 +5124,7 @@ export default function VlAssemblyScheduleList() {
                                   case "code": return vis("code") ? <Td key={key} whiteSpace="nowrap" onClick={(e) => e.stopPropagation()} {...colStickyProps("code", rowBg)}>{sj.sj_no ? (<Link href="#" title={sj.sj_no} fontWeight="semibold" fontSize="xs" color="blue.600" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openWindow(`/vl-assembly-production/sj-nos/${sj.pk}`); }}>{sj.sj_no}</Link>) : <Text color="gray.300">—</Text>}</Td> : null;
                                   case "style_name": return vis("style_name") ? <Td key={key} whiteSpace="nowrap" {...colStickyProps("style_name", rowBg)}>{o?.style_name || "-"}</Td> : null;
                                   case "today_output_qty": return vis("today_output_qty") ? (() => {
-                                    const sjTodayOut = dailyQtyBySchedule.get(s.pk)?.get(calendarTodayYmd) ?? 0;
+                                    const sjTodayOut = dailyQtyBySjNo.get(sj.pk)?.get(calendarTodayYmd) ?? 0;
                                     const sjDailyPlan = getAssemblyDailyPlannedQtyFromTotal(s, sjTotal, vlPlanHolidayYmdSet)?.daily ?? null;
                                     return (
                                       <Td key={key} isNumeric {...colStickyProps("today_output_qty", rowBg)} bg="teal.50" _dark={{ bg: "teal.900" }} onClick={(e) => e.stopPropagation()}>
@@ -5253,7 +5253,7 @@ export default function VlAssemblyScheduleList() {
                                 firstSJTotalQty: (!isSubRow && sjIdx === 0)
                                   ? sjNos.reduce((sum, sj_) => sum + (sj_.total_qty ?? 0), 0) || null
                                   : null,
-                                overrideByDay: dailyQtyBySjNo.get(sj.pk),
+                                overrideByDay: dailyQtyBySjNo.get(sj.pk) ?? new Map<string, number>(),
                               })}
                             </Tr>
 
