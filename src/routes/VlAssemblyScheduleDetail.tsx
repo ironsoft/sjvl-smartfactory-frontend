@@ -1260,32 +1260,40 @@ export default function VlAssemblyScheduleDetail() {
                 {addSjNoSearchResults.length > 0 && (
                   <Box border="1px solid" borderColor={borderColor} borderRadius="md" mt={1} maxH="200px" overflowY="auto">
                     <List>
-                      {addSjNoSearchResults.map((r) => (
-                        <ListItem
-                          key={r.pk}
-                          px={3}
-                          py={2}
-                          cursor="pointer"
-                          _hover={{ bg: hoverBg }}
-                          onClick={() => selectAddSjNoOrder(r)}
-                          fontSize="sm"
-                        >
-                          <HStack justify="space-between">
-                            <Box>
-                              <HStack spacing={2}>
-                                <Text fontWeight="semibold">{r.sj_po_number}</Text>
-                                {r.sj_no_value && (
-                                  <Text fontSize="xs" color="blue.500" fontWeight="semibold">{r.sj_no_value}</Text>
-                                )}
-                              </HStack>
-                              <Text fontSize="xs" color="gray.500">
-                                {r.style_name}{r.sj_style_code ? ` (${r.sj_style_code})` : ""}{r.color ? ` · ${r.color}` : ""}
-                              </Text>
-                            </Box>
-                            <Text fontSize="xs" color="gray.500">{r.total_order_qty?.toLocaleString()} pcs</Text>
-                          </HStack>
-                        </ListItem>
-                      ))}
+                      {addSjNoSearchResults.map((r) => {
+                        const alreadyAdded = epSjNos.some((sj) => sj.sj_no === r.sj_no_value);
+                        return (
+                          <ListItem
+                            key={r.pk}
+                            px={3}
+                            py={2}
+                            cursor={alreadyAdded ? "not-allowed" : "pointer"}
+                            bg={alreadyAdded ? "gray.50" : undefined}
+                            _hover={{ bg: alreadyAdded ? "gray.50" : hoverBg }}
+                            onClick={() => { if (!alreadyAdded) selectAddSjNoOrder(r); }}
+                            fontSize="sm"
+                            opacity={alreadyAdded ? 0.6 : 1}
+                          >
+                            <HStack justify="space-between">
+                              <Box>
+                                <HStack spacing={2}>
+                                  <Text fontWeight="semibold" color={alreadyAdded ? "gray.400" : undefined}>{r.sj_po_number}</Text>
+                                  {r.sj_no_value && (
+                                    <Text fontSize="xs" color={alreadyAdded ? "gray.400" : "blue.500"} fontWeight="semibold">{r.sj_no_value}</Text>
+                                  )}
+                                  {alreadyAdded && (
+                                    <Badge colorScheme="gray" fontSize="2xs">추가됨</Badge>
+                                  )}
+                                </HStack>
+                                <Text fontSize="xs" color="gray.500">
+                                  {r.style_name}{r.sj_style_code ? ` (${r.sj_style_code})` : ""}{r.color ? ` · ${r.color}` : ""}
+                                </Text>
+                              </Box>
+                              <Text fontSize="xs" color="gray.500">{r.total_order_qty?.toLocaleString()} pcs</Text>
+                            </HStack>
+                          </ListItem>
+                        );
+                      })}
                     </List>
                   </Box>
                 )}
