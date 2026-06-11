@@ -1272,7 +1272,12 @@ export default function VlAssemblyScheduleDetail() {
                         >
                           <HStack justify="space-between">
                             <Box>
-                              <Text fontWeight="semibold">{r.sj_po_number}</Text>
+                              <HStack spacing={2}>
+                                <Text fontWeight="semibold">{r.sj_po_number}</Text>
+                                {r.sj_no_value && (
+                                  <Text fontSize="xs" color="blue.500" fontWeight="semibold">{r.sj_no_value}</Text>
+                                )}
+                              </HStack>
                               <Text fontSize="xs" color="gray.500">
                                 {r.style_name}{r.sj_style_code ? ` (${r.sj_style_code})` : ""}{r.color ? ` · ${r.color}` : ""}
                               </Text>
@@ -1290,7 +1295,12 @@ export default function VlAssemblyScheduleDetail() {
                 <Box p={3} bg="green.50" borderRadius="md" border="1px solid" borderColor="green.200">
                   <HStack justify="space-between">
                     <Box>
-                      <Text fontSize="sm" fontWeight="semibold">{addSjNoSelectedOrder.sj_po_number}</Text>
+                      <HStack spacing={2}>
+                        <Text fontSize="sm" fontWeight="semibold">{addSjNoSelectedOrder.sj_po_number}</Text>
+                        {addSjNoSelectedOrder.sj_no_value && (
+                          <Text fontSize="xs" color="blue.600" fontWeight="semibold">{addSjNoSelectedOrder.sj_no_value}</Text>
+                        )}
+                      </HStack>
                       <Text fontSize="xs" color="gray.600">
                         {addSjNoSelectedOrder.style_name}{addSjNoSelectedOrder.color ? ` · ${addSjNoSelectedOrder.color}` : ""}{addSjNoSelectedOrder.total_order_qty ? ` · ${addSjNoSelectedOrder.total_order_qty.toLocaleString()} pcs` : ""}
                       </Text>
