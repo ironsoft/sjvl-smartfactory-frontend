@@ -409,7 +409,11 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
             {schedule.style_name && (
               <Text fontSize="10px" color={labelColor} noOfLines={1}>
                 {schedule.style_name}
-                {schedule.ex_factory_date && ` · ${schedule.ex_factory_date}`}
+              </Text>
+            )}
+            {schedule.ex_factory_date && (
+              <Text fontSize="10px" color={labelColor} noOfLines={1}>
+                Ex-factory: {schedule.ex_factory_date}
               </Text>
             )}
           </Box>
