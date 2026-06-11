@@ -61,6 +61,7 @@ import {
 import { FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import SearchInput from "../components/SearchInput";
 import useUser from "../lib/useUser";
+import { vlKeys } from "../lib/queryKeys";
 
 /** 목록·모달에서 동일 PO 구분용 */
 function formatScheduleLabel(s: IVlAssemblySchedule): string {
@@ -336,7 +337,10 @@ export default function VlAssemblyModuleProductionDailyOutputList() {
         queryClient.invalidateQueries({
           queryKey: ["epSchedule", String(data.vl_assembly_schedule_pk)]
         }),
-        queryClient.invalidateQueries({ queryKey: ["vlModuleDailyOutputs"] })
+        queryClient.invalidateQueries({ queryKey: ["vlModuleDailyOutputs"] }),
+        queryClient.invalidateQueries({ queryKey: vlKeys.moduleDailyOutputsCalendar() }),
+        queryClient.invalidateQueries({ queryKey: vlKeys.scheduleDailyOutputsCalendar() }),
+        queryClient.invalidateQueries({ queryKey: vlKeys.all() }),
       ]);
     },
     onError: (err: unknown) => {
