@@ -85,29 +85,27 @@ function LiveDot() {
 
 // ── SJ No 배지 ───────────────────────────────────────────────────────────────
 function SjNoBadge({ sjNo }: { sjNo: VlLiveSjNo }) {
-  const sizeLabel = sjNo.sj_no.split("-").pop() ?? sjNo.sj_no;
   return (
-    <Tooltip label={sjNo.sj_no} hasArrow placement="top">
-      <Flex
-        align="center"
-        gap={1.5}
-        bg="purple.50"
-        border="1px solid"
-        borderColor="purple.100"
-        borderRadius="full"
-        px={2.5}
-        py={0.5}
-        _dark={{ bg: "purple.900", borderColor: "purple.700" }}
-        cursor="default"
-      >
-        <Text fontSize="10px" fontWeight="bold" color="purple.500" _dark={{ color: "purple.300" }}>
-          {sizeLabel}
-        </Text>
-        <Text fontSize="11px" fontWeight="semibold">
-          {sjNo.output_qty.toLocaleString()}
-        </Text>
-      </Flex>
-    </Tooltip>
+    <Flex
+      align="center"
+      gap={1.5}
+      bg="purple.50"
+      border="1px solid"
+      borderColor="purple.100"
+      borderRadius="md"
+      px={2.5}
+      py={1}
+      w="100%"
+      _dark={{ bg: "purple.900", borderColor: "purple.700" }}
+      cursor="default"
+    >
+      <Text fontSize="10px" fontWeight="bold" color="purple.500" flex={1} _dark={{ color: "purple.300" }}>
+        {sjNo.sj_no}
+      </Text>
+      <Text fontSize="11px" fontWeight="semibold">
+        {sjNo.output_qty.toLocaleString()}
+      </Text>
+    </Flex>
   );
 }
 
@@ -513,7 +511,7 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
               </Text>
             )}
           </Flex>
-          <Flex gap={1.5} flexWrap="wrap" align="center">
+          <Flex direction="column" gap={1}>
             {schedule.sj_nos.map((sj) => (
               <SjNoBadge key={sj.pk} sjNo={sj} />
             ))}
