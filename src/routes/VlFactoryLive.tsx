@@ -411,11 +411,25 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
                 {schedule.style_name}
               </Text>
             )}
-            {schedule.ex_factory_date && (
-              <Text fontSize="10px" color={labelColor} noOfLines={1}>
-                Ex-factory: {schedule.ex_factory_date}
-              </Text>
-            )}
+            {schedule.ex_factory_date && (() => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const ef = new Date(schedule.ex_factory_date);
+              ef.setHours(0, 0, 0, 0);
+              const diff = Math.round((ef.getTime() - today.getTime()) / 86400000);
+              const diffLabel = diff === 0 ? "D-Day" : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
+              const diffColor = diff < 0 ? "red.500" : diff <= 7 ? "orange.500" : "gray.500";
+              return (
+                <HStack spacing={1.5}>
+                  <Text fontSize="10px" color={labelColor} noOfLines={1}>
+                    EF: {schedule.ex_factory_date}
+                  </Text>
+                  <Text fontSize="10px" fontWeight="bold" color={diffColor} flexShrink={0}>
+                    {diffLabel}
+                  </Text>
+                </HStack>
+              );
+            })()}
           </Box>
 
           {/* 진행률 */}
