@@ -246,7 +246,7 @@ export default function AluminumMoldList() {
                   </VStack>
                 </Th>
                 <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colLocation")}</Th>
-                <Th fontSize="xs" px={2} py={2}>SJ Style</Th>
+                <Th fontSize="xs" px={2} py={2} minW="130px">SJ Style</Th>
                 <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colManufacturedDate")}</Th>
                 <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colHandedOverAt")}</Th>
                 <Th fontSize="xs" px={2} py={2}>{t("aluminumMoldList.colHandedOverBy")}</Th>
@@ -294,9 +294,9 @@ export default function AluminumMoldList() {
                       return <Text>{detail.code ?? "-"}</Text>;
                     })()}
                   </Td>
-                  <Td fontSize="xs" px={2} py={1}>
+                  <Td fontSize="xs" px={2} py={1} minW="130px">
                     {item.sj_style_detail ? (
-                      <HStack spacing={2} align="center">
+                      <HStack spacing={2} align="center" flexWrap="nowrap">
                         <SjStylePhotoCell
                           stylePk={item.sj_style_detail.pk}
                           styleCode={item.sj_style_detail.code}
@@ -307,6 +307,7 @@ export default function AluminumMoldList() {
                           color="blue.500"
                           fontWeight="semibold"
                           fontSize="sm"
+                          whiteSpace="nowrap"
                         >
                           {item.sj_style_detail.code}
                         </Link>
