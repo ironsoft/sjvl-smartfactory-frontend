@@ -1,7 +1,6 @@
 import { Box, useColorModeValue } from "@chakra-ui/react";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import Footer from "./Footer";
 import Navbar from "./Navbar";
 import { useEffect } from "react";
 import useUser from "../lib/useUser";
@@ -52,7 +51,6 @@ export default function Root() {
       <Box flex="1" display="flex" flexDirection="column" minH={isPopup ? "100vh" : "calc(100vh - 120px)"} backgroundColor={contentBg}>
         <Outlet />
       </Box>
-      {!isPopup && <Footer />}
       <ReactQueryDevtools />
     </Box>
   );

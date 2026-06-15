@@ -88,7 +88,6 @@ export default function Navbar() {
   const location = useLocation();
 
   if (
-    location.pathname === "/" ||
     location.pathname === "/users" ||
     location.pathname === "/terms/termsList" ||
     (location.pathname.startsWith("/terms/upload/") &&
