@@ -84,7 +84,7 @@ export default function LoginPage() {
       } else if (me?.factory_access === "DEVELOPMENT") {
         navigate("/jigs");
       } else {
-        navigate("/home");
+        navigate("/");
       }
       reset();
     },
@@ -123,7 +123,7 @@ export default function LoginPage() {
               size={{ base: "xs", md: "sm" }}
               fontSize={{ base: "xs", md: "sm" }}
             >
-              Welcome to SJ Smart Factory System!
+              Welcome to SJ VL Factory!
               {/* SJ 웰딩 생산 관리 시스템에 오신 것을 환영합니다! <br /><br />
               Chào mừng bạn đến với Hệ thống quản lý sản xuất SJ EP! */}
             </Heading>

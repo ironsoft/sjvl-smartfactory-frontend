@@ -7,6 +7,9 @@ import {
   HStack,
   IconButton,
   Image,
+  Modal,
+  ModalContent,
+  ModalOverlay,
   Progress,
   Spinner,
   Table,
@@ -22,6 +25,7 @@ import {
   VStack,
   keyframes,
   useColorModeValue,
+  useDisclosure,
 } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -43,24 +47,24 @@ import {
   type VlLiveSjNo,
 } from "../api";
 import LocalizedDateInput from "../components/LocalizedDateInput";
+import { useTranslation } from "react-i18next";
 
 // ── 색상 헬퍼 ────────────────────────────────────────────────────────────────
-function pctColor(pct: number) {
+export function pctColor(pct: number) {
   if (pct >= 100) return "green";
   if (pct >= 80) return "blue";
   if (pct >= 50) return "yellow";
   return "red";
 }
+export function pctTextColor(pct: number) {
+  if (pct >= 100) return "green.500";
+  if (pct >= 80) return "blue.500";
+  if (pct >= 50) return "orange.500";
+  return "red.500";
+}
 
-function statusLabel(status: string) {
-  const map: Record<string, string> = {
-    not_started: "시작 전",
-    in_progress: "진행 중",
-    completed: "완료",
-    outsourced: "외주",
-    not_ready: "준비 안됨",
-  };
-  return map[status] ?? status;
+export function statusKey(status: string) {
+  return `vlFactoryLive.status.${status}`;
 }
 
 // ── LIVE 펄스 애니메이션 ─────────────────────────────────────────────────────
@@ -70,7 +74,7 @@ const pulse = keyframes`
   100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0); }
 `;
 
-function LiveDot() {
+export function LiveDot() {
   return (
     <Box
       w="8px"
@@ -102,15 +106,18 @@ function SjNoBadge({ sjNo }: { sjNo: VlLiveSjNo }) {
       <Text fontSize="10px" fontWeight="bold" color="purple.500" flex={1} _dark={{ color: "purple.300" }}>
         {sjNo.sj_no}
       </Text>
-      <Text fontSize="11px" fontWeight="semibold">
+      <Text fontSize="11px" fontWeight="semibold" sx={{ fontVariantNumeric: "tabular-nums" }}>
         {sjNo.output_qty.toLocaleString()}
+        {sjNo.total_qty != null && (
+          <Text as="span" fontSize="10px" fontWeight="normal" color="gray.500"> / {sjNo.total_qty.toLocaleString()}</Text>
+        )}
       </Text>
     </Flex>
   );
 }
 
 // ── ERP 시간대 슬롯 정의 (D1~D8, OT1~OT5) ──────────────────────────────────
-const DAY_SLOTS = [
+export const DAY_SLOTS = [
   { label: "D1", h: 7 },
   { label: "D2", h: 8 },
   { label: "D3", h: 9 },
@@ -121,7 +128,7 @@ const DAY_SLOTS = [
   { label: "D8", h: 15 },
 ] as const;
 
-const OT_SLOTS = [
+export const OT_SLOTS = [
   { label: "OT1", h: 16 },
   { label: "OT2", h: 17 },
   { label: "OT3", h: 18 },
@@ -129,10 +136,10 @@ const OT_SLOTS = [
   { label: "OT5", h: 20 },
 ] as const;
 
-const ALL_SLOTS = [...DAY_SLOTS, ...OT_SLOTS];
+export const ALL_SLOTS = [...DAY_SLOTS, ...OT_SLOTS];
 
 // ── 시간당 통계 헬퍼 ─────────────────────────────────────────────────────────
-function hourlyStats(hourly: VlLiveHourly[] | undefined, target: number | null) {
+export function hourlyStats(hourly: VlLiveHourly[] | undefined, target: number | null) {
   let total = 0;
   let slots = 0;
   for (const e of hourly ?? []) {
@@ -148,19 +155,20 @@ function hourlyStats(hourly: VlLiveHourly[] | undefined, target: number | null) 
 }
 
 // ── 시간당 평균 달성 배지 ────────────────────────────────────────────────────
-function AvgRateBadge({
+export function AvgRateBadge({
   hourly,
   target,
 }: {
   hourly: VlLiveHourly[] | undefined;
   target: number | null;
 }) {
+  const { t } = useTranslation();
   const { avg, ratePct, meets } = hourlyStats(hourly, target);
   if (ratePct == null) return null;
 
   return (
     <Tooltip
-      label={`시간당 평균 ${avg.toFixed(1)} / 목표 ${target} (${ratePct.toFixed(0)}%)`}
+      label={t("vlFactoryLive.avgRateTooltip", { avg: avg.toFixed(1), target, pct: ratePct.toFixed(0) })}
       hasArrow
       placement="top"
     >
@@ -192,6 +200,7 @@ function HourlyBadge({
   qty: number;
   target: number | null;
 }) {
+  const { t } = useTranslation();
   const zeroBg = useColorModeValue("blackAlpha.50", "whiteAlpha.100");
   const mutedColor = useColorModeValue("gray.400", "gray.500");
   const hasTarget = target !== null && target > 0;
@@ -202,8 +211,8 @@ function HourlyBadge({
   const pct = hasTarget ? Math.min((qty / target!) * 100, 100) : 0;
 
   const tooltipLabel = hasTarget
-    ? `${label}: ${qty} / 목표 ${target} (${pct.toFixed(0)}%)`
-    : `${label}: ${qty}`;
+    ? t("vlFactoryLive.slotTooltipWithTarget", { label, time: label, qty, target, pct: pct.toFixed(0) })
+    : t("vlFactoryLive.slotTooltip", { label, time: label, qty });
 
   return (
     <Tooltip label={tooltipLabel} hasArrow placement="top">
@@ -213,7 +222,7 @@ function HourlyBadge({
         justify="center"
         flexShrink={0}
         w="22px"
-        h="34px"
+        h={hasTarget ? "44px" : "34px"}
         bg={bg}
         borderRadius="4px"
         cursor="default"
@@ -228,6 +237,11 @@ function HourlyBadge({
         <Text fontSize="9px" color={qtyColor} fontWeight="bold" lineHeight={1.3}>
           {qty > 0 ? qty : "·"}
         </Text>
+        {hasTarget && (
+          <Text fontSize="6px" color={qty > 0 ? "whiteAlpha.900" : mutedColor} lineHeight={1.2} letterSpacing="tighter">
+            {qty > 0 ? `${pct.toFixed(0)}%` : "0%"}
+          </Text>
+        )}
 
         {/* 타겟 대비 달성률 바 (하단 3px) */}
         {hasTarget && qty > 0 && (
@@ -269,6 +283,7 @@ function HourlyHeatmap({
 
 // ── 모듈 행 ──────────────────────────────────────────────────────────────────
 function ModuleRow({ mod }: { mod: VlLiveModule }) {
+  const { t } = useTranslation();
   const labelColor = useColorModeValue("gray.500", "gray.400");
   const missBg = useColorModeValue("red.50", "rgba(229, 62, 62, 0.14)");
   const missBorder = useColorModeValue("red.200", "red.700");
@@ -309,7 +324,7 @@ function ModuleRow({ mod }: { mod: VlLiveModule }) {
         </HStack>
         <HStack gap={1.5} flexShrink={0}>
           {mod.target_qty_per_hour != null && (
-            <Tooltip label="시간당 목표 수량" hasArrow placement="top">
+            <Tooltip label={t("vlFactoryLive.hourlyTargetQty")} hasArrow placement="top">
               <Badge colorScheme="purple" fontSize="9px" variant="subtle" cursor="default" borderRadius="full" px={1.5}>
                 {mod.target_qty_per_hour}/h
               </Badge>
@@ -326,15 +341,27 @@ function ModuleRow({ mod }: { mod: VlLiveModule }) {
       </Flex>
       <Progress value={pct} colorScheme={color} size="xs" borderRadius="full" mb={1.5} />
       <HourlyHeatmap hourly={mod.hourly} target={mod.target_qty_per_hour} />
+      {mod.total_qty > 0 && (
+        <Flex justify="flex-end" mt={1}>
+          <Text fontSize="9px" color={labelColor}>
+            {t("vlFactoryLive.achievementRate")}{" "}
+            <Text as="span" fontWeight="bold" color={pctTextColor(pct)}>
+              {pct.toFixed(1)}%
+            </Text>
+          </Text>
+        </Flex>
+      )}
     </Box>
   );
 }
 
 // ── 스케줄 카드 ──────────────────────────────────────────────────────────────
-function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
+function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: string }) {
+  const { t } = useTranslation();
   const cardBg = useColorModeValue("white", "gray.700");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const labelColor = useColorModeValue("gray.500", "gray.400");
+  const { isOpen: isImgOpen, onOpen: onImgOpen, onClose: onImgClose } = useDisclosure();
   const sectionBg = useColorModeValue("gray.50", "whiteAlpha.50");
   const thumbBg = useColorModeValue("gray.100", "gray.600");
   const stripBg = useColorModeValue("gray.100", "gray.600");
@@ -362,6 +389,15 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
       transition="all 0.2s"
       _hover={{ opacity: 1, shadow: "md" }}
       position="relative"
+      cursor="pointer"
+      role="link"
+      onClick={() =>
+        window.open(
+          `/vl-factory-live/schedules/${schedule.pk}?date=${date}&popup=1`,
+          `vl-live-schedule-${schedule.pk}`,
+          "width=1280,height=920",
+        )
+      }
     >
       {/* 상단 진행률 스트립 */}
       <Box h="3px" bg={stripBg}>
@@ -381,6 +417,8 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
             bg={thumbBg}
             border="1px solid"
             borderColor={borderColor}
+            cursor={schedule.thumbnail ? "zoom-in" : "default"}
+            onClick={schedule.thumbnail ? onImgOpen : undefined}
           >
             {schedule.thumbnail ? (
               <Image
@@ -397,16 +435,32 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
             )}
           </Center>
 
+          {schedule.thumbnail && (
+            <Modal isOpen={isImgOpen} onClose={onImgClose} isCentered size="xl">
+              <ModalOverlay backdropFilter="blur(4px)" />
+              <ModalContent bg="transparent" boxShadow="none" onClick={onImgClose} cursor="zoom-out">
+                <Image
+                  src={schedule.thumbnail}
+                  alt={schedule.style_name}
+                  borderRadius="xl"
+                  objectFit="contain"
+                  maxH="80vh"
+                  w="100%"
+                />
+              </ModalContent>
+            </Modal>
+          )}
+
           <Box flex={1} minW={0}>
             <HStack gap={1.5}>
               {isActiveToday && <LiveDot />}
               <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
-                {schedule.po_no || `#${schedule.pk}`}
+                {schedule.style_code || schedule.style_name || `#${schedule.pk}`}
               </Text>
             </HStack>
-            {schedule.style_name && (
+            {schedule.po_no && (
               <Text fontSize="10px" color={labelColor} noOfLines={1}>
-                {schedule.style_name}
+                {schedule.po_no}
               </Text>
             )}
             {schedule.ex_factory_date && (() => {
@@ -431,11 +485,11 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
                   </HStack>
                   <HStack spacing={1.5}>
                     <Text fontSize="10px" color={labelColor}>
-                      잔량 {balance}
+                      {t("vlFactoryLive.balanceText", { balance })}
                     </Text>
                     {dailyRequired !== null && (
                       <Text fontSize="10px" color={diffColor} fontWeight="medium" flexShrink={0}>
-                        · {dailyRequired}/일
+                        {t("vlFactoryLive.dailyRequired", { n: dailyRequired })}
                       </Text>
                     )}
                   </HStack>
@@ -477,7 +531,7 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
               Assembly
             </Text>
             {schedule.assembly_target_qty_per_hour != null && (
-              <Tooltip label="시간당 목표 수량 (SJ No 합산)" hasArrow placement="top">
+              <Tooltip label={t("vlFactoryLive.hourlyTargetQtyAssembly")} hasArrow placement="top">
                 <Badge colorScheme="purple" fontSize="9px" variant="subtle" cursor="default" borderRadius="full" px={1.5}>
                   {schedule.assembly_target_qty_per_hour}/h
                 </Badge>
@@ -499,6 +553,16 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
 
         {/* Assembly 시간대별 히트맵 */}
         <HourlyHeatmap hourly={schedule.hourly} target={schedule.assembly_target_qty_per_hour} />
+        {schedule.total_order_qty > 0 && (
+          <Flex justify="flex-end" mt={1}>
+            <Text fontSize="9px" color={labelColor}>
+              {t("vlFactoryLive.achievementRate")}{" "}
+              <Text as="span" fontWeight="bold" color={pctTextColor(schedule.progress_pct)}>
+                {schedule.progress_pct.toFixed(1)}%
+              </Text>
+            </Text>
+          </Flex>
+        )}
       </Box>
 
       {/* ── SJ No 섹션 ── */}
@@ -510,7 +574,7 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
             </Text>
             {schedule.sj_nos.length > 1 && (
               <Text fontSize="10px" color={labelColor} sx={{ fontVariantNumeric: "tabular-nums" }}>
-                합계 <Text as="span" fontWeight="bold">{totalSjOutput.toLocaleString()}</Text>
+                {t("vlFactoryLive.totalLabel")} <Text as="span" fontWeight="bold">{totalSjOutput.toLocaleString()}</Text>
               </Text>
             )}
           </Flex>
@@ -540,7 +604,7 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
       {!hasSjNos && !hasModules && (
         <Box px={3} py={2} bg={sectionBg} borderTop="1px solid" borderColor={borderColor}>
           <Text fontSize="11px" color={labelColor}>
-            {statusLabel(schedule.status)}
+            {t(statusKey(schedule.status))}
           </Text>
         </Box>
       )}
@@ -549,7 +613,8 @@ function ScheduleCard({ schedule }: { schedule: VlLiveSchedule }) {
 }
 
 // ── 라인 컬럼 ────────────────────────────────────────────────────────────────
-function LineColumn({ line }: { line: VlLiveLine }) {
+function LineColumn({ line, date }: { line: VlLiveLine; date: string }) {
+  const { t } = useTranslation();
   const colBg = useColorModeValue("blackAlpha.50", "blackAlpha.300");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const headerBg = useColorModeValue("gray.800", "gray.900");
@@ -596,7 +661,7 @@ function LineColumn({ line }: { line: VlLiveLine }) {
 
         <Flex justify="space-between">
           <Text color="gray.400" fontSize="10px">
-            스케줄 {line.schedules.length}건
+            {t("vlFactoryLive.scheduleCount", { count: line.schedules.length })}
           </Text>
           <Text color="gray.300" fontSize="10px" sx={{ fontVariantNumeric: "tabular-nums" }}>
             {totalOutput.toLocaleString()} / {totalOrder.toLocaleString()}
@@ -613,12 +678,12 @@ function LineColumn({ line }: { line: VlLiveLine }) {
                 <FiBox size={20} />
               </Box>
               <Text fontSize="xs" color="gray.400">
-                작업 없음
+                {t("vlFactoryLive.noWork")}
               </Text>
             </VStack>
           </Center>
         ) : (
-          line.schedules.map((sc) => <ScheduleCard key={sc.pk} schedule={sc} />)
+          line.schedules.map((sc) => <ScheduleCard key={sc.pk} schedule={sc} date={date} />)
         )}
       </VStack>
     </Flex>
@@ -662,7 +727,37 @@ function PctCell({ pct }: { pct: number }) {
   );
 }
 
+function calcLineModuleAvg(line: VlLiveLine, code: string) {
+  const mods = line.schedules.flatMap((sc) => sc.modules_by_code.filter((m) => m.code === code));
+  const slotMap: Record<number, number> = {};
+  for (const mod of mods) {
+    for (const e of mod.hourly ?? []) slotMap[e.h] = (slotMap[e.h] ?? 0) + e.qty;
+  }
+  const activeSlots = Object.values(slotMap).filter((q) => q > 0).length;
+  const avg = activeSlots > 0 ? Object.values(slotMap).reduce((s, q) => s + q, 0) / activeSlots : 0;
+  const targetSum = mods
+    .filter((m) => (m.hourly ?? []).some((e) => e.qty > 0))
+    .reduce((s, m) => s + (m.target_qty_per_hour ?? 0), 0);
+  const ratePct = targetSum > 0 && activeSlots > 0 ? (avg / targetSum) * 100 : null;
+  return { avg, activeSlots, ratePct };
+}
+
+function calcLineAssemblyRatePct(line: VlLiveLine): number | null {
+  const slotMap: Record<number, number> = {};
+  for (const sc of line.schedules) {
+    for (const e of sc.hourly ?? []) slotMap[e.h] = (slotMap[e.h] ?? 0) + e.qty;
+  }
+  const activeSlots = Object.values(slotMap).filter((q) => q > 0).length;
+  if (activeSlots === 0) return null;
+  const avg = Object.values(slotMap).reduce((s, q) => s + q, 0) / activeSlots;
+  const targetSum = line.schedules
+    .filter((sc) => (sc.hourly ?? []).some((e) => e.qty > 0))
+    .reduce((s, sc) => s + (sc.assembly_target_qty_per_hour ?? 0), 0);
+  return targetSum > 0 ? (avg / targetSum) * 100 : null;
+}
+
 function LineSummaryTable({ lines }: { lines: VlLiveLine[] }) {
+  const { t } = useTranslation();
   const tableBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const headColor = useColorModeValue("gray.500", "gray.400");
@@ -682,7 +777,7 @@ function LineSummaryTable({ lines }: { lines: VlLiveLine[] }) {
   );
   const totalPct = total.order > 0 ? Math.round((total.output / total.order) * 100) : 0;
 
-  // 전 라인 합산 시간당 평균 (시간대별 합산 후 가동 시간대 수로 나눔)
+  // 전 라인 합산 Assembly 시간당 평균
   const unionSlotTotals: Record<number, number> = {};
   for (const line of lines) {
     for (const sc of line.schedules) {
@@ -691,12 +786,62 @@ function LineSummaryTable({ lines }: { lines: VlLiveLine[] }) {
   }
   const unionActiveSlots = Object.values(unionSlotTotals).filter((q) => q > 0).length;
   const totalAvgPerHour = unionActiveSlots > 0 ? total.todayOutput / unionActiveSlots : 0;
+  const totalAssemblyTargetSum = lines
+    .flatMap((l) => l.schedules)
+    .filter((sc) => (sc.hourly ?? []).some((e) => e.qty > 0))
+    .reduce((s, sc) => s + (sc.assembly_target_qty_per_hour ?? 0), 0);
+  const totalAssemblyRatePct =
+    totalAssemblyTargetSum > 0 && unionActiveSlots > 0
+      ? (totalAvgPerHour / totalAssemblyTargetSum) * 100
+      : null;
+
+  // 상위 2개 모듈 코드 수집
+  const seenCodes: string[] = [];
+  for (const line of lines) {
+    for (const sc of line.schedules) {
+      for (const mod of sc.modules_by_code) {
+        if (!seenCodes.includes(mod.code)) seenCodes.push(mod.code);
+      }
+    }
+  }
+  const topCodes = seenCodes.slice(0, 2);
+
+  // 전체 합산 모듈 평균 (footer용)
+  const totalModuleAvg = topCodes.map((code) => {
+    const allMods = lines.flatMap((l) =>
+      l.schedules.flatMap((sc) => sc.modules_by_code.filter((m) => m.code === code)),
+    );
+    const slotMap: Record<number, number> = {};
+    for (const mod of allMods) {
+      for (const e of mod.hourly ?? []) slotMap[e.h] = (slotMap[e.h] ?? 0) + e.qty;
+    }
+    const activeSlots = Object.values(slotMap).filter((q) => q > 0).length;
+    const avg = activeSlots > 0 ? Object.values(slotMap).reduce((s, q) => s + q, 0) / activeSlots : 0;
+    const targetSum = allMods
+      .filter((m) => (m.hourly ?? []).some((e) => e.qty > 0))
+      .reduce((s, m) => s + (m.target_qty_per_hour ?? 0), 0);
+    const ratePct = targetSum > 0 && activeSlots > 0 ? (avg / targetSum) * 100 : null;
+    return { code, avg, activeSlots, ratePct };
+  });
 
   const numericTd = {
     isNumeric: true,
     fontSize: "xs",
     sx: { fontVariantNumeric: "tabular-nums" },
   } as const;
+
+  const renderAvgCell = (avg: number, activeSlots: number, ratePct: number | null, bold = false) => (
+    <Flex align="center" justify="flex-end" gap={1} flexWrap="nowrap">
+      <Text as="span" fontSize="xs" fontWeight={bold ? "bold" : undefined} sx={{ fontVariantNumeric: "tabular-nums" }}>
+        {activeSlots > 0 ? `${Math.round(avg)}/h` : "-"}
+      </Text>
+      {ratePct != null && activeSlots > 0 && (
+        <Text as="span" fontSize="10px" fontWeight="bold" color={pctTextColor(ratePct)} flexShrink={0}>
+          ({ratePct.toFixed(0)}%)
+        </Text>
+      )}
+    </Flex>
+  );
 
   return (
     <TableContainer
@@ -709,66 +854,69 @@ function LineSummaryTable({ lines }: { lines: VlLiveLine[] }) {
       <Table size="sm" variant="simple">
         <Thead>
           <Tr>
-            <Th fontSize="10px" color={headColor}>라인</Th>
-            <Th fontSize="10px" color={headColor} isNumeric>스케줄</Th>
-            <Th fontSize="10px" color={headColor} isNumeric>가동</Th>
-            <Th fontSize="10px" color={headColor} isNumeric>금일 실적</Th>
-            <Th fontSize="10px" color={headColor} isNumeric>시간당 평균</Th>
-            <Th fontSize="10px" color={headColor} isNumeric>누적 실적 / 주문</Th>
-            <Th fontSize="10px" color={headColor} isNumeric>달성률</Th>
+            <Th fontSize="10px" color={headColor}>{t("vlFactoryLive.table.line")}</Th>
+            <Th fontSize="10px" color={headColor} isNumeric>{t("vlFactoryLive.table.schedule")}</Th>
+            <Th fontSize="10px" color={headColor} isNumeric>{t("vlFactoryLive.table.active")}</Th>
+            <Th fontSize="10px" color={headColor} isNumeric>{t("vlFactoryLive.table.todayOutput")}</Th>
+            <Th fontSize="10px" color={headColor} isNumeric>{t("vlFactoryLive.table.assemblyAvg")}</Th>
+            {topCodes.map((code, idx) => (
+              <Th key={code} fontSize="10px" color={headColor} isNumeric>{t("vlFactoryLive.table.moduleAvg", { letter: ["B", "C"][idx] })}</Th>
+            ))}
+            <Th fontSize="10px" color={headColor} isNumeric>{t("vlFactoryLive.table.cumulativeOutput")}</Th>
+            <Th fontSize="10px" color={headColor} isNumeric>{t("vlFactoryLive.table.achievement")}</Th>
           </Tr>
         </Thead>
         <Tbody>
-          {rows.map(({ line, output, order, todayOutput, avgPerHour, activeCount, pct }) => (
-            <Tr key={line.line_name}>
-              <Td fontSize="xs" fontWeight="bold">
-                <HStack gap={1.5}>
-                  {activeCount > 0 && <LiveDot />}
-                  <Text>{line.line_name}</Text>
-                </HStack>
-              </Td>
-              <Td {...numericTd}>{line.schedules.length}</Td>
-              <Td {...numericTd}>
-                {activeCount > 0 ? (
-                  <Text as="span" color="red.400" fontWeight="bold">
-                    {activeCount}
-                  </Text>
-                ) : (
-                  <Text as="span" color={mutedText}>-</Text>
-                )}
-              </Td>
-              <Td {...numericTd} fontWeight="semibold">
-                {todayOutput > 0 ? todayOutput.toLocaleString() : <Text as="span" color={mutedText}>-</Text>}
-              </Td>
-              <Td {...numericTd}>
-                {avgPerHour > 0 ? (
-                  `${Math.round(avgPerHour).toLocaleString()}/h`
-                ) : (
-                  <Text as="span" color={mutedText}>-</Text>
-                )}
-              </Td>
-              <Td {...numericTd}>
-                <Text as="span" fontWeight="semibold">{output.toLocaleString()}</Text>
-                <Text as="span" color={mutedText}> / {order.toLocaleString()}</Text>
-              </Td>
-              <Td isNumeric>
-                <PctCell pct={pct} />
-              </Td>
-            </Tr>
-          ))}
+          {rows.map(({ line, output, order, todayOutput, avgPerHour, activeCount, pct }) => {
+            const assemblyRatePct = calcLineAssemblyRatePct(line);
+            return (
+              <Tr key={line.line_name}>
+                <Td fontSize="xs" fontWeight="bold">
+                  <HStack gap={1.5}>
+                    {activeCount > 0 && <LiveDot />}
+                    <Text>{line.line_name}</Text>
+                  </HStack>
+                </Td>
+                <Td {...numericTd}>{line.schedules.length}</Td>
+                <Td {...numericTd}>
+                  {activeCount > 0 ? (
+                    <Text as="span" color="red.400" fontWeight="bold">{activeCount}</Text>
+                  ) : (
+                    <Text as="span" color={mutedText}>-</Text>
+                  )}
+                </Td>
+                <Td {...numericTd} fontWeight="semibold">
+                  {todayOutput > 0 ? todayOutput.toLocaleString() : <Text as="span" color={mutedText}>-</Text>}
+                </Td>
+                <Td isNumeric>{renderAvgCell(avgPerHour, activeCount, assemblyRatePct)}</Td>
+                {topCodes.map((code) => {
+                  const ms = calcLineModuleAvg(line, code);
+                  return <Td key={code} isNumeric>{renderAvgCell(ms.avg, ms.activeSlots, ms.ratePct)}</Td>;
+                })}
+                <Td {...numericTd}>
+                  <Text as="span" fontWeight="semibold">{output.toLocaleString()}</Text>
+                  <Text as="span" color={mutedText}> / {order.toLocaleString()}</Text>
+                </Td>
+                <Td isNumeric>
+                  <PctCell pct={pct} />
+                </Td>
+              </Tr>
+            );
+          })}
         </Tbody>
         {rows.length > 1 && (
           <Tfoot bg={footBg}>
             <Tr>
-              <Td fontSize="xs" fontWeight="bold">합계</Td>
+              <Td fontSize="xs" fontWeight="bold">{t("vlFactoryLive.table.total")}</Td>
               <Td {...numericTd} fontWeight="bold">{total.schedules}</Td>
               <Td {...numericTd} fontWeight="bold" color={total.active > 0 ? "red.400" : undefined}>
                 {total.active > 0 ? total.active : "-"}
               </Td>
               <Td {...numericTd} fontWeight="bold">{total.todayOutput.toLocaleString()}</Td>
-              <Td {...numericTd} fontWeight="bold">
-                {totalAvgPerHour > 0 ? `${Math.round(totalAvgPerHour).toLocaleString()}/h` : "-"}
-              </Td>
+              <Td isNumeric>{renderAvgCell(totalAvgPerHour, unionActiveSlots, totalAssemblyRatePct, true)}</Td>
+              {totalModuleAvg.map(({ code, avg, activeSlots, ratePct }) => (
+                <Td key={code} isNumeric>{renderAvgCell(avg, activeSlots, ratePct, true)}</Td>
+              ))}
               <Td {...numericTd}>
                 <Text as="span" fontWeight="bold">{total.output.toLocaleString()}</Text>
                 <Text as="span" color={mutedText}> / {total.order.toLocaleString()}</Text>
@@ -785,13 +933,14 @@ function LineSummaryTable({ lines }: { lines: VlLiveLine[] }) {
 }
 
 // ── 상단 KPI 카드 ────────────────────────────────────────────────────────────
-function KpiCard({
+export function KpiCard({
   label,
   value,
   suffix,
   sub,
   colorScheme,
   pct,
+  ratePct,
 }: {
   label: string;
   value: string;
@@ -799,6 +948,7 @@ function KpiCard({
   sub?: string;
   colorScheme?: string;
   pct?: number;
+  ratePct?: number | null;
 }) {
   const bg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
@@ -826,20 +976,27 @@ function KpiCard({
       >
         {label}
       </Text>
-      <Text
-        fontSize="xl"
-        fontWeight="bold"
-        lineHeight={1.2}
-        color={colorScheme ? `${colorScheme}.500` : undefined}
-        sx={{ fontVariantNumeric: "tabular-nums" }}
-      >
-        {value}
-        {suffix && (
-          <Text as="span" fontSize="11px" fontWeight="semibold" color={labelColor}>
-            {" "}{suffix}
+      <HStack spacing={1.5} align="baseline" flexWrap="wrap">
+        <Text
+          fontSize="xl"
+          fontWeight="bold"
+          lineHeight={1.2}
+          color={colorScheme ? `${colorScheme}.500` : undefined}
+          sx={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {value}
+          {suffix && (
+            <Text as="span" fontSize="11px" fontWeight="semibold" color={labelColor}>
+              {" "}{suffix}
+            </Text>
+          )}
+        </Text>
+        {ratePct != null && (
+          <Text fontSize="sm" fontWeight="bold" color={pctTextColor(ratePct)} flexShrink={0} lineHeight={1}>
+            ({ratePct.toFixed(0)}%)
           </Text>
         )}
-      </Text>
+      </HStack>
       {pct != null && (
         <Progress
           value={Math.min(pct, 100)}
@@ -860,6 +1017,7 @@ function KpiCard({
 
 // ── 메인 페이지 ──────────────────────────────────────────────────────────────
 export default function VlFactoryLive() {
+  const { t } = useTranslation();
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
@@ -909,6 +1067,41 @@ export default function VlFactoryLive() {
   const avgAchievePct =
     totalTargetPerHour > 0 && activeSlotCount > 0 ? (avgPerHour / totalTargetPerHour) * 100 : null;
 
+  // ── 상위 2개 모듈 코드별 통계 ──
+  const seenModuleCodes: string[] = [];
+  const modulesByCode = new Map<string, VlLiveModule[]>();
+  for (const sc of allSchedules) {
+    for (const mod of sc.modules_by_code) {
+      if (!modulesByCode.has(mod.code)) {
+        modulesByCode.set(mod.code, []);
+        seenModuleCodes.push(mod.code);
+      }
+      modulesByCode.get(mod.code)!.push(mod);
+    }
+  }
+  const topModuleKpis = seenModuleCodes.slice(0, 2).map((code) => {
+    const mods = modulesByCode.get(code)!;
+    const slotMap: Record<number, number> = {};
+    for (const mod of mods) {
+      for (const e of mod.hourly ?? []) slotMap[e.h] = (slotMap[e.h] ?? 0) + e.qty;
+    }
+    const activeSlots = Object.values(slotMap).filter((q) => q > 0).length;
+    const avg = activeSlots > 0 ? Object.values(slotMap).reduce((s, q) => s + q, 0) / activeSlots : 0;
+    const targetSum = mods
+      .filter((m) => (m.hourly ?? []).some((e) => e.qty > 0))
+      .reduce((s, m) => s + (m.target_qty_per_hour ?? 0), 0);
+    const ratePct = targetSum > 0 && activeSlots > 0 ? (avg / targetSum) * 100 : null;
+    return { code, avg, activeSlots, targetSum, ratePct };
+  });
+
+  // ── EF 임박 스케줄 수 (D-7 이내 또는 지남) ──
+  const todayMs = new Date(); todayMs.setHours(0, 0, 0, 0);
+  const urgentCount = allSchedules.filter((sc) => {
+    if (!sc.ex_factory_date) return false;
+    const ef = new Date(sc.ex_factory_date); ef.setHours(0, 0, 0, 0);
+    return Math.round((ef.getTime() - todayMs.getTime()) / 86400000) <= 7;
+  }).length;
+
   // 현재(또는 마지막 가동) 시간대
   const isToday = date === today;
   const nowH = new Date().getHours();
@@ -957,9 +1150,9 @@ export default function VlFactoryLive() {
                   })}
                 </Text>
               )}
-              <Tooltip label="새로고침">
+              <Tooltip label={t("vlFactoryLive.refresh")}>
                 <IconButton
-                  aria-label="새로고침"
+                  aria-label={t("vlFactoryLive.refresh")}
                   icon={<FiRefreshCw />}
                   size="sm"
                   variant="ghost"
@@ -979,7 +1172,7 @@ export default function VlFactoryLive() {
             </Center>
           ) : isError ? (
             <Center h="100%">
-              <Text color="red.400">데이터를 불러올 수 없습니다.</Text>
+              <Text color="red.400">{t("vlFactoryLive.errorLoading")}</Text>
             </Center>
           ) : lines.length === 0 ? (
             <Center h="100%">
@@ -988,7 +1181,7 @@ export default function VlFactoryLive() {
                   <FiBox size={28} />
                 </Box>
                 <Text color={mutedText} fontSize="sm">
-                  해당 날짜의 진행 중인 스케줄이 없습니다.
+                  {t("vlFactoryLive.noSchedules")}
                 </Text>
               </VStack>
             </Center>
@@ -996,40 +1189,71 @@ export default function VlFactoryLive() {
             <>
               {/* 총 요약 KPI */}
               <Flex gap={2.5} flexWrap="wrap" flexShrink={0}>
+                {/* 금일 생산수량 */}
                 <KpiCard
-                  label="금일 생산수량 (전 라인)"
+                  label={t("vlFactoryLive.kpi.todayAllLines")}
                   value={todayTotal.toLocaleString()}
-                  sub={`누적 ${totalOutput.toLocaleString()} / 주문 ${totalOrder.toLocaleString()}`}
+                  sub={t("vlFactoryLive.kpi.todayAllLinesSub", { output: totalOutput.toLocaleString(), order: totalOrder.toLocaleString() })}
                 />
+                {/* 현재 시간대 */}
                 <KpiCard
-                  label="시간당 총수량"
+                  label={t("vlFactoryLive.kpi.currentSlot")}
                   value={currentSlot ? (slotTotals[currentSlot.h] ?? 0).toLocaleString() : "-"}
                   sub={
                     currentSlot
-                      ? `${isToday ? "현재 시간대" : "마지막 가동"} ${currentSlot.label}`
-                      : "가동 시간대 없음"
+                      ? t(isToday ? "vlFactoryLive.kpi.currentSlotNow" : "vlFactoryLive.kpi.currentSlotLast", { slot: currentSlot.label })
+                      : t("vlFactoryLive.kpi.noActiveSlot")
                   }
                 />
+                {/* Assembly (A) 시간당 평균 + 달성률 */}
                 <KpiCard
-                  label="시간당 평균수량"
+                  label={t("vlFactoryLive.kpi.assemblyAvg")}
                   value={activeSlotCount > 0 ? Math.round(avgPerHour).toLocaleString() : "-"}
-                  sub={`가동 시간대 ${activeSlotCount}개`}
-                />
-                <KpiCard
-                  label="시간당 평균 달성률"
-                  value={avgAchievePct != null ? String(Math.round(avgAchievePct)) : "-"}
-                  suffix={avgAchievePct != null ? "%" : undefined}
+                  suffix={activeSlotCount > 0 ? "/h" : undefined}
                   colorScheme={avgAchievePct != null ? pctColor(avgAchievePct) : undefined}
-                  pct={avgAchievePct ?? undefined}
-                  sub={`시간당 목표 합계 ${totalTargetPerHour.toLocaleString()}/h`}
+                  ratePct={avgAchievePct}
+                  sub={
+                    totalTargetPerHour > 0
+                      ? t("vlFactoryLive.detail.targetPerHour", { target: totalTargetPerHour })
+                      : t("vlFactoryLive.kpi.activeSlotsSub", { count: activeSlotCount })
+                  }
                 />
+                {/* 상위 2개 모듈 시간당 평균 */}
+                {topModuleKpis.map(({ code, avg, activeSlots, targetSum, ratePct: mRatePct }, idx) => (
+                  <KpiCard
+                    key={code}
+                    label={t("vlFactoryLive.kpi.moduleAvg", { letter: ["B", "C"][idx] })}
+                    value={activeSlots > 0 ? Math.round(avg).toLocaleString() : "-"}
+                    suffix={activeSlots > 0 ? "/h" : undefined}
+                    colorScheme={mRatePct != null ? pctColor(mRatePct) : undefined}
+                    ratePct={mRatePct}
+                    sub={targetSum > 0 ? t("vlFactoryLive.detail.targetPerHour", { target: targetSum }) : undefined}
+                  />
+                ))}
+                {/* 가동 스케줄 현황 */}
                 <KpiCard
-                  label="전체 달성률 (누적)"
+                  label={t("vlFactoryLive.kpi.activeSchedules")}
+                  value={String(activeScheduleCount)}
+                  suffix="건"
+                  sub={t("vlFactoryLive.kpi.activeSchedulesSub", { total: allSchedules.length })}
+                  colorScheme={activeScheduleCount > 0 ? "blue" : undefined}
+                />
+                {/* EF 임박 */}
+                <KpiCard
+                  label={t("vlFactoryLive.kpi.urgentEf")}
+                  value={urgentCount > 0 ? String(urgentCount) : t("vlFactoryLive.kpi.urgentEfNone")}
+                  suffix={urgentCount > 0 ? "건" : undefined}
+                  sub={urgentCount > 0 ? t("vlFactoryLive.kpi.urgentEfSub") : undefined}
+                  colorScheme={urgentCount > 0 ? "orange" : undefined}
+                />
+                {/* 전체 달성률 (누적) */}
+                <KpiCard
+                  label={t("vlFactoryLive.kpi.totalAchievement")}
                   value={String(overallPct)}
                   suffix="%"
                   colorScheme={pctColor(overallPct)}
                   pct={overallPct}
-                  sub={`라인 ${lines.length} · 스케줄 ${allSchedules.length}건 · 가동 ${activeScheduleCount}건`}
+                  sub={t("vlFactoryLive.kpi.totalAchievementSub", { lines: lines.length, schedules: allSchedules.length, active: activeScheduleCount })}
                 />
               </Flex>
 
@@ -1046,7 +1270,7 @@ export default function VlFactoryLive() {
                 >
                   {showLineSummary ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
                   <Text fontSize="xs" fontWeight="semibold">
-                    라인별 요약 {showLineSummary ? "접기" : "펼치기"}
+                    {t("vlFactoryLive.lineSummaryToggle")} {showLineSummary ? t("vlFactoryLive.collapse") : t("vlFactoryLive.expand")}
                   </Text>
                 </Flex>
                 <Collapse in={showLineSummary} animateOpacity>
@@ -1060,7 +1284,7 @@ export default function VlFactoryLive() {
               <Box overflowX="auto">
                 <Flex gap={3} align="flex-start" width="max-content">
                   {lines.map((line) => (
-                    <LineColumn key={line.line_name} line={line} />
+                    <LineColumn key={line.line_name} line={line} date={date} />
                   ))}
                 </Flex>
               </Box>

@@ -100,7 +100,6 @@ import EpSjNoDetail from "./routes/EpSjNoDetail";
 import EpModuleDetail from "./routes/EpModuleDetail";
 import EpProcessDetail from "./routes/EpProcessDetail";
 import EpProcessWorkOrderPrint from "./routes/EpProcessWorkOrderPrint";
-import EpDashboard from "./routes/EpDashboard";
 import EpProductionDailyOutputList from "./routes/EpProductionDailyOutputList";
 import EpProductionDailyOutputDetail from "./routes/EpProductionDailyOutputDetail";
 import EpInspectionList from "./routes/EpInspectionList";
@@ -137,6 +136,9 @@ import HotColdPressIoTCycleDetail from "./routes/HotColdPressIoTCycleDetail";
 import WeldingRoom from "./routes/WeldingRoom";
 import IotSetupMobile from "./routes/IotSetupMobile";
 import VlFactoryLive from "./routes/VlFactoryLive";
+import VlFactoryLiveScheduleDetail from "./routes/VlFactoryLiveScheduleDetail";
+import VlFactoryLiveAssemblyDisplay from "./routes/VlFactoryLiveAssemblyDisplay";
+import VlFactoryLiveModuleDisplay from "./routes/VlFactoryLiveModuleDisplay";
 import VlErpDashboard from "./routes/VlErpDashboard";
 const router = createBrowserRouter([
   {
@@ -146,11 +148,11 @@ const router = createBrowserRouter([
     children: [
       {
         path: "",
-        element: <LoginPage />
+        element: <VlFactoryLive />
       },
       {
         path: "home",
-        element: <EpDashboard />
+        element: <VlFactoryLive />
       },
       {
         path: "tools",
@@ -698,10 +700,23 @@ const router = createBrowserRouter([
         element: <VlFactoryLive />
       },
       {
+        path: "vl-factory-live/schedules/:schedulePk",
+        element: <VlFactoryLiveScheduleDetail />
+      },
+      {
         path: "vl-erp-dashboard",
         element: <VlErpDashboard />
       }
     ]
+  },
+  // ── 모니터 디스플레이 페이지 (Navbar 없음, 로그인 불필요) ────────────
+  {
+    path: "/vl-factory-live/schedules/:schedulePk/assembly",
+    element: <VlFactoryLiveAssemblyDisplay />,
+  },
+  {
+    path: "/vl-factory-live/schedules/:schedulePk/modules/:moduleCode",
+    element: <VlFactoryLiveModuleDisplay />,
   },
   // ── 공개 페이지 (로그인 불필요 — QR 스캔용) ──────────────────────────
   {
