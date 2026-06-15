@@ -5256,13 +5256,15 @@ export const getVlFactoryLiveDashboard = (date?: string): Promise<{
     .get("vl-assembly-production/factory-live/", { params: date ? { date } : {} })
     .then((r) => r.data);
 
-export type VlLiveSjNo = { pk: number; sj_no: string; output_qty: number; target_qty_per_hour: number | null };
+export type VlLiveSjNo = { pk: number; sj_no: string; output_qty: number; total_qty: number | null; target_qty_per_hour: number | null };
 export type VlLiveHourly = { h: number; qty: number };
-export type VlLiveModule = { code: string; name: string; total_qty: number; output_qty: number; status: string; target_qty_per_hour: number | null; hourly: VlLiveHourly[] };
+export type VlLiveModuleInstance = { pk: number; sj_no: string; total_qty: number; output_qty: number };
+export type VlLiveModule = { code: string; name: string; total_qty: number; output_qty: number; status: string; target_qty_per_hour: number | null; hourly: VlLiveHourly[]; instances: VlLiveModuleInstance[] };
 export type VlLiveSchedule = {
   pk: number;
   po_no: string;
   style_name: string;
+  style_code: string | null;
   ex_factory_date: string;
   thumbnail: string | null;
   total_order_qty: number;
@@ -5283,4 +5285,41 @@ export type VlLiveScheduleResponse = { date: string; lines: VlLiveLine[] };
 export const getVlFactoryLiveSchedules = (date?: string): Promise<VlLiveScheduleResponse> =>
   instance
     .get("vl-assembly-production/factory-live/schedules/", { params: date ? { date } : {} })
+    .then((r) => r.data);
+
+export type VlLiveScheduleDetailResponse = {
+  date: string;
+  line_name: string;
+  schedule: VlLiveSchedule;
+};
+
+export const getVlFactoryLiveScheduleDetail = (
+  pk: number,
+  date?: string,
+): Promise<VlLiveScheduleDetailResponse> =>
+  instance
+    .get(`vl-assembly-production/factory-live/schedules/${pk}/`, { params: date ? { date } : {} })
+    .then((r) => r.data);
+
+export const createVlAssemblyDailyOutput = (data: {
+  vl_assembly_schedule: number;
+  vl_assembly_sj_no?: number | null;
+  qty: number;
+  remark?: string;
+}) =>
+  instance
+    .post("vl-assembly-production/schedule-daily-outputs/", data, {
+      headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+    })
+    .then((r) => r.data);
+
+export const createVlModuleDailyOutput = (data: {
+  vl_assembly_module: number;
+  qty: number;
+  remark?: string;
+}) =>
+  instance
+    .post("vl-assembly-production/module-daily-outputs/", data, {
+      headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+    })
     .then((r) => r.data);
