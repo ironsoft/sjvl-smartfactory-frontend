@@ -447,18 +447,6 @@ export default function VlFactoryLiveScheduleDetail() {
                         {t("vlFactoryLive.detail.schedule")}
                       </Text>
                       <Text fontSize="sm" fontWeight="medium">#{schedule.pk}</Text>
-                      <Link
-                        as={RouterLink}
-                        to={`/vl-assembly-production/${schedule.pk}`}
-                        target={isPopup ? "_blank" : undefined}
-                        fontSize="xs"
-                        color="blue.400"
-                        display="inline-flex"
-                        alignItems="center"
-                        gap="3px"
-                      >
-                        {t("vlFactoryLive.detail.scheduleDetail")} <FiExternalLink size={11} />
-                      </Link>
                     </VStack>
                   </Flex>
 
