@@ -80,7 +80,7 @@ export default function VlAssemblyProductionDailyOutputList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useUser();
+  const { user, isLoggedIn } = useUser();
   const isWorker = user?.role === "worker";
   const { isOpen, onOpen, onClose: closeDisclosure } = useDisclosure();
   const [qrScanPrefill, setQrScanPrefill] = useState(false);
@@ -114,6 +114,11 @@ export default function VlAssemblyProductionDailyOutputList() {
       searchParams.get("vl_assembly_module") ?? searchParams.get("ep_module");
 
     if (!procParam && !moduleParam) return;
+
+    if (!isLoggedIn) {
+      navigate("/users/login");
+      return;
+    }
 
     let cancelled = false;
     (async () => {
@@ -204,7 +209,7 @@ export default function VlAssemblyProductionDailyOutputList() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, navigate, toast, t, onOpen]);
+  }, [searchParams, navigate, toast, t, onOpen, isLoggedIn]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -422,6 +427,10 @@ export default function VlAssemblyProductionDailyOutputList() {
   };
 
   const openModal = () => {
+    if (!isLoggedIn) {
+      navigate("/users/login");
+      return;
+    }
     resetModalForm();
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
