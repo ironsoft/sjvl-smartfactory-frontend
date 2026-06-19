@@ -5455,3 +5455,67 @@ export const createVlModuleDailyOutput = (data: {
       headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
     })
     .then((r) => r.data);
+
+// ── Welding Room Press Jobs ───────────────────────────────────────────────────
+
+export interface IWeldingPressJob {
+  pk: number;
+  machine_iot_id: string;
+  process_name: string;
+  style_number: string;
+  std_hot_temp_c: string;
+  std_cold_temp_c: string;
+  std_hot_duration_s: string;
+  std_cold_duration_s: string;
+  std_cycle_duration_s: string;
+  tolerance_temp_c: string;
+  tolerance_duration_s: string;
+  started_at: string;
+  ended_at: string | null;
+  created_by_username: string;
+}
+
+export const getWeldingPressJobs = async (
+  machineIotId: string
+): Promise<IWeldingPressJob[]> => {
+  const r = await instance.get("welding-room/press-jobs/", {
+    params: { machine_iot_id: machineIotId },
+  });
+  return r.data;
+};
+
+export const getActiveWeldingPressJob = async (
+  machineIotId: string
+): Promise<IWeldingPressJob | null> => {
+  const r = await instance.get("welding-room/press-jobs/", {
+    params: { machine_iot_id: machineIotId, active: "true" },
+  });
+  return Array.isArray(r.data) ? (r.data[0] ?? null) : null;
+};
+
+export const createWeldingPressJob = async (data: {
+  machine_iot_id: string;
+  process_name: string;
+  style_number?: string;
+  std_hot_temp_c: string;
+  std_cold_temp_c: string;
+  std_hot_duration_s: string;
+  std_cold_duration_s: string;
+  std_cycle_duration_s: string;
+  tolerance_temp_c: string;
+  tolerance_duration_s: string;
+}): Promise<IWeldingPressJob> => {
+  const r = await instance.post("welding-room/press-jobs/", data, {
+    headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+  });
+  return r.data;
+};
+
+export const endWeldingPressJob = async (pk: number): Promise<IWeldingPressJob> => {
+  const r = await instance.patch(
+    `welding-room/press-jobs/${pk}/`,
+    { ended_at: new Date().toISOString() },
+    { headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" } }
+  );
+  return r.data;
+};

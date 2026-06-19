@@ -206,3 +206,9 @@ export const miscKeys = {
   tools: () => ["tools"] as const,
   wishList: () => ["wishList"] as const,
 } as const;
+
+// ── Welding Room Press Jobs ───────────────────────────────────────────────────
+export const weldingPressJobKeys = {
+  active: (machineIotId: string) => ["weldingPressJobActive", machineIotId] as const,
+  list: (machineIotId: string) => ["weldingPressJobList", machineIotId] as const,
+} as const;
