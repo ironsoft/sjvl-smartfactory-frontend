@@ -5519,3 +5519,37 @@ export const endWeldingPressJob = async (pk: number): Promise<IWeldingPressJob> 
   );
   return r.data;
 };
+
+// ── AI Analysis — Hot Cold Press ──────────────────────────────────────────────
+
+export interface IHotColdPressAnalysisRequest {
+  machine_iot_id: string;
+  hot_temp: number;
+  cold_temp: number;
+  hot_duration: number | null;
+  cold_duration: number | null;
+  cycle_count: number | null;
+  std_hot_temp: number;
+  std_cold_temp: number;
+  std_hot_duration: number;
+  std_cold_duration: number;
+  tolerance_temp?: number;
+  tolerance_duration?: number;
+  language?: string;
+}
+
+export interface IHotColdPressAnalysisResponse {
+  severity: "ok" | "warning" | "critical";
+  summary: string;
+  issues: string[];
+  recommendations: string[];
+}
+
+export const analyzeHotColdPress = async (
+  data: IHotColdPressAnalysisRequest
+): Promise<IHotColdPressAnalysisResponse> => {
+  const r = await instance.post("ai-analysis/hot-cold-press/", data, {
+    headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+  });
+  return r.data;
+};
