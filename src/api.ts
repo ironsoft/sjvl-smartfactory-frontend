@@ -5187,10 +5187,15 @@ export interface IMachinePlacement {
   iot_std_hot_temp_c?: number | null;
   iot_std_cold_temp_c?: number | null;
   iot_tolerance_temp_c?: number | null;
+  iot_std_hot_duration_s?: number | null;
+  iot_std_cold_duration_s?: number | null;
+  iot_tolerance_duration_s?: number | null;
   pos_x: number;
   pos_z: number;
   rot_y: number;
   scale: number;
+  card_offset_x: number;
+  card_offset_y: number;
 }
 
 export interface IWeldingRoom {
@@ -5215,12 +5220,138 @@ export const addMachinePlacement = (data: {
 
 export const updateMachinePlacement = (
   pk: number,
-  data: Partial<{ pos_x: number; pos_z: number; rot_y: number; scale: number }>
+  data: Partial<{ pos_x: number; pos_z: number; rot_y: number; scale: number; card_offset_x: number; card_offset_y: number }>
 ): Promise<IMachinePlacement> =>
   instance.patch(`welding-room/placements/${pk}/`, data).then((r) => r.data);
 
 export const removeMachinePlacement = (pk: number): Promise<void> =>
   instance.delete(`welding-room/placements/${pk}/`).then((r) => r.data);
+
+// ── Factory Overview AI Analysis ──────────────────────────────────────────
+
+export interface IFactoryMachineInput {
+  machine_name: string;
+  machine_iot_id: string;
+  hot_temp: number | null;
+  cold_temp: number | null;
+  std_hot_temp: number | null;
+  std_cold_temp: number | null;
+  tolerance_temp: number;
+  is_connected: boolean;
+}
+
+export interface IFactoryMachineIssue {
+  machine_name: string;
+  issue: string;
+  severity: string;
+}
+
+export interface IFactoryOverviewAnalysisResponse {
+  summary: string;
+  overall_severity: "ok" | "warning" | "critical";
+  machine_issues: IFactoryMachineIssue[];
+  recommendations: string[];
+}
+
+export type FactoryStreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; result: IFactoryOverviewAnalysisResponse }
+  | { type: "error"; text: string };
+
+export async function* streamFactoryOverview(
+  machines: IFactoryMachineInput[],
+  language = "ko"
+): AsyncGenerator<FactoryStreamEvent> {
+  const baseURL = getApiBaseURL();
+  const response = await fetch(`${baseURL}ai-analysis/factory-overview/stream/`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": Cookies.get("csrftoken") || "",
+    },
+    body: JSON.stringify({ machines, language }),
+  });
+
+  if (!response.ok || !response.body) {
+    yield { type: "error", text: `HTTP ${response.status}` };
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      try {
+        const event = JSON.parse(line.slice(6)) as FactoryStreamEvent;
+        yield event;
+      } catch {}
+    }
+  }
+}
+
+// ── AI Analysis Reports ────────────────────────────────────────────────────
+
+export interface IAIAnalysisLangContent {
+  summary: string;
+  machine_issues: IFactoryMachineIssue[];
+  recommendations: string[];
+}
+
+export interface IAIAnalysisReport {
+  id: number;
+  source_page: "ep_dashboard" | "welding_room";
+  overall_severity: "ok" | "warning" | "critical";
+  machine_count: number;
+  primary_language: string;
+  content: Record<string, IAIAnalysisLangContent>;
+  created_at: string;
+  created_by: number | null;
+  created_by_username: string | null;
+}
+
+export interface ISaveAIAnalysisReportParams {
+  source_page: "ep_dashboard" | "welding_room";
+  overall_severity: string;
+  summary: string;
+  machine_issues: IFactoryMachineIssue[];
+  recommendations: string[];
+  language: string;
+  machine_count: number;
+}
+
+export const saveAIAnalysisReport = async (
+  data: ISaveAIAnalysisReportParams
+): Promise<IAIAnalysisReport> => {
+  const r = await instance.post("ai-analysis/reports/", data, {
+    headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+  });
+  return r.data;
+};
+
+export const getAIAnalysisReports = async (): Promise<IAIAnalysisReport[]> => {
+  const r = await instance.get("ai-analysis/reports/");
+  return r.data;
+};
+
+export const getAIAnalysisReport = async (id: number): Promise<IAIAnalysisReport> => {
+  const r = await instance.get(`ai-analysis/reports/${id}/`);
+  return r.data;
+};
+
+export const deleteAIAnalysisReport = async (id: number): Promise<void> => {
+  await instance.delete(`ai-analysis/reports/${id}/`, {
+    headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+  });
+};
 
 export const getVlFactoryLiveDashboard = (date?: string): Promise<{
   ErrCode: string;

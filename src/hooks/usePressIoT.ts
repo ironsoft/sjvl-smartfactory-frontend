@@ -2,16 +2,21 @@ import mqtt from "mqtt";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface PressIoTReading {
-  value_temp_1: number; // Hot Temp °C
-  value_temp_2: number; // Cold Temp °C
-  value_run_ok: number; // cycle count
-  receivedAt: number;   // Date.now()
+  value_temp_1: number;      // Hot Temp °C
+  value_temp_2: number;      // Cold Temp °C
+  value_run_ok: number;      // legacy cycle count
+  value_time_hot?: number;   // Hot press duration (s)
+  value_time_cold?: number;  // Cold press duration (s)
+  value_time_cycle?: number; // Cycle count (hot+cold = 1 cycle)
+  receivedAt: number;        // Date.now()
 }
 
 export interface PressIoTCycle {
   cycleNo: number;
   hotTemp: number;
   coldTemp: number;
+  hotDuration?: number;
+  coldDuration?: number;
   completedAt: number;
 }
 
@@ -82,12 +87,18 @@ export function usePressIoT(machineIotId?: string) {
           value_temp_1: number;
           value_temp_2: number;
           value_run_ok: number;
+          value_time_hot?: number;
+          value_time_cold?: number;
+          value_time_cycle?: number;
         };
 
         const reading: PressIoTReading = {
           value_temp_1: data.value_temp_1,
           value_temp_2: data.value_temp_2,
           value_run_ok: data.value_run_ok,
+          value_time_hot: data.value_time_hot,
+          value_time_cold: data.value_time_cold,
+          value_time_cycle: data.value_time_cycle,
           receivedAt: Date.now(),
         };
 
@@ -97,14 +108,15 @@ export function usePressIoT(machineIotId?: string) {
           return next.length > MAX_HISTORY ? next.slice(-MAX_HISTORY) : next;
         });
 
-        if (
-          lastCycleNoRef.current !== null &&
-          data.value_run_ok > lastCycleNoRef.current
-        ) {
+        // Use value_time_cycle if available, fall back to value_run_ok
+        const cycleNo = data.value_time_cycle ?? data.value_run_ok;
+        if (lastCycleNoRef.current !== null && cycleNo > lastCycleNoRef.current) {
           const newCycle: PressIoTCycle = {
-            cycleNo: data.value_run_ok,
+            cycleNo,
             hotTemp: data.value_temp_1,
             coldTemp: data.value_temp_2,
+            hotDuration: data.value_time_hot,
+            coldDuration: data.value_time_cold,
             completedAt: Date.now(),
           };
           setCycles((prev) => {
@@ -112,7 +124,7 @@ export function usePressIoT(machineIotId?: string) {
             return next.length > MAX_CYCLES ? next.slice(0, MAX_CYCLES) : next;
           });
         }
-        lastCycleNoRef.current = data.value_run_ok;
+        lastCycleNoRef.current = cycleNo;
       } catch {
         // ignore malformed messages
       }

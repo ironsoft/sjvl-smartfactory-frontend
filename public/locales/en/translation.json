@@ -845,6 +845,58 @@
       "heading": "EP Production KPI",
       "subtitleRealtime": "Real-time overview",
       "liveBadge": "LIVE",
+      "displayMode": "Factory Display Mode",
+      "aiAnalysis": {
+        "button": "AI Factory Analysis",
+        "loading": "Analyzing...",
+        "historyButton": "Analysis History",
+        "modalTitle": "AI Factory Overview Analysis",
+        "saveSuccess": "Report saved successfully.",
+        "saveError": "Failed to save report.",
+        "savingStep1": "Collecting data...",
+        "savingStep2": "AI is analyzing...",
+        "savingStep3": "Writing report...",
+        "savingStep4": "Organizing results...",
+        "savingStep5": "Saving...",
+        "saveButton": "Save Report",
+        "saveReport": "Save Report",
+        "savedBadge": "Saved",
+        "alreadySaved": "Saved",
+        "reanalyze": "Re-analyze",
+        "close": "Close",
+        "streamTitle": "AI Deep Analysis...",
+        "streamFinalizing": "Finalizing results...",
+        "streamStep1": "Collecting IoT data",
+        "streamStep2": "Analyzing anomaly patterns",
+        "streamStep3": "Assessing risk levels",
+        "streamStep4": "Generating recommendations",
+        "overallStatus": "Overall Status",
+        "problematicMachines": "Issues Detected",
+        "allNormal": "All machines are operating within normal range.",
+        "recommendations": "Recommendations",
+        "severity": {
+          "ok": "OK",
+          "warning": "Warning",
+          "critical": "Critical"
+        }
+      },
+      "machineKpi": {
+        "totalPlaced": "Machines Placed",
+        "running": "Running",
+        "abnormal": "Abnormal"
+      },
+      "machineSummary": {
+        "title": "Machine Status Summary",
+        "running": "Running",
+        "stopped": "Stopped",
+        "noIot": "No IoT",
+        "normal": "Normal",
+        "abnormal": "Abnormal"
+      },
+      "recentAi": {
+        "title": "Recent AI Analysis",
+        "viewAll": "View All"
+      },
       "kpi": {
         "monthlyOutput": "Monthly Output",
         "monthlyOutputHelp": "vs 15,000 target",
@@ -891,7 +943,34 @@
       "todaySectionTitle": "Today's Status",
       "outputSectionLabel": "Output",
       "inspectionSectionLabel": "Inspection",
-      "viewReport": "View Report"
+      "viewReport": "View Report",
+      "layout": {
+        "saveLayout": "Save Layout",
+        "saving": "Saving...",
+        "editLayout": "Edit Layout",
+        "editDone": "Done Editing",
+        "unplacedMachines": "Unplaced Machines ({{count}})",
+        "allPlaced": "All machines are placed.",
+        "dropHint": "Drop here to place",
+        "editModeBadge": "Edit mode — drag to move",
+        "rotate": "Rotate:",
+        "remove": "Remove",
+        "placedMachines": "Placed Machines ({{count}})",
+        "dragToPlace": "Drag a machine from the left.",
+        "noPlaced": "No machines placed.",
+        "saveSuccess": "Layout saved.",
+        "saveFailed": "Save failed",
+        "placedSuccess": "Machine placed.",
+        "placeFailed": "Place failed (already placed)",
+        "positionFailed": "Position save failed",
+        "removedSuccess": "Machine removed.",
+        "removeFailed": "Remove failed",
+        "machineDetails": "Machine Details"
+      },
+      "machineCard": {
+        "running": "Running",
+        "stopped": "Stopped"
+      }
     },
     "dailyOutput": {
       "pageTitle": "EP Production Output Record",
@@ -2691,6 +2770,26 @@
       "register": "Register",
       "registerSuccess": "Output registered successfully",
       "registerFailed": "Failed to register output"
+    }
+  },
+  "pressIoT": {
+    "hotTemp": "Hot Temp",
+    "coldTemp": "Cold Temp",
+    "hotDuration": "Hot Duration",
+    "coldDuration": "Cold Duration",
+    "cycleCount": "Cycle Count",
+    "lastUpdate": "Last Update",
+    "tempHistory": "Temperature History",
+    "cycleHistory": "Cycle History (this session)",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "connectionOff": "Connection is off.",
+    "waitingData": "Connected — waiting for data…",
+    "waitingForCycle": "Waiting for cycle…",
+    "cyclesDetected": "{{count}} cycle(s) detected",
+    "table": {
+      "cycleNo": "Cycle #",
+      "completedAt": "Completed At"
     }
   }
 }

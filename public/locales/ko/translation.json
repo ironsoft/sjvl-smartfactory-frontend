@@ -845,6 +845,58 @@
       "heading": "EP 생산 KPI",
       "subtitleRealtime": "실시간 요약",
       "liveBadge": "LIVE",
+      "displayMode": "현장 디스플레이 모드",
+      "aiAnalysis": {
+        "button": "AI 전체 분석",
+        "loading": "AI 분석 중...",
+        "historyButton": "분석 기록",
+        "modalTitle": "공장 전체 AI 분석",
+        "saveSuccess": "분석 결과가 저장되었습니다.",
+        "saveError": "저장에 실패했습니다.",
+        "savingStep1": "데이터를 수집하고 있습니다...",
+        "savingStep2": "AI가 분석 중입니다...",
+        "savingStep3": "보고서를 작성하고 있습니다...",
+        "savingStep4": "결과를 정리하고 있습니다...",
+        "savingStep5": "저장을 완료하고 있습니다...",
+        "saveButton": "결과 저장",
+        "saveReport": "분석 저장",
+        "savedBadge": "저장됨",
+        "alreadySaved": "저장됨",
+        "reanalyze": "재분석",
+        "close": "닫기",
+        "streamTitle": "AI 심층 분석 중…",
+        "streamFinalizing": "결과 정리 중…",
+        "streamStep1": "IoT 데이터 수집",
+        "streamStep2": "이상 패턴 분석",
+        "streamStep3": "위험도 평가",
+        "streamStep4": "권고안 생성",
+        "overallStatus": "전체 현황",
+        "problematicMachines": "문제 감지 기계",
+        "allNormal": "모든 기계가 정상 범위 내에서 운영 중입니다.",
+        "recommendations": "권장 조치",
+        "severity": {
+          "ok": "정상",
+          "warning": "주의",
+          "critical": "위험"
+        }
+      },
+      "machineKpi": {
+        "totalPlaced": "배치 기계",
+        "running": "가동 중",
+        "abnormal": "이상 감지"
+      },
+      "machineSummary": {
+        "title": "기계 상태 요약",
+        "running": "가동 중",
+        "stopped": "정지",
+        "noIot": "IoT 미연결",
+        "normal": "정상",
+        "abnormal": "이상"
+      },
+      "recentAi": {
+        "title": "최근 AI 분석",
+        "viewAll": "전체 보기"
+      },
       "kpi": {
         "monthlyOutput": "월간 생산량",
         "monthlyOutputHelp": "목표 15,000 대비",
@@ -891,7 +943,34 @@
       "todaySectionTitle": "오늘 현황",
       "outputSectionLabel": "생산 실적",
       "inspectionSectionLabel": "검사 현황",
-      "viewReport": "리포트 보기"
+      "viewReport": "리포트 보기",
+      "layout": {
+        "saveLayout": "배치 저장하기",
+        "saving": "저장 중...",
+        "editLayout": "배치 편집",
+        "editDone": "편집 완료",
+        "unplacedMachines": "미배치 기계 ({{count}})",
+        "allPlaced": "모든 기계가 배치되었습니다.",
+        "dropHint": "여기에 놓아서 배치",
+        "editModeBadge": "편집 모드 — 기계를 드래그하여 이동",
+        "rotate": "회전:",
+        "remove": "제거",
+        "placedMachines": "배치된 기계 ({{count}})",
+        "dragToPlace": "왼쪽에서 기계를 드래그하세요.",
+        "noPlaced": "배치된 기계가 없습니다.",
+        "saveSuccess": "배치가 저장되었습니다.",
+        "saveFailed": "저장 실패",
+        "placedSuccess": "기계가 배치되었습니다.",
+        "placeFailed": "배치 실패 (이미 배치된 기계)",
+        "positionFailed": "위치 저장 실패",
+        "removedSuccess": "기계가 제거되었습니다.",
+        "removeFailed": "제거 실패",
+        "machineDetails": "기계 상세 보기"
+      },
+      "machineCard": {
+        "running": "가동 중",
+        "stopped": "정지"
+      }
     },
     "dailyOutput": {
       "pageTitle": "EP 생산 실적 기록",
@@ -2691,6 +2770,26 @@
       "register": "등록",
       "registerSuccess": "실적이 등록되었습니다",
       "registerFailed": "등록에 실패했습니다"
+    }
+  },
+  "pressIoT": {
+    "hotTemp": "핫 온도",
+    "coldTemp": "콜드 온도",
+    "hotDuration": "핫 지속시간",
+    "coldDuration": "콜드 지속시간",
+    "cycleCount": "사이클 횟수",
+    "lastUpdate": "마지막 업데이트",
+    "tempHistory": "온도 이력",
+    "cycleHistory": "사이클 이력 (이번 세션)",
+    "connect": "연결",
+    "disconnect": "연결 해제",
+    "connectionOff": "연결이 꺼져 있습니다.",
+    "waitingData": "연결됨 — 데이터 대기 중…",
+    "waitingForCycle": "사이클 감지 대기 중…",
+    "cyclesDetected": "{{count}}개 사이클 감지됨",
+    "table": {
+      "cycleNo": "사이클 #",
+      "completedAt": "완료 시각"
     }
   }
 }

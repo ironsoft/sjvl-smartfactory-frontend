@@ -845,6 +845,58 @@
       "heading": "KPI sản xuất EP",
       "subtitleRealtime": "Tổng quan thời gian thực",
       "liveBadge": "TRỰC TIẾP",
+      "displayMode": "Chế độ hiển thị xưởng",
+      "aiAnalysis": {
+        "button": "Phân tích AI toàn nhà máy",
+        "loading": "Đang phân tích...",
+        "historyButton": "Lịch sử phân tích",
+        "modalTitle": "Phân tích tổng quan AI",
+        "saveSuccess": "Đã lưu báo cáo thành công.",
+        "saveError": "Lưu báo cáo thất bại.",
+        "savingStep1": "Đang thu thập dữ liệu...",
+        "savingStep2": "AI đang phân tích...",
+        "savingStep3": "Đang viết báo cáo...",
+        "savingStep4": "Đang sắp xếp kết quả...",
+        "savingStep5": "Đang lưu...",
+        "saveButton": "Lưu báo cáo",
+        "saveReport": "Lưu báo cáo",
+        "savedBadge": "Đã lưu",
+        "alreadySaved": "Đã lưu",
+        "reanalyze": "Phân tích lại",
+        "close": "Đóng",
+        "streamTitle": "AI đang phân tích chuyên sâu…",
+        "streamFinalizing": "Đang hoàn thiện kết quả…",
+        "streamStep1": "Thu thập dữ liệu IoT",
+        "streamStep2": "Phân tích bất thường",
+        "streamStep3": "Đánh giá rủi ro",
+        "streamStep4": "Tạo khuyến nghị",
+        "overallStatus": "Tổng quan",
+        "problematicMachines": "Máy có vấn đề",
+        "allNormal": "Tất cả máy đang hoạt động trong phạm vi bình thường.",
+        "recommendations": "Khuyến nghị",
+        "severity": {
+          "ok": "Ổn",
+          "warning": "Cảnh báo",
+          "critical": "Nguy hiểm"
+        }
+      },
+      "machineKpi": {
+        "totalPlaced": "Máy đã bố trí",
+        "running": "Đang chạy",
+        "abnormal": "Bất thường"
+      },
+      "machineSummary": {
+        "title": "Tóm tắt trạng thái máy",
+        "running": "Đang chạy",
+        "stopped": "Dừng",
+        "noIot": "Không có IoT",
+        "normal": "Bình thường",
+        "abnormal": "Bất thường"
+      },
+      "recentAi": {
+        "title": "Phân tích AI gần đây",
+        "viewAll": "Xem tất cả"
+      },
       "kpi": {
         "monthlyOutput": "Sản lượng tháng",
         "monthlyOutputHelp": "so với mục tiêu 15.000",
@@ -891,7 +943,34 @@
       "todaySectionTitle": "Tình hình hôm nay",
       "outputSectionLabel": "Sản lượng",
       "inspectionSectionLabel": "Kiểm tra",
-      "viewReport": "Xem báo cáo"
+      "viewReport": "Xem báo cáo",
+      "layout": {
+        "saveLayout": "Lưu bố cục",
+        "saving": "Đang lưu...",
+        "editLayout": "Chỉnh sửa bố cục",
+        "editDone": "Hoàn tất chỉnh sửa",
+        "unplacedMachines": "Máy chưa đặt ({{count}})",
+        "allPlaced": "Tất cả máy đã được đặt.",
+        "dropHint": "Thả vào đây để đặt",
+        "editModeBadge": "Chế độ chỉnh sửa — kéo để di chuyển",
+        "rotate": "Xoay:",
+        "remove": "Xóa",
+        "placedMachines": "Máy đã đặt ({{count}})",
+        "dragToPlace": "Kéo máy từ bên trái.",
+        "noPlaced": "Không có máy nào được đặt.",
+        "saveSuccess": "Đã lưu bố cục.",
+        "saveFailed": "Lưu thất bại",
+        "placedSuccess": "Đã đặt máy.",
+        "placeFailed": "Đặt thất bại (máy đã được đặt)",
+        "positionFailed": "Lưu vị trí thất bại",
+        "removedSuccess": "Đã xóa máy.",
+        "removeFailed": "Xóa thất bại",
+        "machineDetails": "Chi tiết máy"
+      },
+      "machineCard": {
+        "running": "Đang chạy",
+        "stopped": "Đã dừng"
+      }
     },
     "dailyOutput": {
       "pageTitle": "Bản ghi sản lượng EP",
@@ -2691,6 +2770,26 @@
       "register": "Đăng ký",
       "registerSuccess": "Đã đăng ký thành công",
       "registerFailed": "Đăng ký thất bại"
+    }
+  },
+  "pressIoT": {
+    "hotTemp": "Nhiệt độ nóng",
+    "coldTemp": "Nhiệt độ lạnh",
+    "hotDuration": "Thời gian nóng",
+    "coldDuration": "Thời gian lạnh",
+    "cycleCount": "Số chu kỳ",
+    "lastUpdate": "Cập nhật cuối",
+    "tempHistory": "Lịch sử nhiệt độ",
+    "cycleHistory": "Lịch sử chu kỳ (phiên này)",
+    "connect": "Kết nối",
+    "disconnect": "Ngắt kết nối",
+    "connectionOff": "Kết nối đang tắt.",
+    "waitingData": "Đã kết nối — đang chờ dữ liệu…",
+    "waitingForCycle": "Đang chờ chu kỳ…",
+    "cyclesDetected": "Đã phát hiện {{count}} chu kỳ",
+    "table": {
+      "cycleNo": "Chu kỳ #",
+      "completedAt": "Hoàn thành lúc"
     }
   }
 }

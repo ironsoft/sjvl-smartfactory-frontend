@@ -38,6 +38,9 @@ export function useAllPressIoT(): AllPressIoTMap {
           value_temp_1: number;
           value_temp_2: number;
           value_run_ok: number;
+          value_time_hot?: number;
+          value_time_cold?: number;
+          value_time_cycle?: number;
         };
 
         // Extract machineId from topic (press_machine/1 → "1") or payload field
@@ -49,6 +52,9 @@ export function useAllPressIoT(): AllPressIoTMap {
           value_temp_1: data.value_temp_1,
           value_temp_2: data.value_temp_2,
           value_run_ok: data.value_run_ok,
+          value_time_hot: data.value_time_hot,
+          value_time_cold: data.value_time_cold,
+          value_time_cycle: data.value_time_cycle,
           receivedAt: Date.now(),
         };
 
