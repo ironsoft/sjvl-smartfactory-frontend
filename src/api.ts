@@ -5243,8 +5243,9 @@ export interface IFactoryMachineInput {
 
 export interface IFactoryMachineIssue {
   machine_name: string;
-  issue: string;
-  severity: string;
+  machine_iot_id: string;
+  severity: "ok" | "warning" | "critical";
+  issues: string[];
 }
 
 export interface IFactoryOverviewAnalysisResponse {
