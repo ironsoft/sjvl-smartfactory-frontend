@@ -4994,6 +4994,7 @@ export interface IHotColdPressSetup {
   std_cold_duration_s: string;
   std_cycle_duration_s: string;
   tolerance_temp_c: string;
+  tolerance_duration_s: string;
   last_heartbeat_at: string | null;
   is_connected: boolean;
   created_at: string;
