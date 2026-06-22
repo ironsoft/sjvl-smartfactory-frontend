@@ -418,7 +418,7 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
             border="1px solid"
             borderColor={borderColor}
             cursor={schedule.thumbnail ? "zoom-in" : "default"}
-            onClick={schedule.thumbnail ? onImgOpen : undefined}
+            onClick={schedule.thumbnail ? (e) => { e.stopPropagation(); onImgOpen(); } : undefined}
           >
             {schedule.thumbnail ? (
               <Image

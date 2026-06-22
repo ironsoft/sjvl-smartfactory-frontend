@@ -1,12 +1,25 @@
 import {
+  Alert,
+  AlertIcon,
   Badge,
   Box,
   Button,
   Divider,
   HStack,
   Heading,
+  IconButton,
+  List,
+  ListItem,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Spinner,
   Text,
+  Tooltip,
   VStack,
   useColorModeValue,
   useDisclosure,
@@ -14,7 +27,9 @@ import {
 } from "@chakra-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { FaTrash } from "react-icons/fa";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { FaBrain, FaChevronRight, FaCompress, FaExpand, FaExternalLinkAlt, FaHistory, FaTrash } from "react-icons/fa";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
@@ -24,8 +39,13 @@ import {
   addMachinePlacement,
   updateMachinePlacement,
   removeMachinePlacement,
+  streamFactoryOverview,
+  saveAIAnalysisReport,
+  getAIAnalysisReports,
   IMachinePlacement,
   IWeldingRoom,
+  IFactoryOverviewAnalysisResponse,
+  IAIAnalysisReport,
 } from "../api";
 import { useAllPressIoT, AllPressIoTMap } from "../hooks/useAllPressIoT";
 import { usePressIoT } from "../hooks/usePressIoT";
@@ -53,18 +73,18 @@ function MachineInfoOverlay({
   sceneRef,
   canvasRef,
   onCardClick,
+  offsetRefs,
 }: {
   placements: IMachinePlacement[];
   readings: AllPressIoTMap;
   sceneRef: React.MutableRefObject<SceneState | null>;
   canvasRef: React.MutableRefObject<HTMLCanvasElement | null>;
   onCardClick: (placement: IMachinePlacement) => void;
+  offsetRefs: React.MutableRefObject<Map<number, { dx: number; dy: number }>>;
 }) {
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const lineRefs = useRef<Map<number, SVGLineElement>>(new Map());
   const rafRef = useRef<number>(0);
-  // 카드별 드래그 오프셋 (px)
-  const offsetRefs = useRef<Map<number, { dx: number; dy: number }>>(new Map());
   const dragState = useRef<{
     pk: number; startX: number; startY: number; startDx: number; startDy: number;
   } | null>(null);
@@ -366,11 +386,14 @@ function MachineInfoOverlay({
 
 // ── Main page ──────────────────────────────────────────────────
 export default function WeldingRoomPage() {
+  const { t, i18n } = useTranslation();
   const toast = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<SceneState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cardOffsetRefs = useRef<Map<number, { dx: number; dy: number }>>(new Map());
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
@@ -383,6 +406,136 @@ export default function WeldingRoomPage() {
   const [editMode, setEditMode] = useState(false);
   const [selectedPk, setSelectedPk] = useState<number | null>(null);
   const [isDraggingMachine, setIsDraggingMachine] = useState<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  const openMachinePopup = (machinePk: number) => {
+    const url = `${window.location.origin}/machines/${machinePk}`;
+    const width = 1000;
+    const height = 760;
+    const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
+    const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
+    window.open(url, `machine-${machinePk}`, `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`);
+  };
+
+  useEffect(() => {
+    const ss = sceneRef.current;
+    const canvas = canvasRef.current;
+    if (!ss || !canvas) return;
+    const id = setTimeout(() => {
+      const nw = isFullscreen ? window.innerWidth : (canvas.clientWidth || 800);
+      const nh = isFullscreen ? window.innerHeight : (canvas.clientHeight || CANVAS_H);
+      if (!nw || !nh) return;
+      ss.renderer.setSize(nw, nh, false);
+      ss.camera.aspect = nw / nh;
+      ss.camera.updateProjectionMatrix();
+    }, 50);
+    return () => clearTimeout(id);
+  }, [isFullscreen]);
+
+  // AI Analysis state
+  const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<IFactoryOverviewAnalysisResponse | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiStreamText, setAiStreamText] = useState("");
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiSaved, setAiSaved] = useState(false);
+  const [savingMsgIdx, setSavingMsgIdx] = useState(0);
+
+  const handleFactoryAnalysis = async () => {
+    if (!room?.placements.length) return;
+    setAiLoading(true);
+    setAiError(null);
+    setAiResult(null);
+    setAiStreamText("");
+    setAiSaved(false);
+    onAiOpen();
+    try {
+      const machines = room.placements
+        .filter((p) => p.machine_iot_id)
+        .map((p) => {
+          const reading = liveReadings.get(p.machine_iot_id);
+          const isConnected = !!reading && Date.now() - reading.receivedAt < 30_000;
+          return {
+            machine_name: p.machine_name || p.machine_code,
+            machine_iot_id: p.machine_iot_id,
+            hot_temp: isConnected ? (reading?.value_temp_1 ?? null) : null,
+            cold_temp: isConnected ? (reading?.value_temp_2 ?? null) : null,
+            std_hot_temp: p.iot_std_hot_temp_c ?? null,
+            std_cold_temp: p.iot_std_cold_temp_c ?? null,
+            tolerance_temp: p.iot_tolerance_temp_c ?? 5.0,
+            is_connected: isConnected,
+          };
+        });
+      const lang = i18n.language?.startsWith("ko") ? "ko" : i18n.language?.startsWith("vi") ? "vi" : "en";
+      for await (const event of streamFactoryOverview(machines, lang)) {
+        if (event.type === "delta") {
+          setAiStreamText((prev) => prev + event.text);
+        } else if (event.type === "done") {
+          setAiResult(event.result);
+          setAiLoading(false);
+        } else if (event.type === "error") {
+          setAiError(event.text);
+          setAiLoading(false);
+        }
+      }
+    } catch (e: any) {
+      setAiError(e?.message ?? "AI 분석 중 오류가 발생했습니다.");
+      setAiLoading(false);
+    }
+  };
+
+  const SAVING_STEPS = [
+    t("ep.dashboard.aiAnalysis.savingStep1"),
+    t("ep.dashboard.aiAnalysis.savingStep2"),
+    t("ep.dashboard.aiAnalysis.savingStep3"),
+    t("ep.dashboard.aiAnalysis.savingStep4"),
+    t("ep.dashboard.aiAnalysis.savingStep5"),
+  ];
+
+  useEffect(() => {
+    if (!aiSaving) { setSavingMsgIdx(0); return; }
+    const id = setInterval(() => setSavingMsgIdx((i) => (i + 1) % SAVING_STEPS.length), 2200);
+    return () => clearInterval(id);
+  }, [aiSaving]);
+
+  const handleSaveReport = async () => {
+    if (!aiResult || aiSaved) return;
+    const lang = i18n.language?.startsWith("ko") ? "ko" : i18n.language?.startsWith("vi") ? "vi" : "en";
+    const machineCount = (room?.placements ?? []).filter((p) => p.machine_iot_id).length;
+    setAiSaving(true);
+    try {
+      await saveAIAnalysisReport({
+        source_page: "welding_room",
+        overall_severity: aiResult.overall_severity,
+        summary: aiResult.summary,
+        machine_issues: aiResult.machine_issues,
+        recommendations: aiResult.recommendations,
+        language: lang,
+        machine_count: machineCount,
+      });
+      setAiSaved(true);
+      toast({ title: t("ep.dashboard.aiAnalysis.saveSuccess"), status: "success", duration: 2000, position: "bottom-right" });
+    } catch {
+      toast({ title: t("ep.dashboard.aiAnalysis.saveError"), status: "error", duration: 3000, position: "bottom-right" });
+    } finally {
+      setAiSaving(false);
+    }
+  };
 
   // IoT Modal state
   const { isOpen: isIoTOpen, onOpen: onIoTOpen, onClose: onIoTClose } = useDisclosure();
@@ -411,6 +564,55 @@ export default function WeldingRoomPage() {
     queryKey: ["weldingRoom"],
     queryFn: getWeldingRoom,
   });
+
+  const { data: aiReports } = useQuery<IAIAnalysisReport[]>({
+    queryKey: ["aiAnalysisReports"],
+    queryFn: getAIAnalysisReports,
+  });
+
+  useEffect(() => {
+    if (!room) return;
+    room.placements.forEach((p) => {
+      cardOffsetRefs.current.set(p.pk, {
+        dx: p.card_offset_x ?? 0,
+        dy: p.card_offset_y ?? 0,
+      });
+    });
+  }, [room?.pk]);
+
+  const [layoutSaving, setLayoutSaving] = useState(false);
+
+  const handleSaveLayout = async () => {
+    if (!room?.placements.length) return;
+    setLayoutSaving(true);
+    try {
+      await Promise.all(
+        room.placements.map((p) => {
+          const offset = cardOffsetRefs.current.get(p.pk) ?? { dx: 0, dy: 0 };
+          return updateMachinePlacement(p.pk, {
+            card_offset_x: offset.dx,
+            card_offset_y: offset.dy,
+          });
+        })
+      );
+      const ss = sceneRef.current;
+      if (ss) {
+        localStorage.setItem("weldingRoomCamera", JSON.stringify({
+          px: ss.camera.position.x,
+          py: ss.camera.position.y,
+          pz: ss.camera.position.z,
+          tx: ss.controls.target.x,
+          ty: ss.controls.target.y,
+          tz: ss.controls.target.z,
+        }));
+      }
+      toast({ title: "배치가 저장되었습니다.", status: "success", duration: 2000, position: "bottom-right" });
+    } catch {
+      toast({ title: "저장에 실패했습니다.", status: "error", duration: 3000, position: "bottom-right" });
+    } finally {
+      setLayoutSaving(false);
+    }
+  };
 
   const { data: machinesData } = useQuery({
     queryKey: ["machines", "", 1],
@@ -444,8 +646,14 @@ export default function WeldingRoomPage() {
       scene.fog = new THREE.Fog(0xf0f4f8, 30, 80);
 
       const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
-      camera.position.set(0, 18, 20);
-      camera.lookAt(0, 0, 0);
+
+      const savedCam = (() => { try { return JSON.parse(localStorage.getItem("weldingRoomCamera") ?? "null"); } catch { return null; } })();
+      if (savedCam) {
+        camera.position.set(savedCam.px, savedCam.py, savedCam.pz);
+      } else {
+        camera.position.set(0, 18, 20);
+        camera.lookAt(0, 0, 0);
+      }
 
       scene.add(new THREE.AmbientLight(0xffffff, 0.8));
       const dir = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -457,7 +665,12 @@ export default function WeldingRoomPage() {
       const controls = new OrbitControls(camera, canvas);
       controls.enableDamping = true;
       controls.maxPolarAngle = Math.PI / 2.1;
-      controls.target.set(0, 0, 0);
+      if (savedCam) {
+        controls.target.set(savedCam.tx, savedCam.ty, savedCam.tz);
+      } else {
+        controls.target.set(0, 0, 0);
+      }
+      controls.update();
 
       const raycaster = new THREE.Raycaster();
 
@@ -681,7 +894,51 @@ export default function WeldingRoomPage() {
       {/* Header */}
       <HStack justify="space-between" mb={5}>
         <Heading size="md">Welding Room</Heading>
-        <HStack>
+        <HStack spacing={3}>
+          <Button
+            size="sm"
+            onClick={handleFactoryAnalysis}
+            isLoading={aiLoading}
+            loadingText={t("ep.dashboard.aiAnalysis.loading")}
+            leftIcon={<FaBrain size={13} />}
+            isDisabled={!room?.placements.length}
+            bgGradient="linear(to-r, purple.500, blue.500)"
+            color="white"
+            _hover={{ bgGradient: "linear(to-r, purple.600, blue.600)" }}
+            _active={{ bgGradient: "linear(to-r, purple.700, blue.700)" }}
+            _loading={{ opacity: 0.7 }}
+            borderRadius="full"
+            px={5}
+            fontWeight="semibold"
+            letterSpacing="tight"
+            boxShadow="0 2px 8px rgba(128,90,213,0.35)"
+          >
+            {t("ep.dashboard.aiAnalysis.button")}
+          </Button>
+          <Tooltip label={t("ep.dashboard.aiAnalysis.historyButton")} placement="bottom" hasArrow>
+            <IconButton
+              aria-label={t("ep.dashboard.aiAnalysis.historyButton")}
+              icon={<FaHistory size={13} />}
+              size="sm"
+              variant="outline"
+              colorScheme="purple"
+              borderRadius="full"
+              onClick={() => navigate("/welding-room")}
+            />
+          </Tooltip>
+          <Button
+            size="sm"
+            colorScheme="blue"
+            variant="solid"
+            isLoading={layoutSaving}
+            loadingText="저장 중…"
+            onClick={handleSaveLayout}
+            isDisabled={!room?.placements.length}
+            borderRadius="full"
+            px={5}
+          >
+            📌 배치 저장하기
+          </Button>
           <Button
             size="sm"
             colorScheme={editMode ? "orange" : "teal"}
@@ -756,7 +1013,7 @@ export default function WeldingRoomPage() {
           >
             <canvas
               ref={canvasRef}
-              style={{ display: "block", width: "100%", height: CANVAS_H }}
+              style={{ display: "block", width: "100%", height: isFullscreen ? "100vh" : CANVAS_H }}
               onDragOver={handleCanvasDragOver}
               onDrop={handleCanvasDrop}
               onMouseDown={handleCanvasMouseDown}
@@ -771,6 +1028,7 @@ export default function WeldingRoomPage() {
                 sceneRef={sceneRef}
                 canvasRef={canvasRef}
                 onCardClick={handleCardClick}
+                offsetRefs={cardOffsetRefs}
               />
             )}
             {/* Drag hint */}
@@ -800,6 +1058,18 @@ export default function WeldingRoomPage() {
                 편집 모드 — 기계를 드래그하여 이동
               </Badge>
             )}
+            <IconButton
+              aria-label={isFullscreen ? "전체화면 종료" : "전체화면"}
+              icon={isFullscreen ? <FaCompress /> : <FaExpand />}
+              size="sm"
+              position="absolute"
+              top={3}
+              right={3}
+              onClick={handleToggleFullscreen}
+              bg="blackAlpha.500"
+              color="white"
+              _hover={{ bg: "blackAlpha.700" }}
+            />
           </Box>
 
           {/* Selected machine controls */}
@@ -853,7 +1123,9 @@ export default function WeldingRoomPage() {
             배치된 기계 ({room?.placements.length ?? 0})
           </Text>
           <VStack spacing={2} align="stretch">
-            {(room?.placements ?? []).map((p) => (
+            {(room?.placements ?? []).map((p) => {
+              const thumb = p.style_thumbnail || p.thumbnail;
+              return (
               <Box
                 key={p.pk}
                 p={2}
@@ -865,10 +1137,51 @@ export default function WeldingRoomPage() {
                 onClick={() => setSelectedPk(p.pk === selectedPk ? null : p.pk)}
                 _hover={{ borderColor: "orange.300" }}
               >
-                <Text fontWeight="semibold" noOfLines={1}>{p.machine_code}</Text>
-                <Text color={labelColor} noOfLines={1}>{p.machine_name}</Text>
+                <HStack spacing={2} align="center">
+                  <Box
+                    w="36px"
+                    h="36px"
+                    flexShrink={0}
+                    borderRadius="md"
+                    overflow="hidden"
+                    border="1px solid"
+                    borderColor={borderColor}
+                    bg="gray.100"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt={p.machine_code}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <Text fontSize="16px">⚙️</Text>
+                    )}
+                  </Box>
+                  <Box minW={0} flex={1}>
+                    <Text fontWeight="semibold" noOfLines={1}>{p.machine_code}</Text>
+                    <Text color={labelColor} noOfLines={1}>{p.machine_name}</Text>
+                  </Box>
+                  <IconButton
+                    aria-label="기계 상세 보기"
+                    icon={<FaExternalLinkAlt size={10} />}
+                    size="xs"
+                    variant="ghost"
+                    color={labelColor}
+                    flexShrink={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openMachinePopup(p.machine_pk);
+                    }}
+                    _hover={{ color: "blue.400" }}
+                  />
+                </HStack>
               </Box>
-            ))}
+              );
+            })}
             {!room?.placements.length && (
               <Text fontSize="xs" color="gray.400">
                 {editMode ? "왼쪽에서 기계를 드래그하세요." : "배치된 기계가 없습니다."}
@@ -877,6 +1190,526 @@ export default function WeldingRoomPage() {
           </VStack>
         </Box>
       </HStack>
+
+      {/* ── KPI Cards ── */}
+      {(room?.placements.length ?? 0) > 0 && (() => {
+        const placements = room?.placements ?? [];
+        const total = placements.length;
+        const runningCount = placements.filter((p) => {
+          if (!p.machine_iot_id) return false;
+          const r = liveReadings.get(p.machine_iot_id);
+          return !!r && Date.now() - r.receivedAt <= 30_000;
+        }).length;
+        const abnormalCount = placements.filter((p) => {
+          if (!p.machine_iot_id) return false;
+          const r = liveReadings.get(p.machine_iot_id);
+          if (!r || Date.now() - r.receivedAt > 30_000) return false;
+          if (p.iot_std_hot_temp_c == null || p.iot_tolerance_temp_c == null) return false;
+          const tol = p.iot_tolerance_temp_c;
+          const hotOk = Math.abs(r.value_temp_1 - p.iot_std_hot_temp_c) <= tol;
+          const coldOk = p.iot_std_cold_temp_c != null ? Math.abs(r.value_temp_2 - p.iot_std_cold_temp_c) <= tol : true;
+          return !(hotOk && coldOk);
+        }).length;
+        const kpiItems = [
+          { label: t("ep.dashboard.machineKpi.totalPlaced"), value: total, color: "blue.600", border: "blue.100" },
+          { label: t("ep.dashboard.machineKpi.running"), value: runningCount, color: "green.600", border: "green.100" },
+          { label: t("ep.dashboard.machineKpi.abnormal"), value: abnormalCount, color: abnormalCount > 0 ? "red.600" : "gray.400", border: abnormalCount > 0 ? "red.100" : "gray.200" },
+        ];
+        return (
+          <HStack spacing={3} mt={6} mb={4}>
+            {kpiItems.map(({ label, value, color, border }) => (
+              <Box
+                key={label}
+                flex={1}
+                bg={cardBg}
+                borderRadius="xl"
+                border="1px solid"
+                borderColor={border}
+                px={4}
+                py={3}
+                shadow="sm"
+              >
+                <Text fontSize="2xl" fontWeight="800" color={color} lineHeight={1}>{value}</Text>
+                <Text fontSize="xs" color={labelColor} mt={1} fontWeight="medium">{label}</Text>
+              </Box>
+            ))}
+          </HStack>
+        );
+      })()}
+
+      {/* ── Machine Status Summary ── */}
+      {(room?.placements.length ?? 0) > 0 && (
+        <Box mt={2}>
+          <Text fontSize="sm" fontWeight="semibold" color={labelColor} mb={3}>
+            {t("ep.dashboard.machineSummary.title")}
+          </Text>
+          <HStack spacing={3} overflowX="auto" pb={1} align="stretch">
+            {(room?.placements ?? []).map((p) => {
+              const reading = p.machine_iot_id ? liveReadings.get(p.machine_iot_id) : undefined;
+              const isStale = !reading || Date.now() - reading.receivedAt > 30_000;
+              const running = !isStale;
+              let signal: "green" | "red" | "gray" = "gray";
+              if (running && p.iot_std_hot_temp_c != null && p.iot_tolerance_temp_c != null) {
+                const tol = p.iot_tolerance_temp_c;
+                const hotOk = Math.abs(reading!.value_temp_1 - p.iot_std_hot_temp_c) <= tol;
+                const coldOk = p.iot_std_cold_temp_c != null
+                  ? Math.abs(reading!.value_temp_2 - p.iot_std_cold_temp_c) <= tol
+                  : true;
+                signal = (hotOk && coldOk) ? "green" : "red";
+              } else if (running) {
+                signal = "green";
+              }
+              const dotColor = { green: "green.400", red: "red.400", gray: "gray.400" }[signal];
+              const badgeScheme = { green: "green", red: "red", gray: "gray" }[signal];
+              const statusLabel = running ? "가동 중" : "정지";
+              const thumb = p.style_thumbnail || p.thumbnail;
+              return (
+                <Box
+                  key={p.pk}
+                  flexShrink={0}
+                  w="160px"
+                  bg={cardBg}
+                  borderRadius="xl"
+                  border="1.5px solid"
+                  borderColor={signal === "green" ? "green.200" : signal === "red" ? "red.200" : borderColor}
+                  p={3}
+                  shadow="sm"
+                  _hover={{ shadow: "md", transform: "translateY(-1px)" }}
+                  transition="all 0.15s"
+                >
+                  <HStack spacing={2} mb={2}>
+                    <Box
+                      w="32px" h="32px" flexShrink={0} borderRadius="md" overflow="hidden"
+                      border="1px solid" borderColor={borderColor} bg="gray.100"
+                      display="flex" alignItems="center" justifyContent="center"
+                    >
+                      {thumb ? (
+                        <img src={thumb} alt={p.machine_code} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <Text fontSize="14px">⚙️</Text>
+                      )}
+                    </Box>
+                    <Box minW={0} flex={1}>
+                      <Text fontSize="xs" fontWeight="bold" noOfLines={1}>{p.machine_code}</Text>
+                      <Text fontSize="10px" color={labelColor} noOfLines={1}>{p.machine_name}</Text>
+                    </Box>
+                  </HStack>
+                  <HStack justify="space-between" mb={1.5}>
+                    <HStack spacing={1}>
+                      <Box w="6px" h="6px" borderRadius="full" bg={dotColor} />
+                      <Text fontSize="10px" fontWeight="semibold" color={dotColor}>
+                        {running ? t("ep.dashboard.machineSummary.running") : t("ep.dashboard.machineSummary.stopped")}
+                      </Text>
+                    </HStack>
+                    <Badge colorScheme={badgeScheme} fontSize="9px" variant="subtle">
+                      {signal === "green" ? t("ep.dashboard.machineSummary.normal") : signal === "red" ? t("ep.dashboard.machineSummary.abnormal") : "—"}
+                    </Badge>
+                  </HStack>
+                  {running && reading && (
+                    <HStack justify="space-between" fontSize="10px">
+                      <Text color="red.500" fontWeight="600">🔥 {reading.value_temp_1.toFixed(1)}°</Text>
+                      <Text color="blue.500" fontWeight="600">❄️ {reading.value_temp_2.toFixed(1)}°</Text>
+                    </HStack>
+                  )}
+                  {!p.machine_iot_id && (
+                    <Text fontSize="10px" color="gray.400">{t("ep.dashboard.machineSummary.noIot")}</Text>
+                  )}
+                </Box>
+              );
+            })}
+          </HStack>
+        </Box>
+      )}
+
+      {/* ── Recent AI Analysis ── */}
+      {(aiReports?.length ?? 0) > 0 && (
+        <Box mt={6} mb={2}>
+          <HStack justify="space-between" mb={3}>
+            <Text fontSize="sm" fontWeight="semibold" color={labelColor}>{t("ep.dashboard.recentAi.title")}</Text>
+            <Button
+              size="xs"
+              variant="ghost"
+              colorScheme="purple"
+              rightIcon={<FaChevronRight size={10} />}
+              onClick={() => navigate("/welding-room")}
+            >
+              {t("ep.dashboard.recentAi.viewAll")}
+            </Button>
+          </HStack>
+          <VStack spacing={2} align="stretch">
+            {(aiReports ?? []).slice(0, 1).map((r) => {
+              const sevColor = { ok: "green", warning: "orange", critical: "red" }[r.overall_severity] ?? "gray";
+              const sevIcon = { ok: "✅", warning: "⚠️", critical: "🚨" }[r.overall_severity] ?? "•";
+              const langKey = i18n.language?.startsWith("ko") ? "ko" : i18n.language?.startsWith("vi") ? "vi" : "en";
+              const content = r.content?.[langKey] ?? r.content?.[r.primary_language] ?? Object.values(r.content ?? {})[0];
+              return (
+                <Box
+                  key={r.id}
+                  bg={cardBg}
+                  borderRadius="xl"
+                  border="1px solid"
+                  borderColor={borderColor}
+                  px={4}
+                  py={3}
+                  shadow="sm"
+                  cursor="pointer"
+                  _hover={{ shadow: "md", borderColor: "purple.300", transform: "translateY(-1px)" }}
+                  transition="all 0.15s"
+                  onClick={() => navigate("/welding-room")}
+                >
+                  <HStack justify="space-between">
+                    <HStack spacing={2} flex={1} minW={0}>
+                      <Text fontSize="sm">{sevIcon}</Text>
+                      <Badge colorScheme={sevColor} fontSize="9px" flexShrink={0}>{r.overall_severity.toUpperCase()}</Badge>
+                      <Text fontSize="xs" color={labelColor} noOfLines={1} flex={1}>
+                        {content?.summary ?? "—"}
+                      </Text>
+                    </HStack>
+                    <HStack spacing={2} flexShrink={0} ml={2}>
+                      <Text fontSize="10px" color={labelColor}>
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </Text>
+                      <FaChevronRight size={10} color="gray" />
+                    </HStack>
+                  </HStack>
+                </Box>
+              );
+            })}
+          </VStack>
+        </Box>
+      )}
+
+      {/* AI Factory Overview Analysis Modal */}
+      <Modal isOpen={isAiOpen} onClose={onAiClose} size="xl" scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <HStack spacing={2}>
+              <Box
+                p={1.5}
+                bgGradient="linear(to-br, purple.500, blue.500)"
+                borderRadius="md"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <FaBrain size={14} color="white" />
+              </Box>
+              <Text>{t("ep.dashboard.aiAnalysis.modalTitle")}</Text>
+              {aiResult && (
+                <Badge
+                  colorScheme={
+                    aiResult.overall_severity === "ok" ? "green"
+                      : aiResult.overall_severity === "critical" ? "red"
+                      : "orange"
+                  }
+                >
+                  {t(`ep.dashboard.aiAnalysis.severity.${aiResult.overall_severity}`)}
+                </Badge>
+              )}
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {(aiLoading || (aiStreamText && !aiResult)) && (() => {
+              const displayText = aiStreamText.split("---JSON---")[0];
+              const isFinalizingJson = aiStreamText.includes("---JSON---");
+              return (
+                <Box borderRadius="xl" overflow="hidden" border="1px solid" borderColor="purple.400" bg="gray.900" position="relative">
+                  {/* Animated gradient header */}
+                  <Box
+                    px={4}
+                    py={3}
+                    sx={{
+                      background: "linear-gradient(90deg, #44337a, #2c5282, #44337a)",
+                      backgroundSize: "200% 100%",
+                      "@keyframes gradShift": {
+                        "0%": { backgroundPosition: "0% 50%" },
+                        "50%": { backgroundPosition: "100% 50%" },
+                        "100%": { backgroundPosition: "0% 50%" },
+                      },
+                      animation: "gradShift 3s ease infinite",
+                    }}
+                  >
+                    <HStack justify="space-between">
+                      <HStack spacing={3}>
+                        <Box
+                          sx={{
+                            "@keyframes pulseBrain": {
+                              "0%, 100%": { opacity: 1, transform: "scale(1)" },
+                              "50%": { opacity: 0.6, transform: "scale(1.15)" },
+                            },
+                            animation: "pulseBrain 1.4s ease-in-out infinite",
+                          }}
+                        >
+                          <FaBrain size={16} color="white" />
+                        </Box>
+                        <Text fontSize="sm" fontWeight="bold" color="white" letterSpacing="wide">
+                          {isFinalizingJson ? t("ep.dashboard.aiAnalysis.streamFinalizing") : t("ep.dashboard.aiAnalysis.streamTitle")}
+                        </Text>
+                      </HStack>
+                      <HStack spacing={1.5}>
+                        {[0, 1, 2].map((i) => (
+                          <Box
+                            key={i}
+                            w="7px" h="7px"
+                            borderRadius="full"
+                            bg="purple.200"
+                            sx={{
+                              "@keyframes dotBounce": {
+                                "0%, 100%": { transform: "translateY(0px)", opacity: 0.4 },
+                                "50%": { transform: "translateY(-5px)", opacity: 1 },
+                              },
+                              animation: `dotBounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+                            }}
+                          />
+                        ))}
+                      </HStack>
+                    </HStack>
+                  </Box>
+
+                  {/* Scanning line */}
+                  <Box
+                    position="absolute"
+                    left={0} right={0}
+                    h="1px"
+                    bgGradient="linear(to-r, transparent, purple.400, blue.400, transparent)"
+                    sx={{
+                      "@keyframes scanLine": {
+                        "0%": { top: "52px", opacity: 0 },
+                        "5%": { opacity: 1 },
+                        "95%": { opacity: 1 },
+                        "100%": { top: "calc(100% - 3px)", opacity: 0 },
+                      },
+                      animation: "scanLine 2.5s linear infinite",
+                    }}
+                  />
+
+                  {/* Status indicator row */}
+                  <HStack
+                    px={4} py={2}
+                    borderBottom="1px solid"
+                    borderColor="gray.700"
+                    spacing={5}
+                  >
+                    {[
+                      { label: t("ep.dashboard.aiAnalysis.streamStep1"), delay: "0s" },
+                      { label: t("ep.dashboard.aiAnalysis.streamStep2"), delay: "0.3s" },
+                      { label: t("ep.dashboard.aiAnalysis.streamStep3"), delay: "0.6s" },
+                      { label: t("ep.dashboard.aiAnalysis.streamStep4"), delay: "0.9s" },
+                    ].map(({ label, delay }) => (
+                      <HStack key={label} spacing={1.5}>
+                        <Box
+                          w="5px" h="5px"
+                          borderRadius="full"
+                          bg="green.400"
+                          sx={{
+                            "@keyframes statusBlink": {
+                              "0%, 100%": { opacity: 0.25, boxShadow: "none" },
+                              "50%": { opacity: 1, boxShadow: "0 0 4px #48bb78" },
+                            },
+                            animation: `statusBlink 1.1s ${delay} ease-in-out infinite`,
+                          }}
+                        />
+                        <Text fontSize="9px" color="gray.400" fontFamily="mono">{label}</Text>
+                      </HStack>
+                    ))}
+                  </HStack>
+
+                  {/* Terminal text stream */}
+                  <Box p={4} minH="180px" maxH="280px" overflowY="auto" fontFamily="mono">
+                    <Text
+                      fontSize="xs"
+                      color="green.300"
+                      whiteSpace="pre-wrap"
+                      lineHeight="1.9"
+                      sx={{
+                        "&::after": {
+                          content: '"▋"',
+                          display: "inline",
+                          color: "purple.300",
+                          "@keyframes cursorBlink": {
+                            "0%, 100%": { opacity: 1 },
+                            "50%": { opacity: 0 },
+                          },
+                          animation: "cursorBlink 0.7s step-end infinite",
+                        },
+                      }}
+                    >
+                      {displayText || ""}
+                    </Text>
+                  </Box>
+
+                  {/* Progress bar */}
+                  <Box h="3px" bg="gray.800">
+                    <Box
+                      h="100%"
+                      sx={{
+                        background: "linear-gradient(90deg, #805ad5, #4299e1, #805ad5)",
+                        backgroundSize: "200% 100%",
+                        "@keyframes progressAnim": {
+                          "0%": { width: "5%", backgroundPosition: "0% 0%" },
+                          "50%": { width: "75%", backgroundPosition: "100% 0%" },
+                          "100%": { width: "95%", backgroundPosition: "200% 0%" },
+                        },
+                        animation: "progressAnim 4s ease-in-out infinite",
+                      }}
+                    />
+                  </Box>
+                </Box>
+              );
+            })()}
+
+            {aiError && (
+              <Alert status="error" borderRadius="md">
+                <AlertIcon />
+                {aiError}
+              </Alert>
+            )}
+
+            {aiResult && !aiLoading && (
+              <VStack align="stretch" spacing={5}>
+                <Box
+                  p={4}
+                  borderRadius="lg"
+                  bg={
+                    aiResult.overall_severity === "ok" ? "green.50"
+                      : aiResult.overall_severity === "critical" ? "red.50"
+                      : "orange.50"
+                  }
+                  border="1px solid"
+                  borderColor={
+                    aiResult.overall_severity === "ok" ? "green.200"
+                      : aiResult.overall_severity === "critical" ? "red.200"
+                      : "orange.200"
+                  }
+                >
+                  <Text fontSize="sm" fontWeight="semibold" mb={1}>📋 {t("ep.dashboard.aiAnalysis.overallStatus")}</Text>
+                  <Text fontSize="sm">{aiResult.summary}</Text>
+                </Box>
+
+                {aiResult.machine_issues.length > 0 && (
+                  <Box>
+                    <Text fontSize="sm" fontWeight="bold" mb={3}>
+                      ⚠️ {t("ep.dashboard.aiAnalysis.problematicMachines")} ({aiResult.machine_issues.length})
+                    </Text>
+                    <VStack align="stretch" spacing={3}>
+                      {aiResult.machine_issues.map((mi, i) => (
+                        <Box
+                          key={i}
+                          p={3}
+                          borderRadius="md"
+                          border="1px solid"
+                          borderColor={mi.severity === "critical" ? "red.300" : "orange.300"}
+                          bg={mi.severity === "critical" ? "red.50" : "orange.50"}
+                        >
+                          <HStack mb={2} justify="space-between">
+                            <Text fontSize="sm" fontWeight="semibold">{mi.machine_name}</Text>
+                            <HStack spacing={2}>
+                              <Badge colorScheme={mi.severity === "critical" ? "red" : "orange"} fontSize="10px">
+                                {t(`ep.dashboard.aiAnalysis.severity.${mi.severity}`)}
+                              </Badge>
+                            </HStack>
+                          </HStack>
+                          <VStack align="stretch" spacing={1}>
+                            {mi.issues.map((issue, j) => (
+                              <Text key={j} fontSize="xs" color="gray.700">• {issue}</Text>
+                            ))}
+                          </VStack>
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {aiResult.machine_issues.length === 0 && (
+                  <Box p={3} borderRadius="md" bg="green.50" border="1px solid" borderColor="green.200">
+                    <Text fontSize="sm" color="green.700">✅ {t("ep.dashboard.aiAnalysis.allNormal")}</Text>
+                  </Box>
+                )}
+
+                {aiResult.recommendations.length > 0 && (
+                  <Box>
+                    <Text fontSize="sm" fontWeight="bold" mb={2}>💡 {t("ep.dashboard.aiAnalysis.recommendations")}</Text>
+                    <List spacing={1}>
+                      {aiResult.recommendations.map((rec, i) => (
+                        <ListItem key={i} fontSize="sm" color="gray.700">• {rec}</ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                )}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={3} w="100%" justify="space-between">
+              <HStack spacing={2}>
+                {aiResult && !aiSaving && !aiSaved && (
+                  <Button
+                    size="sm"
+                    colorScheme="purple"
+                    onClick={handleSaveReport}
+                  >
+                    {t("ep.dashboard.aiAnalysis.saveReport")}
+                  </Button>
+                )}
+                {aiSaving && (
+                  <HStack
+                    spacing={2}
+                    px={3}
+                    py={2}
+                    bg="purple.50"
+                    borderRadius="lg"
+                    border="1px solid"
+                    borderColor="purple.200"
+                    minW="260px"
+                  >
+                    <Spinner size="xs" color="purple.500" flexShrink={0} />
+                    <Text
+                      fontSize="xs"
+                      color="purple.700"
+                      fontWeight="medium"
+                      sx={{
+                        "@keyframes fadeMsg": {
+                          "0%": { opacity: 0, transform: "translateY(4px)" },
+                          "15%": { opacity: 1, transform: "translateY(0)" },
+                          "85%": { opacity: 1, transform: "translateY(0)" },
+                          "100%": { opacity: 0, transform: "translateY(-4px)" },
+                        },
+                        animation: "fadeMsg 2.2s ease-in-out infinite",
+                      }}
+                    >
+                      {SAVING_STEPS[savingMsgIdx]}
+                    </Text>
+                  </HStack>
+                )}
+                {aiSaved && (
+                  <HStack spacing={2}>
+                    <Button size="sm" colorScheme="green" isDisabled>
+                      ✓ {t("ep.dashboard.aiAnalysis.alreadySaved")}
+                    </Button>
+                    <Button size="sm" variant="ghost" colorScheme="purple" onClick={() => navigate("/welding-room")}>
+                      {t("ep.dashboard.aiAnalysis.historyButton")} →
+                    </Button>
+                  </HStack>
+                )}
+              </HStack>
+              <HStack spacing={3}>
+                <Button
+                  size="sm"
+                  colorScheme="purple"
+                  variant="outline"
+                  onClick={handleFactoryAnalysis}
+                  isLoading={aiLoading}
+                >
+                  {t("ep.dashboard.aiAnalysis.reanalyze")}
+                </Button>
+                <Button size="sm" onClick={onAiClose}>{t("ep.dashboard.aiAnalysis.close")}</Button>
+              </HStack>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* IoT Monitor 팝업 모달 */}
       {iotPlacement?.ep_process_pk && (

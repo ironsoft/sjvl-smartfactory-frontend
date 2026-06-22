@@ -134,6 +134,7 @@ import SjKaizenEditor from "./routes/SjKaizenEditor";
 import HotColdPressIoTList from "./routes/HotColdPressIoTList";
 import HotColdPressIoTCycleDetail from "./routes/HotColdPressIoTCycleDetail";
 import WeldingRoom from "./routes/WeldingRoom";
+import FactoryDisplay from "./routes/FactoryDisplay";
 import IotSetupMobile from "./routes/IotSetupMobile";
 import VlFactoryLive from "./routes/VlFactoryLive";
 import VlFactoryLiveScheduleDetail from "./routes/VlFactoryLiveScheduleDetail";
@@ -742,6 +743,10 @@ const router = createBrowserRouter([
   {
     path: "/public/iot-setup/:processPk",
     element: <IotSetupMobile />,
+  },
+  {
+    path: "/public/factory-display",
+    element: <FactoryDisplay />,
   },
 ]);
 

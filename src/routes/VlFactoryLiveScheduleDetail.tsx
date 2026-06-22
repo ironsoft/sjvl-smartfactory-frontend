@@ -7,6 +7,9 @@ import {
   IconButton,
   Image,
   Link,
+  Modal,
+  ModalContent,
+  ModalOverlay,
   Progress,
   Spinner,
   Table,
@@ -20,6 +23,7 @@ import {
   Tr,
   VStack,
   useColorModeValue,
+  useDisclosure,
 } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -210,6 +214,7 @@ export default function VlFactoryLiveScheduleDetail() {
   const mutedText = useColorModeValue("gray.500", "gray.400");
   const cardBg = useColorModeValue("white", "gray.800");
   const thumbBg = useColorModeValue("gray.100", "gray.600");
+  const { isOpen: isImgOpen, onOpen: onImgOpen, onClose: onImgClose } = useDisclosure();
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["vl-factory-live-schedule-detail", pk, date],
@@ -372,6 +377,8 @@ export default function VlFactoryLiveScheduleDetail() {
                     bg={thumbBg}
                     border="1px solid"
                     borderColor={headerBorder}
+                    cursor={schedule.thumbnail ? "zoom-in" : "default"}
+                    onClick={schedule.thumbnail ? onImgOpen : undefined}
                   >
                     {schedule.thumbnail ? (
                       <Image
@@ -387,6 +394,21 @@ export default function VlFactoryLiveScheduleDetail() {
                       </Box>
                     )}
                   </Center>
+                  {schedule.thumbnail && (
+                    <Modal isOpen={isImgOpen} onClose={onImgClose} isCentered size="xl">
+                      <ModalOverlay backdropFilter="blur(4px)" />
+                      <ModalContent bg="transparent" boxShadow="none" onClick={onImgClose} cursor="zoom-out">
+                        <Image
+                          src={schedule.thumbnail}
+                          alt={schedule.style_name}
+                          borderRadius="xl"
+                          objectFit="contain"
+                          maxH="80vh"
+                          w="100%"
+                        />
+                      </ModalContent>
+                    </Modal>
+                  )}
 
                   {/* 정보 그리드 */}
                   <Flex flex={1} minW="240px" gap={6} flexWrap="wrap">
