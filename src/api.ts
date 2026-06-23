@@ -5389,7 +5389,7 @@ export const getVlFactoryLiveDashboard = (date?: string): Promise<{
     .get("vl-assembly-production/factory-live/", { params: date ? { date } : {} })
     .then((r) => r.data);
 
-export type VlLiveSjNo = { pk: number; sj_no: string; output_qty: number; total_qty: number | null; target_qty_per_hour: number | null };
+export type VlLiveSjNo = { pk: number; sj_no: string; output_qty: number; total_qty: number | null; vl_qty?: number | null; outsource_factory?: string | null; outsource_qty?: number | null; target_qty_per_hour: number | null };
 export type VlLiveHourly = { h: number; qty: number };
 export type VlLiveModuleInstance = { pk: number; sj_no: string; total_qty: number; output_qty: number };
 export type VlLiveModule = { code: string; name: string; total_qty: number; output_qty: number; status: string; target_qty_per_hour: number | null; hourly: VlLiveHourly[]; instances: VlLiveModuleInstance[] };
@@ -5401,6 +5401,7 @@ export type VlLiveSchedule = {
   ex_factory_date: string;
   thumbnail: string | null;
   total_order_qty: number;
+  vl_effective_qty: number;
   assembly_output_qty: number;
   assembly_target_qty_per_hour: number | null;
   output_qty: number;

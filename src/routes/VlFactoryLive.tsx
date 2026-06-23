@@ -106,12 +106,17 @@ function SjNoBadge({ sjNo }: { sjNo: VlLiveSjNo }) {
       <Text fontSize="10px" fontWeight="bold" color="purple.500" flex={1} _dark={{ color: "purple.300" }}>
         {sjNo.sj_no}
       </Text>
-      <Text fontSize="11px" fontWeight="semibold" sx={{ fontVariantNumeric: "tabular-nums" }}>
-        {sjNo.output_qty.toLocaleString()}
-        {sjNo.total_qty != null && (
-          <Text as="span" fontSize="10px" fontWeight="normal" color="gray.500"> / {sjNo.total_qty.toLocaleString()}</Text>
+      <Box textAlign="right">
+        <Text fontSize="11px" fontWeight="semibold" sx={{ fontVariantNumeric: "tabular-nums" }}>
+          {sjNo.output_qty.toLocaleString()}
+          {(sjNo.vl_qty ?? sjNo.total_qty) != null && (
+            <Text as="span" fontSize="10px" fontWeight="normal" color="gray.500"> / {(sjNo.vl_qty ?? sjNo.total_qty)!.toLocaleString()}</Text>
+          )}
+        </Text>
+        {sjNo.vl_qty != null && sjNo.total_qty != null && sjNo.vl_qty !== sjNo.total_qty && (
+          <Text fontSize="2xs" color="gray.400" lineHeight={1}>Total: {sjNo.total_qty.toLocaleString()}</Text>
         )}
-      </Text>
+      </Box>
     </Flex>
   );
 }
@@ -366,11 +371,22 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
   const thumbBg = useColorModeValue("gray.100", "gray.600");
   const stripBg = useColorModeValue("gray.100", "gray.600");
 
-  const pct = schedule.progress_pct;
+  const effectiveTotal = schedule.vl_effective_qty || schedule.total_order_qty;
+  const effectivePct = effectiveTotal > 0
+    ? parseFloat((schedule.assembly_output_qty / effectiveTotal * 100).toFixed(1))
+    : schedule.progress_pct;
+  const pct = effectivePct;
   const color = pctColor(pct);
   const totalSjOutput = schedule.sj_nos.reduce((s, sj) => s + sj.output_qty, 0);
   const hasSjNos = schedule.sj_nos.length > 0;
   const hasModules = schedule.modules_by_code.length > 0;
+  const outsourceByFactory: Record<string, number> = {};
+  for (const sj of schedule.sj_nos) {
+    if (sj.outsource_factory) {
+      outsourceByFactory[sj.outsource_factory] = (outsourceByFactory[sj.outsource_factory] ?? 0) + (sj.outsource_qty ?? 0);
+    }
+  }
+  const outsourceEntries = Object.entries(outsourceByFactory);
 
   // 오늘 실적이 1건이라도 있으면 진행중으로 판단
   const isActiveToday = (schedule.hourly ?? []).some((e) => e.qty > 0);
@@ -471,7 +487,7 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
               const diff = Math.round((ef.getTime() - today.getTime()) / 86400000);
               const diffLabel = diff === 0 ? "D-Day" : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
               const diffColor = diff < 0 ? "red.500" : diff <= 7 ? "orange.500" : "gray.500";
-              const balance = (schedule.total_order_qty ?? 0) - (schedule.assembly_output_qty ?? 0);
+              const balance = (effectiveTotal ?? 0) - (schedule.assembly_output_qty ?? 0);
               const dailyRequired = diff > 0 && balance > 0 ? Math.ceil(balance / diff) : null;
               return (
                 <VStack spacing={0} align="flex-start">
@@ -509,6 +525,15 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
                 %
               </Text>
             </Text>
+            {outsourceEntries.length > 0 && (
+              <HStack spacing={1} flexWrap="wrap" justify="flex-end">
+                {outsourceEntries.map(([factory, qty]) => (
+                  <Badge key={factory} colorScheme="orange" fontSize="2xs" variant="subtle">
+                    {qty > 0 ? `${qty.toLocaleString()} → ` : ""}{factory}
+                  </Badge>
+                ))}
+              </HStack>
+            )}
           </VStack>
         </Flex>
 
@@ -539,26 +564,34 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
             )}
             <AvgRateBadge hourly={schedule.hourly} target={schedule.assembly_target_qty_per_hour} />
           </HStack>
-          <Text fontSize="11px" sx={{ fontVariantNumeric: "tabular-nums" }}>
-            <Text as="span" fontWeight="bold">
-              {schedule.assembly_output_qty.toLocaleString()}
-            </Text>
-            {schedule.total_order_qty > 0 && (
-              <Text as="span" color={labelColor}>
-                {" "}/ {schedule.total_order_qty.toLocaleString()}
+          <Box textAlign="right">
+            <Text fontSize="11px" sx={{ fontVariantNumeric: "tabular-nums" }}>
+              <Text as="span" fontWeight="bold">
+                {schedule.assembly_output_qty.toLocaleString()}
               </Text>
-            )}
-          </Text>
+              {effectiveTotal > 0 && (
+                <Text as="span" color={labelColor}>
+                  {" "}/ {effectiveTotal.toLocaleString()}
+                </Text>
+              )}
+            </Text>
+            {(() => {
+              const rawTotal = schedule.sj_nos.reduce((s, sj) => s + (sj.total_qty ?? 0), 0);
+              return rawTotal > effectiveTotal ? (
+                <Text fontSize="2xs" color="gray.400" lineHeight={1}>Total: {rawTotal.toLocaleString()}</Text>
+              ) : null;
+            })()}
+          </Box>
         </Flex>
 
         {/* Assembly 시간대별 히트맵 */}
         <HourlyHeatmap hourly={schedule.hourly} target={schedule.assembly_target_qty_per_hour} />
-        {schedule.total_order_qty > 0 && (
+        {effectiveTotal > 0 && (
           <Flex justify="flex-end" mt={1}>
             <Text fontSize="9px" color={labelColor}>
               {t("vlFactoryLive.achievementRate")}{" "}
-              <Text as="span" fontWeight="bold" color={pctTextColor(schedule.progress_pct)}>
-                {schedule.progress_pct.toFixed(1)}%
+              <Text as="span" fontWeight="bold" color={pctTextColor(effectivePct)}>
+                {effectivePct.toFixed(1)}%
               </Text>
             </Text>
           </Flex>
@@ -620,7 +653,7 @@ function LineColumn({ line, date }: { line: VlLiveLine; date: string }) {
   const headerBg = useColorModeValue("gray.800", "gray.900");
 
   const totalOutput = line.schedules.reduce((s, sc) => s + sc.assembly_output_qty, 0);
-  const totalOrder = line.schedules.reduce((s, sc) => s + sc.total_order_qty, 0);
+  const totalOrder = line.schedules.reduce((s, sc) => s + (sc.vl_effective_qty || sc.total_order_qty), 0);
   const overallPct = totalOrder > 0 ? Math.round((totalOutput / totalOrder) * 100) : 0;
   const color = pctColor(overallPct);
   const activeCount = line.schedules.filter((sc) => (sc.hourly ?? []).some((e) => e.qty > 0)).length;
@@ -693,7 +726,7 @@ function LineColumn({ line, date }: { line: VlLiveLine; date: string }) {
 // ── 라인별 요약 표 ───────────────────────────────────────────────────────────
 function lineSummary(line: VlLiveLine) {
   const output = line.schedules.reduce((s, sc) => s + sc.assembly_output_qty, 0);
-  const order = line.schedules.reduce((s, sc) => s + sc.total_order_qty, 0);
+  const order = line.schedules.reduce((s, sc) => s + (sc.vl_effective_qty || sc.total_order_qty), 0);
   const slotTotals: Record<number, number> = {};
   for (const sc of line.schedules) {
     for (const e of sc.hourly ?? []) slotTotals[e.h] = (slotTotals[e.h] ?? 0) + e.qty;
@@ -1044,7 +1077,7 @@ export default function VlFactoryLive() {
 
   const allSchedules = lines.flatMap((l) => l.schedules);
   const totalOutput = allSchedules.reduce((s, sc) => s + sc.assembly_output_qty, 0);
-  const totalOrder = allSchedules.reduce((s, sc) => s + sc.total_order_qty, 0);
+  const totalOrder = allSchedules.reduce((s, sc) => s + (sc.vl_effective_qty || sc.total_order_qty), 0);
   const overallPct = totalOrder > 0 ? Math.round((totalOutput / totalOrder) * 100) : 0;
   const activeScheduleCount = allSchedules.filter((sc) =>
     (sc.hourly ?? []).some((e) => e.qty > 0),

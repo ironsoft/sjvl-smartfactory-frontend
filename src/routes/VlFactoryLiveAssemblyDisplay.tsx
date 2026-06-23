@@ -277,7 +277,7 @@ export default function VlFactoryLiveAssemblyDisplay() {
                   <Text fontSize="5xl" fontWeight="black" color={`${color}.500`} lineHeight={1}>
                     {schedule.assembly_output_qty.toLocaleString()}
                   </Text>
-                  <Text fontSize="2xl" color={labelColor}>/ {schedule.total_order_qty.toLocaleString()}</Text>
+                  <Text fontSize="2xl" color={labelColor}>/ {(schedule.vl_effective_qty || schedule.total_order_qty).toLocaleString()}</Text>
                 </HStack>
               </Box>
               <Box textAlign="right">
@@ -307,8 +307,8 @@ export default function VlFactoryLiveAssemblyDisplay() {
               },
               {
                 label: t("vlFactoryLive.monitor.remaining"),
-                value: (schedule.total_order_qty - schedule.assembly_output_qty).toLocaleString(),
-                sub: dday && (schedule.total_order_qty - schedule.assembly_output_qty) > 0 && dday.label !== "D-Day"
+                value: ((schedule.vl_effective_qty || schedule.total_order_qty) - schedule.assembly_output_qty).toLocaleString(),
+                sub: dday && ((schedule.vl_effective_qty || schedule.total_order_qty) - schedule.assembly_output_qty) > 0 && dday.label !== "D-Day"
                   ? `EF: ${schedule.ex_factory_date}`
                   : undefined,
                 color: undefined,
@@ -416,12 +416,22 @@ export default function VlFactoryLiveAssemblyDisplay() {
                     py={2}
                   >
                     <Text fontSize="xs" fontWeight="bold" color="purple.500">{sj.sj_no}</Text>
-                    <Text fontSize="sm" fontWeight="semibold">
-                      {sj.output_qty.toLocaleString()}
-                      {sj.total_qty != null && (
-                        <Text as="span" fontSize="xs" color={labelColor}> / {sj.total_qty.toLocaleString()}</Text>
+                    <Box textAlign="right">
+                      <Text fontSize="sm" fontWeight="semibold">
+                        {sj.output_qty.toLocaleString()}
+                        {(sj.vl_qty ?? sj.total_qty) != null && (
+                          <Text as="span" fontSize="xs" color={labelColor}> / {(sj.vl_qty ?? sj.total_qty)!.toLocaleString()}</Text>
+                        )}
+                      </Text>
+                      {sj.vl_qty != null && sj.total_qty != null && sj.vl_qty !== sj.total_qty && (
+                        <Text fontSize="2xs" color="gray.400" lineHeight={1}>Total: {sj.total_qty.toLocaleString()}</Text>
                       )}
-                    </Text>
+                      {sj.outsource_factory && (
+                        <Badge colorScheme="orange" fontSize="2xs" mt="1px" display="block" textAlign="right">
+                          {sj.outsource_qty != null ? `${sj.outsource_qty.toLocaleString()} → ` : ""}{sj.outsource_factory}
+                        </Badge>
+                      )}
+                    </Box>
                   </Flex>
                 ))}
               </VStack>

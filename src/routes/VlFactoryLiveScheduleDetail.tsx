@@ -232,7 +232,11 @@ export default function VlFactoryLiveScheduleDetail() {
 
   const stats = hourlyStats(schedule?.hourly, schedule?.assembly_target_qty_per_hour ?? null);
   const isActiveToday = (schedule?.hourly ?? []).some((e) => e.qty > 0);
-  const pct = schedule?.progress_pct ?? 0;
+  const effectiveTotal = schedule ? (schedule.vl_effective_qty || schedule.total_order_qty) : 0;
+  const effectivePct = schedule && effectiveTotal > 0
+    ? parseFloat((schedule.assembly_output_qty / effectiveTotal * 100).toFixed(1))
+    : (schedule?.progress_pct ?? 0);
+  const pct = effectivePct;
   const color = pctColor(pct);
 
   // EF D-Day / 잔량 / 일일 필요수량
@@ -243,7 +247,7 @@ export default function VlFactoryLiveScheduleDetail() {
     const ef = new Date(schedule.ex_factory_date);
     ef.setHours(0, 0, 0, 0);
     const diff = Math.round((ef.getTime() - t.getTime()) / 86400000);
-    const balance = (schedule.total_order_qty ?? 0) - (schedule.assembly_output_qty ?? 0);
+    const balance = (effectiveTotal ?? 0) - (schedule.assembly_output_qty ?? 0);
     efInfo = {
       diffLabel: diff === 0 ? "D-Day" : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`,
       diffColor: diff < 0 ? "red.500" : diff <= 7 ? "orange.500" : "gray.500",
@@ -489,8 +493,8 @@ export default function VlFactoryLiveScheduleDetail() {
                   label={t("vlFactoryLive.detail.cumulativeOutput")}
                   value={schedule.assembly_output_qty.toLocaleString()}
                   sub={
-                    schedule.total_order_qty > 0
-                      ? t("vlFactoryLive.detail.orderQty", { qty: schedule.total_order_qty.toLocaleString() })
+                    effectiveTotal > 0
+                      ? t("vlFactoryLive.detail.orderQty", { qty: effectiveTotal.toLocaleString() })
                       : undefined
                   }
                   colorScheme={color}
@@ -587,26 +591,31 @@ export default function VlFactoryLiveScheduleDetail() {
                       </Thead>
                       <Tbody>
                         {schedule.sj_nos.map((sj) => {
+                          const sjEffective = sj.vl_qty ?? sj.total_qty;
                           const sjPct =
-                            sj.total_qty != null && sj.total_qty > 0
-                              ? Math.min((sj.output_qty / sj.total_qty) * 100, 100)
+                            sjEffective != null && sjEffective > 0
+                              ? Math.min((sj.output_qty / sjEffective) * 100, 100)
                               : null;
                           return (
                             <Tr key={sj.pk}>
                               <Td fontSize="xs" fontWeight="bold" color="purple.500">
-                                <Link
-                                  as={RouterLink}
-                                  to={`/vl-assembly-production/sj-nos/${sj.pk}`}
-                                  target={isPopup ? "_blank" : undefined}
-                                >
-                                  {sj.sj_no}
-                                </Link>
+                                {sj.sj_no}
                               </Td>
                               <Td fontSize="xs" isNumeric fontWeight="semibold" sx={{ fontVariantNumeric: "tabular-nums" }}>
                                 {sj.output_qty.toLocaleString()}
                               </Td>
-                              <Td fontSize="xs" isNumeric color={mutedText} sx={{ fontVariantNumeric: "tabular-nums" }}>
-                                {sj.total_qty != null ? sj.total_qty.toLocaleString() : "-"}
+                              <Td fontSize="xs" isNumeric sx={{ fontVariantNumeric: "tabular-nums" }}>
+                                <Box textAlign="right">
+                                  <Text color={mutedText}>{sjEffective != null ? sjEffective.toLocaleString() : "-"}</Text>
+                                  {sj.vl_qty != null && sj.total_qty != null && sj.vl_qty !== sj.total_qty && (
+                                    <Text fontSize="2xs" color="gray.400" lineHeight={1}>Total: {sj.total_qty.toLocaleString()}</Text>
+                                  )}
+                                  {sj.outsource_factory && (
+                                    <Badge colorScheme="orange" fontSize="2xs" mt="1px" display="block" textAlign="right">
+                                      {sj.outsource_qty != null ? `${sj.outsource_qty.toLocaleString()} → ` : ""}{sj.outsource_factory}
+                                    </Badge>
+                                  )}
+                                </Box>
                               </Td>
                               <Td fontSize="xs" isNumeric sx={{ fontVariantNumeric: "tabular-nums" }}>
                                 {sj.target_qty_per_hour != null ? `${sj.target_qty_per_hour}/h` : "-"}
