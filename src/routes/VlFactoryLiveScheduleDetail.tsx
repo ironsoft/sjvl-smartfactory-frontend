@@ -1,6 +1,7 @@
 import {
   Badge,
   Box,
+  Collapse,
   Center,
   Flex,
   HStack,
@@ -26,15 +27,18 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import {
   FiArrowLeft,
   FiBox,
+  FiChevronDown,
+  FiChevronUp,
   FiExternalLink,
   FiRefreshCw,
   FiX,
 } from "react-icons/fi";
+import ScheduleCalendarHeatmap, { DailyOutputBarChart, DailyKpiPanel } from "../components/ScheduleCalendarHeatmap";
 import {
   Link as RouterLink,
   useParams,
@@ -43,8 +47,12 @@ import {
 import { useTranslation } from "react-i18next";
 import {
   getVlFactoryLiveScheduleDetail,
+  getVlPlanHolidays,
+  getVlAssemblyScheduleProductionDailyOutputs,
+  getVlAssemblyModuleProductionDailyOutputs,
   type VlLiveModule,
 } from "../api";
+import { planHolidayApiRangeForScheduleDates } from "../lib/vlPlanHolidayRange";
 import LocalizedDateInput from "../components/LocalizedDateInput";
 import VlHourlyBarChart from "../components/VlHourlyBarChart";
 import {
@@ -101,8 +109,47 @@ function SectionCard({
   );
 }
 
+// ── 접기/펼치기 섹션 ─────────────────────────────────────────────────────────
+function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const border = useColorModeValue("gray.200", "gray.700");
+  const headerBg = useColorModeValue("gray.50", "gray.700");
+  const labelColor = useColorModeValue("gray.500", "gray.400");
+  return (
+    <Box border="1px solid" borderColor={border} borderRadius="lg" overflow="hidden">
+      <Flex
+        as="button"
+        w="100%"
+        px={3}
+        py={2}
+        bg={headerBg}
+        align="center"
+        justify="space-between"
+        onClick={() => setOpen((v) => !v)}
+        cursor="pointer"
+        _hover={{ bg: useColorModeValue("gray.100", "gray.600") }}
+        transition="background 0.15s"
+      >
+        <Text fontSize="10px" fontWeight="semibold" color={labelColor} textTransform="uppercase" letterSpacing="wider">{title}</Text>
+        <Box color={labelColor}>{open ? <FiChevronUp size={13} /> : <FiChevronDown size={13} />}</Box>
+      </Flex>
+      <Collapse in={open} animateOpacity>
+        <Box px={3} py={3}>{children}</Box>
+      </Collapse>
+    </Box>
+  );
+}
+
 // ── 모듈 상세 카드 ───────────────────────────────────────────────────────────
-function ModuleDetailCard({ mod }: { mod: VlLiveModule }) {
+interface ModuleDetailCardProps {
+  mod: VlLiveModule;
+  assemblyStart?: string | null;
+  assemblyEnd?: string | null;
+  holidaySet?: ReadonlySet<string>;
+  dailyOutputMap?: ReadonlyMap<string, number>;
+}
+
+function ModuleDetailCard({ mod, assemblyStart, assemblyEnd, holidaySet = new Set(), dailyOutputMap = new Map() }: ModuleDetailCardProps) {
   const { t } = useTranslation();
   const bg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
@@ -181,6 +228,46 @@ function ModuleDetailCard({ mod }: { mod: VlLiveModule }) {
           </Text>
         )}
       </Flex>
+
+      {/* ── 일별 실적 (접기/펼치기) ── */}
+      {assemblyStart && assemblyEnd && (
+        <Box mt={3}>
+          <CollapsibleSection title={t("vlFactoryLive.detail.scheduleOverview.title")}>
+            {(() => {
+              const modTarget = mod.target_qty_per_hour != null ? mod.target_qty_per_hour * 8 : null;
+              return (
+                <Box display="flex" flexDirection="column" gap={4}>
+                  <ScheduleCalendarHeatmap
+                    assemblyStart={assemblyStart}
+                    assemblyEnd={assemblyEnd}
+                    exFactoryDate={null}
+                    holidaySet={holidaySet}
+                    dailyOutputMap={dailyOutputMap}
+                    dailyTargetQty={modTarget}
+                    showPeriodSummary={false}
+                    showChart={false}
+                    showKpi={false}
+                  />
+                  <DailyOutputBarChart
+                    startYMD={assemblyStart.slice(0, 10)}
+                    endYMD={assemblyEnd.slice(0, 10)}
+                    dailyOutputMap={dailyOutputMap}
+                    dailyTargetQty={modTarget}
+                    holidaySet={holidaySet}
+                  />
+                  <DailyKpiPanel
+                    assemblyStart={assemblyStart}
+                    assemblyEnd={assemblyEnd}
+                    dailyOutputMap={dailyOutputMap}
+                    dailyTargetQty={modTarget}
+                    holidaySet={holidaySet}
+                  />
+                </Box>
+              );
+            })()}
+          </CollapsibleSection>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -196,6 +283,7 @@ export default function VlFactoryLiveScheduleDetail() {
   const date = searchParams.get("date") || today;
   const isPopup = searchParams.get("popup") === "1";
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [calOpen, setCalOpen] = useState(false);
 
   const setDate = (v: string) => {
     setSearchParams(
@@ -229,6 +317,98 @@ export default function VlFactoryLiveScheduleDetail() {
 
   const schedule = data?.schedule ?? null;
   const lineName = data?.line_name ?? null;
+
+  // ── 공휴일 fetch ──────────────────────────────────────────────────────────
+  const planHolidayApiRange = useMemo(
+    () => planHolidayApiRangeForScheduleDates([schedule?.assembly_start, schedule?.assembly_end, schedule?.ex_factory_date]),
+    [schedule?.assembly_start, schedule?.assembly_end, schedule?.ex_factory_date],
+  );
+
+  const { data: planHolidayRows = [] } = useQuery({
+    queryKey: ["vlPlanHolidays", "factoryLiveDetail", planHolidayApiRange.date_from, planHolidayApiRange.date_to],
+    queryFn: async () => {
+      try { return await getVlPlanHolidays(planHolidayApiRange); } catch { return []; }
+    },
+    enabled: !!schedule,
+    staleTime: 300_000,
+  });
+
+  // ── 일별 생산실적 fetch ───────────────────────────────────────────────────
+  const { data: dailyOutputData } = useQuery({
+    queryKey: ["vlScheduleDailyOutputs", pk, schedule?.assembly_start, schedule?.assembly_end],
+    queryFn: async () => {
+      try {
+        return await getVlAssemblyScheduleProductionDailyOutputs({
+          schedule: pk,
+          date_from: schedule?.assembly_start ?? undefined,
+          date_to: schedule?.assembly_end ?? undefined,
+          page_size: 500,
+        });
+      } catch { return null; }
+    },
+    enabled: !!schedule?.assembly_start,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  const dailyOutputMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of dailyOutputData?.results ?? []) {
+      const d = String(row.recorded_at ?? "").slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        map.set(d, (map.get(d) ?? 0) + row.qty);
+      }
+    }
+    return map;
+  }, [dailyOutputData]);
+
+  const dailyTargetQty = schedule?.assembly_target_qty_per_hour != null
+    ? schedule.assembly_target_qty_per_hour * 8
+    : null;
+
+  // ── 모듈 일별 실적 fetch ──────────────────────────────────────────────────
+  const { data: moduleDailyOutputData } = useQuery({
+    queryKey: ["vlModuleDailyOutputs", pk, schedule?.assembly_start, schedule?.assembly_end],
+    queryFn: async () => {
+      try {
+        return await getVlAssemblyModuleProductionDailyOutputs({
+          schedule: pk,
+          date_from: schedule?.assembly_start ?? undefined,
+          date_to: schedule?.assembly_end ?? undefined,
+          page_size: 500,
+        });
+      } catch { return null; }
+    },
+    enabled: !!schedule?.assembly_start,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  const moduleOutputsByCode = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    for (const row of moduleDailyOutputData?.results ?? []) {
+      const code = row.vl_assembly_module_code;
+      const d = String(row.recorded_at ?? "").slice(0, 10);
+      if (!code || !/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      if (!map.has(code)) map.set(code, new Map());
+      const dateMap = map.get(code)!;
+      dateMap.set(d, (dateMap.get(d) ?? 0) + row.qty);
+    }
+    return map;
+  }, [moduleDailyOutputData]);
+
+  const { holidaySet, holidayNameMap } = useMemo(() => {
+    const set = new Set<string>();
+    const nameMap = new Map<string, string>();
+    for (const h of planHolidayRows) {
+      const d = String(h.date ?? "").slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        set.add(d);
+        if (h.name) nameMap.set(d, h.name);
+      }
+    }
+    return { holidaySet: set, holidayNameMap: nameMap };
+  }, [planHolidayRows]);
 
   const stats = hourlyStats(schedule?.hourly, schedule?.assembly_target_qty_per_hour ?? null);
   const isActiveToday = (schedule?.hourly ?? []).some((e) => e.qty > 0);
@@ -487,6 +667,40 @@ export default function VlFactoryLiveScheduleDetail() {
                 </Flex>
               </Box>
 
+              {/* ── 일정 캘린더 히트맵 (접기/펼치기) ── */}
+              <Box bg={cardBg} border="1px solid" borderColor={headerBorder} borderRadius="xl" overflow="hidden">
+                <Flex
+                  as="button"
+                  w="100%"
+                  px={4}
+                  py={2.5}
+                  align="center"
+                  justify="space-between"
+                  onClick={() => setCalOpen((v) => !v)}
+                  cursor="pointer"
+                  _hover={{ bg: headerBorder }}
+                  transition="background 0.15s"
+                >
+                  <Text fontSize="10px" color={mutedText} fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
+                    {t("vlFactoryLive.detail.scheduleOverview.title")}
+                  </Text>
+                  <Box color={mutedText}>{calOpen ? <FiChevronUp size={13} /> : <FiChevronDown size={13} />}</Box>
+                </Flex>
+                <Collapse in={calOpen} animateOpacity>
+                  <Box px={4} pb={4}>
+                    <ScheduleCalendarHeatmap
+                      assemblyStart={schedule.assembly_start}
+                      assemblyEnd={schedule.assembly_end}
+                      exFactoryDate={schedule.ex_factory_date}
+                      holidaySet={holidaySet}
+                      holidayNameMap={holidayNameMap}
+                      dailyOutputMap={dailyOutputMap}
+                      dailyTargetQty={dailyTargetQty}
+                    />
+                  </Box>
+                </Collapse>
+              </Box>
+
               {/* ── KPI ── */}
               <Flex gap={2.5} flexWrap="wrap">
                 <KpiCard
@@ -678,7 +892,13 @@ export default function VlFactoryLiveScheduleDetail() {
                           {t("vlFactoryLive.detail.moduleMonitorView", { code: mod.code })} <FiExternalLink size={10} />
                         </Link>
                       </Flex>
-                      <ModuleDetailCard mod={mod} />
+                      <ModuleDetailCard
+                        mod={mod}
+                        assemblyStart={schedule.assembly_start}
+                        assemblyEnd={schedule.assembly_end}
+                        holidaySet={holidaySet}
+                        dailyOutputMap={moduleOutputsByCode.get(mod.code)}
+                      />
                     </Box>
                   ))}
                 </>

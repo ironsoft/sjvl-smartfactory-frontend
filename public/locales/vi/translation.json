@@ -2740,7 +2740,27 @@
       "colHourlyTarget": "MT/giờ",
       "colAchievement": "Tỉ lệ đạt",
       "todaySlotInfo": "Hôm nay: {{total}} · {{slots}} khung · TB: {{avg}}/h",
-      "todaySlotInfoNoAvg": "Hôm nay: {{total}} · {{slots}} khung"
+      "todaySlotInfoNoAvg": "Hôm nay: {{total}} · {{slots}} khung",
+      "scheduleOverview": {
+        "title": "Lịch tổng quan",
+        "assemblyPeriod": "Thời gian lắp ráp",
+        "sundayHoliday": "CN + Ngày lễ",
+        "workingDays": "Ngày làm việc",
+        "daysUnit": "ngày",
+        "legendAssembly": "Thời gian lắp ráp",
+        "legendExFactory": "Ex-Factory",
+        "legendSunday": "Chủ nhật",
+        "legendHoliday": "Ngày lễ",
+        "tooltipSunday": "Chủ nhật",
+        "tooltipHoliday": "Ngày lễ",
+        "tooltipAssembly": "Thời gian lắp ráp",
+        "tooltipExFactory": "Ex-Factory",
+        "kpiAvgOutput": "SL TB/ngày",
+        "kpiAvgTarget": "MT TB/ngày",
+        "kpiAvgAchievement": "Tỉ lệ đạt TB",
+        "kpiActiveDays": "Ngày SX",
+        "targetLabel": "MT"
+      }
     },
     "monitor": {
       "notFound": "Không tìm thấy lịch.",

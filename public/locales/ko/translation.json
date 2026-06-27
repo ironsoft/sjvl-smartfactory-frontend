@@ -2740,7 +2740,27 @@
       "colHourlyTarget": "시간당 목표",
       "colAchievement": "달성률",
       "todaySlotInfo": "금일 {{total}} · 가동 {{slots}}시간대 · 평균 {{avg}}/h",
-      "todaySlotInfoNoAvg": "금일 {{total}} · 가동 {{slots}}시간대"
+      "todaySlotInfoNoAvg": "금일 {{total}} · 가동 {{slots}}시간대",
+      "scheduleOverview": {
+        "title": "일정 달력",
+        "assemblyPeriod": "생산 기간",
+        "sundayHoliday": "일요일 + 공휴일",
+        "workingDays": "작업 가능일",
+        "daysUnit": "일",
+        "legendAssembly": "생산 기간",
+        "legendExFactory": "Ex-Factory",
+        "legendSunday": "일요일",
+        "legendHoliday": "공휴일",
+        "tooltipSunday": "일요일",
+        "tooltipHoliday": "공휴일",
+        "tooltipAssembly": "생산 기간",
+        "tooltipExFactory": "Ex-Factory",
+        "kpiAvgOutput": "일평균 생산수량",
+        "kpiAvgTarget": "일평균 목표수량",
+        "kpiAvgAchievement": "일평균 달성율",
+        "kpiActiveDays": "생산일",
+        "targetLabel": "목표"
+      }
     },
     "monitor": {
       "notFound": "스케줄을 찾을 수 없습니다.",

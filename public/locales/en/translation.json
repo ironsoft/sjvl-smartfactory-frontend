@@ -2740,7 +2740,27 @@
       "colHourlyTarget": "Hourly Target",
       "colAchievement": "Achievement",
       "todaySlotInfo": "Today: {{total}} · {{slots}} slots · Avg: {{avg}}/h",
-      "todaySlotInfoNoAvg": "Today: {{total}} · {{slots}} slots"
+      "todaySlotInfoNoAvg": "Today: {{total}} · {{slots}} slots",
+      "scheduleOverview": {
+        "title": "Schedule Calendar",
+        "assemblyPeriod": "Assembly Period",
+        "sundayHoliday": "Sun + Holiday",
+        "workingDays": "Working Days",
+        "daysUnit": "days",
+        "legendAssembly": "Assembly Period",
+        "legendExFactory": "Ex-Factory",
+        "legendSunday": "Sunday",
+        "legendHoliday": "Holiday",
+        "tooltipSunday": "Sunday",
+        "tooltipHoliday": "Holiday",
+        "tooltipAssembly": "Assembly Period",
+        "tooltipExFactory": "Ex-Factory",
+        "kpiAvgOutput": "Avg Daily Output",
+        "kpiAvgTarget": "Avg Daily Target",
+        "kpiAvgAchievement": "Avg Daily Achievement",
+        "kpiActiveDays": "Active Days",
+        "targetLabel": "Target"
+      }
     },
     "monitor": {
       "notFound": "Schedule not found.",
