@@ -1221,13 +1221,21 @@ function riskColor(risk: "warning" | "critical" | "ok") {
   return "green";
 }
 
-function AiAnalysisRenderer({ result }: { result: AIAnalysisResult }) {
+function AiAnalysisRenderer({ result, date }: { result: AIAnalysisResult; date: string }) {
   const sectionBg = useColorModeValue("white", "gray.800");
   const sectionBorder = useColorModeValue("gray.200", "gray.600");
   const mutedColor = useColorModeValue("gray.500", "gray.400");
   const itemBg = useColorModeValue("gray.50", "gray.700");
   const tableBorder = useColorModeValue("gray.100", "gray.600");
   const theadBg = useColorModeValue("gray.50", "gray.700");
+
+  function openDetail(pk: number) {
+    window.open(
+      `/vl-factory-live/schedules/${pk}?date=${date}&popup=1`,
+      `vl-live-schedule-${pk}`,
+      "width=1280,height=920",
+    );
+  }
 
   return (
     <VStack align="stretch" gap={4} fontSize="sm">
@@ -1251,12 +1259,12 @@ function AiAnalysisRenderer({ result }: { result: AIAnalysisResult }) {
               </Thead>
               <Tbody>
                 {result.top3.map((item) => (
-                  <Tr key={item.rank}>
+                  <Tr key={item.rank} _hover={{ bg: "red.50" }} cursor="pointer" onClick={() => openDetail(item.pk)}>
                     <Td px={3} py={2} borderColor={tableBorder}>
                       <Badge colorScheme={riskColor(item.risk)} borderRadius="full" px={2}>{item.rank}</Badge>
                     </Td>
                     <Td px={3} py={2} borderColor={tableBorder} whiteSpace="nowrap">
-                      <Text fontWeight="semibold">#{item.pk}</Text>
+                      <Text fontWeight="semibold" color="blue.500">#{item.pk}</Text>
                       <Text fontSize="xs" color={mutedColor}>{item.style_code}</Text>
                     </Td>
                     <Td px={3} py={2} borderColor={tableBorder}><Text lineHeight="1.5">{item.issue}</Text></Td>
@@ -1295,14 +1303,14 @@ function AiAnalysisRenderer({ result }: { result: AIAnalysisResult }) {
                   </Thead>
                   <Tbody>
                     {section.items.map((item) => (
-                      <Tr key={item.pk} bg={item.risk === "critical" ? "red.50" : undefined} _dark={{ bg: item.risk === "critical" ? "red.900" : undefined }}>
+                      <Tr key={item.pk} bg={item.risk === "critical" ? "red.50" : undefined} _dark={{ bg: item.risk === "critical" ? "red.900" : undefined }} cursor="pointer" _hover={{ opacity: 0.85 }} onClick={() => openDetail(item.pk)}>
                         <Td px={3} py={2} borderColor={tableBorder} whiteSpace="nowrap">
                           <HStack gap={1}>
                             <Badge colorScheme={riskColor(item.risk)} variant="solid" borderRadius="sm" fontSize="9px">
                               {item.risk === "critical" ? "위험" : "주의"}
                             </Badge>
                           </HStack>
-                          <Text fontWeight="semibold" mt={0.5}>#{item.pk}</Text>
+                          <Text fontWeight="semibold" color="blue.500" mt={0.5}>#{item.pk}</Text>
                           <Text fontSize="xs" color={mutedColor}>{item.style_code}</Text>
                         </Td>
                         <Td px={3} py={2} borderColor={tableBorder} fontSize="xs" color={mutedColor} whiteSpace="nowrap">{item.line ?? "-"}</Td>
@@ -1708,7 +1716,7 @@ export default function VlFactoryLive() {
               </Center>
             ) : aiAnalysis ? (
               <Box>
-                <AiAnalysisRenderer result={aiAnalysis} />
+                <AiAnalysisRenderer result={aiAnalysis} date={date} />
                 <Button
                   mt={6}
                   size="sm"
