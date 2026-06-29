@@ -1,8 +1,15 @@
 import {
   Badge,
   Box,
+  Button,
   Center,
   Collapse,
+  Drawer,
+  DrawerBody,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerHeader,
+  DrawerOverlay,
   Flex,
   HStack,
   IconButton,
@@ -38,6 +45,7 @@ import {
   FiBox,
   FiChevronDown,
   FiChevronUp,
+  FiCpu,
   FiRefreshCw,
   FiSearch,
   FiTrendingDown,
@@ -49,6 +57,7 @@ import {
   getVlFactoryLiveScheduleDetail,
   getVlAssemblyScheduleProductionDailyOutputs,
   getVlAssemblyModuleProductionDailyOutputs,
+  getVlFactoryLiveAIAnalysis,
   type VlLiveHourly,
   type VlLiveLine,
   type VlLiveModule,
@@ -1170,6 +1179,61 @@ export function KpiCard({
   );
 }
 
+// ── AI 분석 결과 렌더러 ───────────────────────────────────────────────────────
+function AiAnalysisRenderer({ text }: { text: string }) {
+  const headingColor = useColorModeValue("gray.800", "gray.100");
+  const mutedColor = useColorModeValue("gray.500", "gray.400");
+  const dividerColor = useColorModeValue("gray.200", "gray.600");
+  const codeBg = useColorModeValue("purple.50", "purple.900");
+
+  return (
+    <VStack align="stretch" gap={1} fontSize="sm">
+      {text.split("\n").map((line, i) => {
+        if (line.startsWith("## ")) {
+          return (
+            <Text key={i} fontWeight="bold" fontSize="md" color={headingColor} mt={i > 0 ? 4 : 0}>
+              {line.replace(/^## /, "")}
+            </Text>
+          );
+        }
+        if (line.startsWith("### ")) {
+          return (
+            <Text key={i} fontWeight="semibold" color={headingColor} mt={2}>
+              {line.replace(/^### /, "")}
+            </Text>
+          );
+        }
+        if (line.startsWith("---")) {
+          return <Box key={i} borderTopWidth="1px" borderColor={dividerColor} my={3} />;
+        }
+        if (line.startsWith("- ") || line.startsWith("* ")) {
+          return (
+            <HStack key={i} align="flex-start" gap={1.5} pl={2}>
+              <Text color={mutedColor} flexShrink={0} mt="1px">•</Text>
+              <Text lineHeight="1.6">{line.replace(/^[-*] /, "")}</Text>
+            </HStack>
+          );
+        }
+        if (/^\d+\./.test(line)) {
+          return (
+            <HStack key={i} align="flex-start" gap={1.5} pl={2}>
+              <Text color="purple.500" fontWeight="semibold" flexShrink={0} w="16px">{line.match(/^\d+/)?.[0]}.</Text>
+              <Text lineHeight="1.6">{line.replace(/^\d+\.\s*/, "")}</Text>
+            </HStack>
+          );
+        }
+        if (line.trim() === "") {
+          return <Box key={i} h={1} />;
+        }
+        if (line.startsWith("**") && line.endsWith("**")) {
+          return <Text key={i} fontWeight="semibold" bg={codeBg} px={2} py={0.5} borderRadius="md">{line.replace(/\*\*/g, "")}</Text>;
+        }
+        return <Text key={i} lineHeight="1.7">{line}</Text>;
+      })}
+    </VStack>
+  );
+}
+
 // ── 메인 페이지 ──────────────────────────────────────────────────────────────
 export default function VlFactoryLive() {
   const { t } = useTranslation();
@@ -1178,6 +1242,9 @@ export default function VlFactoryLive() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [showLineSummary, setShowLineSummary] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
 
   const bgPage = useColorModeValue("gray.100", "gray.900");
   const headerBg = useColorModeValue("white", "gray.800");
@@ -1317,6 +1384,30 @@ export default function VlFactoryLive() {
             </HStack>
 
             <HStack gap={2} flexShrink={0} flexWrap="wrap">
+              <Button
+                size="sm"
+                leftIcon={<FiCpu size={14} />}
+                colorScheme="purple"
+                variant="outline"
+                flexShrink={0}
+                isLoading={aiLoading}
+                loadingText="AI 분석 중..."
+                onClick={async () => {
+                  onAiOpen();
+                  if (aiAnalysis) return;
+                  setAiLoading(true);
+                  try {
+                    const res = await getVlFactoryLiveAIAnalysis(date);
+                    setAiAnalysis(res.analysis);
+                  } catch {
+                    setAiAnalysis("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+                  } finally {
+                    setAiLoading(false);
+                  }
+                }}
+              >
+                AI 분석
+              </Button>
               <InputGroup size="sm" w="200px" flexShrink={0}>
                 <InputLeftElement pointerEvents="none">
                   <Box color={trimmedSearch && highlightedPks.size === 0 ? "red.400" : trimmedSearch ? "orange.400" : mutedText}>
@@ -1503,6 +1594,56 @@ export default function VlFactoryLive() {
           )}
         </Flex>
       </Box>
+
+      {/* AI 분석 Drawer */}
+      <Drawer isOpen={isAiOpen} placement="right" onClose={onAiClose} size="lg">
+        <DrawerOverlay />
+        <DrawerContent>
+          <DrawerCloseButton />
+          <DrawerHeader borderBottomWidth="1px">
+            <HStack gap={2}>
+              <Box color="purple.500"><FiCpu size={18} /></Box>
+              <Text>AI 생산 현황 분석</Text>
+            </HStack>
+          </DrawerHeader>
+          <DrawerBody py={4}>
+            {aiLoading ? (
+              <Center h="200px">
+                <VStack gap={3}>
+                  <Spinner size="lg" color="purple.500" />
+                  <Text fontSize="sm" color="gray.500">스케줄 데이터를 분석하는 중...</Text>
+                </VStack>
+              </Center>
+            ) : aiAnalysis ? (
+              <Box>
+                <AiAnalysisRenderer text={aiAnalysis} />
+                <Button
+                  mt={6}
+                  size="sm"
+                  variant="outline"
+                  colorScheme="purple"
+                  leftIcon={<FiRefreshCw size={13} />}
+                  isLoading={aiLoading}
+                  onClick={async () => {
+                    setAiAnalysis(null);
+                    setAiLoading(true);
+                    try {
+                      const res = await getVlFactoryLiveAIAnalysis(date);
+                      setAiAnalysis(res.analysis);
+                    } catch {
+                      setAiAnalysis("분석 중 오류가 발생했습니다.");
+                    } finally {
+                      setAiLoading(false);
+                    }
+                  }}
+                >
+                  다시 분석
+                </Button>
+              </Box>
+            ) : null}
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

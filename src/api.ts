@@ -5435,6 +5435,15 @@ export const getVlFactoryLiveScheduleDetail = (
     .get(`vl-assembly-production/factory-live/schedules/${pk}/`, { params: date ? { date } : {} })
     .then((r) => r.data);
 
+export const getVlFactoryLiveAIAnalysis = (date?: string): Promise<{
+  analysis: string;
+  date: string;
+  schedule_count: number;
+}> =>
+  instance
+    .get("vl-assembly-production/factory-live/ai-analysis/", { params: date ? { date } : {} })
+    .then((r) => r.data);
+
 export const createVlAssemblyDailyOutput = (data: {
   vl_assembly_schedule: number;
   vl_assembly_sj_no?: number | null;
