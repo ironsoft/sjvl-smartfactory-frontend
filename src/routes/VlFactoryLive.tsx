@@ -1180,55 +1180,147 @@ export function KpiCard({
 }
 
 // ── AI 분석 결과 렌더러 ───────────────────────────────────────────────────────
+
+// 인라인 **bold** 파싱
+function InlineText({ children }: { children: string }) {
+  const parts = children.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith("**") && p.endsWith("**")
+          ? <Text as="span" key={i} fontWeight="bold">{p.slice(2, -2)}</Text>
+          : <Text as="span" key={i}>{p}</Text>
+      )}
+    </>
+  );
+}
+
+// 텍스트를 블록 단위로 파싱 (테이블 블록 감지)
+type Block =
+  | { type: "h2"; text: string }
+  | { type: "h3"; text: string }
+  | { type: "h1"; text: string }
+  | { type: "hr" }
+  | { type: "bullet"; text: string }
+  | { type: "ordered"; n: string; text: string }
+  | { type: "blank" }
+  | { type: "bold_line"; text: string }
+  | { type: "text"; text: string }
+  | { type: "table"; rows: string[][] };
+
+function parseBlocks(text: string): Block[] {
+  const lines = text.split("\n");
+  const blocks: Block[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // 테이블 블록: 연속된 | 로 시작하는 줄들
+    if (line.trimStart().startsWith("|")) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trimStart().startsWith("|")) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      // separator 행(|---|) 제외하고 파싱
+      const rows = tableLines
+        .filter((l) => !/^\s*\|[\s\-|:]+\|\s*$/.test(l))
+        .map((l) =>
+          l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim())
+        );
+      if (rows.length > 0) blocks.push({ type: "table", rows });
+      continue;
+    }
+    if (line.startsWith("## ")) { blocks.push({ type: "h2", text: line.slice(3) }); i++; continue; }
+    if (line.startsWith("### ")) { blocks.push({ type: "h3", text: line.slice(4) }); i++; continue; }
+    if (line.startsWith("# ")) { blocks.push({ type: "h1", text: line.slice(2) }); i++; continue; }
+    if (/^-{3,}$/.test(line.trim())) { blocks.push({ type: "hr" }); i++; continue; }
+    if (line.startsWith("- ") || line.startsWith("* ")) { blocks.push({ type: "bullet", text: line.slice(2) }); i++; continue; }
+    if (/^\d+\.\s/.test(line)) {
+      const m = line.match(/^(\d+)\.\s(.*)/);
+      blocks.push({ type: "ordered", n: m?.[1] ?? "", text: m?.[2] ?? "" });
+      i++; continue;
+    }
+    if (line.trim() === "") { blocks.push({ type: "blank" }); i++; continue; }
+    if (/^\*\*[^*].*[^*]\*\*$/.test(line.trim())) { blocks.push({ type: "bold_line", text: line.trim().slice(2, -2) }); i++; continue; }
+    blocks.push({ type: "text", text: line });
+    i++;
+  }
+  return blocks;
+}
+
 function AiAnalysisRenderer({ text }: { text: string }) {
   const headingColor = useColorModeValue("gray.800", "gray.100");
   const mutedColor = useColorModeValue("gray.500", "gray.400");
   const dividerColor = useColorModeValue("gray.200", "gray.600");
+  const tableBorder = useColorModeValue("gray.200", "gray.600");
+  const tableHeaderBg = useColorModeValue("gray.50", "gray.700");
+  const tableRowHover = useColorModeValue("purple.50", "purple.900");
   const codeBg = useColorModeValue("purple.50", "purple.900");
+
+  const blocks = parseBlocks(text);
 
   return (
     <VStack align="stretch" gap={1} fontSize="sm">
-      {text.split("\n").map((line, i) => {
-        if (line.startsWith("## ")) {
-          return (
-            <Text key={i} fontWeight="bold" fontSize="md" color={headingColor} mt={i > 0 ? 4 : 0}>
-              {line.replace(/^## /, "")}
-            </Text>
-          );
+      {blocks.map((block, i) => {
+        switch (block.type) {
+          case "h1":
+            return <Text key={i} fontWeight="bold" fontSize="lg" color={headingColor} mt={i > 0 ? 4 : 0}><InlineText>{block.text}</InlineText></Text>;
+          case "h2":
+            return <Text key={i} fontWeight="bold" fontSize="md" color={headingColor} mt={i > 0 ? 5 : 0} borderBottomWidth="2px" borderColor="purple.300" pb={1}><InlineText>{block.text}</InlineText></Text>;
+          case "h3":
+            return <Text key={i} fontWeight="semibold" color={headingColor} mt={3}><InlineText>{block.text}</InlineText></Text>;
+          case "hr":
+            return <Box key={i} borderTopWidth="1px" borderColor={dividerColor} my={3} />;
+          case "bullet":
+            return (
+              <HStack key={i} align="flex-start" gap={1.5} pl={3}>
+                <Text color={mutedColor} flexShrink={0} mt="2px">•</Text>
+                <Text lineHeight="1.7"><InlineText>{block.text}</InlineText></Text>
+              </HStack>
+            );
+          case "ordered":
+            return (
+              <HStack key={i} align="flex-start" gap={1.5} pl={3}>
+                <Text color="purple.500" fontWeight="semibold" flexShrink={0} minW="18px">{block.n}.</Text>
+                <Text lineHeight="1.7"><InlineText>{block.text}</InlineText></Text>
+              </HStack>
+            );
+          case "blank":
+            return <Box key={i} h={2} />;
+          case "bold_line":
+            return <Text key={i} fontWeight="semibold" bg={codeBg} px={2} py={1} borderRadius="md"><InlineText>{block.text}</InlineText></Text>;
+          case "text":
+            return <Text key={i} lineHeight="1.7"><InlineText>{block.text}</InlineText></Text>;
+          case "table": {
+            const [headerRow, ...dataRows] = block.rows;
+            return (
+              <Box key={i} overflowX="auto" my={2} borderWidth="1px" borderColor={tableBorder} borderRadius="md">
+                <Table size="sm" variant="simple">
+                  <Thead bg={tableHeaderBg}>
+                    <Tr>
+                      {headerRow.map((cell, ci) => (
+                        <Th key={ci} fontSize="11px" py={2} px={3} borderColor={tableBorder} whiteSpace="nowrap">
+                          <InlineText>{cell}</InlineText>
+                        </Th>
+                      ))}
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {dataRows.map((row, ri) => (
+                      <Tr key={ri} _hover={{ bg: tableRowHover }}>
+                        {row.map((cell, ci) => (
+                          <Td key={ci} py={1.5} px={3} borderColor={tableBorder} fontSize="xs">
+                            <InlineText>{cell}</InlineText>
+                          </Td>
+                        ))}
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+            );
+          }
         }
-        if (line.startsWith("### ")) {
-          return (
-            <Text key={i} fontWeight="semibold" color={headingColor} mt={2}>
-              {line.replace(/^### /, "")}
-            </Text>
-          );
-        }
-        if (line.startsWith("---")) {
-          return <Box key={i} borderTopWidth="1px" borderColor={dividerColor} my={3} />;
-        }
-        if (line.startsWith("- ") || line.startsWith("* ")) {
-          return (
-            <HStack key={i} align="flex-start" gap={1.5} pl={2}>
-              <Text color={mutedColor} flexShrink={0} mt="1px">•</Text>
-              <Text lineHeight="1.6">{line.replace(/^[-*] /, "")}</Text>
-            </HStack>
-          );
-        }
-        if (/^\d+\./.test(line)) {
-          return (
-            <HStack key={i} align="flex-start" gap={1.5} pl={2}>
-              <Text color="purple.500" fontWeight="semibold" flexShrink={0} w="16px">{line.match(/^\d+/)?.[0]}.</Text>
-              <Text lineHeight="1.6">{line.replace(/^\d+\.\s*/, "")}</Text>
-            </HStack>
-          );
-        }
-        if (line.trim() === "") {
-          return <Box key={i} h={1} />;
-        }
-        if (line.startsWith("**") && line.endsWith("**")) {
-          return <Text key={i} fontWeight="semibold" bg={codeBg} px={2} py={0.5} borderRadius="md">{line.replace(/\*\*/g, "")}</Text>;
-        }
-        return <Text key={i} lineHeight="1.7">{line}</Text>;
       })}
     </VStack>
   );
