@@ -391,15 +391,41 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
   // 오늘 실적이 1건이라도 있으면 진행중으로 판단
   const isActiveToday = (schedule.hourly ?? []).some((e) => e.qty > 0);
 
+  // assembly_output_qty 기반 실제 상태 (rollup 버그 영향 없음)
+  const assemblyOut = schedule.assembly_output_qty ?? 0;
+  const effectiveStatus =
+    schedule.status === "outsourced" || schedule.status === "not_ready"
+      ? schedule.status
+      : assemblyOut > 0 && effectiveTotal > 0 && assemblyOut >= effectiveTotal
+        ? "completed"
+        : assemblyOut > 0
+          ? "in_progress"
+          : "not_started";
+
+  const statusBorderColor =
+    effectiveStatus === "completed" ? "green.400"
+    : effectiveStatus === "in_progress" ? "blue.400"
+    : effectiveStatus === "outsourced" ? "purple.300"
+    : borderColor;
+
+  const statusOpacity =
+    effectiveStatus === "completed" || effectiveStatus === "in_progress" ? 1 : 0.65;
+
+  const statusBadgeScheme =
+    effectiveStatus === "completed" ? "green"
+    : effectiveStatus === "in_progress" ? "blue"
+    : effectiveStatus === "outsourced" ? "purple"
+    : "gray";
+
   return (
     <Box
       bg={cardBg}
       borderWidth="1px"
-      borderColor={isActiveToday ? "blue.300" : borderColor}
+      borderColor={isActiveToday ? "blue.300" : statusBorderColor}
       borderRadius="xl"
       overflow="hidden"
-      shadow={isActiveToday ? "md" : "xs"}
-      opacity={isActiveToday ? 1 : 0.55}
+      shadow={effectiveStatus !== "not_started" ? "md" : "xs"}
+      opacity={statusOpacity}
       w="100%"
       flexShrink={0}
       transition="all 0.2s"
@@ -416,7 +442,7 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
       }
     >
       {/* 상단 진행률 스트립 */}
-      <Box h="3px" bg={stripBg}>
+      <Box h="4px" bg={stripBg}>
         <Box h="100%" w={`${Math.min(pct, 100)}%`} bg={`${color}.400`} transition="width 0.4s" />
       </Box>
 
@@ -519,6 +545,22 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
             <Text fontSize="9px" color={labelColor} fontWeight="medium" letterSpacing="wide">
               #{schedule.pk}
             </Text>
+            <Badge
+              colorScheme={statusBadgeScheme}
+              fontSize="2xs"
+              variant="solid"
+              borderRadius="full"
+              px={1.5}
+              py={0.5}
+            >
+              {effectiveStatus === "completed"
+                ? t("vlFactoryLive.statusCompleted", "완료")
+                : effectiveStatus === "in_progress"
+                  ? t("vlFactoryLive.statusInProgress", "진행중")
+                  : effectiveStatus === "outsourced"
+                    ? t("vlFactoryLive.statusOutsourced", "외주")
+                    : t("vlFactoryLive.statusNotStarted", "미시작")}
+            </Badge>
             <Text fontSize="lg" fontWeight="bold" lineHeight={1} color={`${color}.500`}>
               {pct.toFixed(0)}
               <Text as="span" fontSize="10px" fontWeight="semibold">
