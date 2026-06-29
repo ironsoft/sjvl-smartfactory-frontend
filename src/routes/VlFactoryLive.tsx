@@ -39,7 +39,7 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet";
 import {
   FiBox,
@@ -1222,7 +1222,51 @@ function riskColor(risk: "warning" | "critical" | "ok") {
   return "green";
 }
 
-function AiAnalysisRenderer({ result, date }: { result: AIAnalysisResult; date: string }) {
+const AI_ANALYSIS_STEPS = [
+  "EF 기한 위험 스케줄 검토 중",
+  "어셈블리 완료율 분석 중",
+  "시간당 실적 목표 비교 중",
+  "B·C 모듈 진행률 검토 중",
+  "우선순위 리스크 종합 중",
+];
+
+function AiLoadingAnimation() {
+  const [visibleCount, setVisibleCount] = useState(0);
+  const dotsBg = useColorModeValue("purple.50", "purple.900");
+  const stepColor = useColorModeValue("gray.700", "gray.200");
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisibleCount((prev) => Math.min(prev + 1, AI_ANALYSIS_STEPS.length));
+    }, 650);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <VStack align="stretch" gap={0} py={2}>
+      {AI_ANALYSIS_STEPS.map((step, i) => (
+        <Flex
+          key={i}
+          align="center"
+          gap={3}
+          px={3}
+          py={2.5}
+          opacity={i < visibleCount ? 1 : 0}
+          transform={i < visibleCount ? "translateX(0)" : "translateX(-10px)"}
+          transition="opacity 0.35s ease, transform 0.35s ease"
+          bg={i < visibleCount ? dotsBg : undefined}
+          borderRadius="md"
+          mb={1}
+        >
+          <Spinner size="xs" color="purple.400" speed="0.9s" flexShrink={0} />
+          <Text fontSize="sm" color={stepColor} fontWeight="medium">{step}...</Text>
+        </Flex>
+      ))}
+    </VStack>
+  );
+}
+
+function AiAnalysisRenderer({ result, date, thumbnails }: { result: AIAnalysisResult; date: string; thumbnails?: Record<number, string | null> }) {
   const sectionBg = useColorModeValue("white", "gray.800");
   const sectionBorder = useColorModeValue("gray.200", "gray.600");
   const mutedColor = useColorModeValue("gray.500", "gray.400");
@@ -1265,8 +1309,23 @@ function AiAnalysisRenderer({ result, date }: { result: AIAnalysisResult; date: 
                       <Badge colorScheme={riskColor(item.risk)} borderRadius="full" px={2}>{item.rank}</Badge>
                     </Td>
                     <Td px={3} py={2} borderColor={tableBorder} whiteSpace="nowrap">
-                      <Text fontWeight="semibold" color="blue.500">#{item.pk}</Text>
-                      <Text fontSize="xs" color={mutedColor}>{item.style_code}</Text>
+                      <HStack gap={2} align="center">
+                        {thumbnails?.[item.pk] && (
+                          <Image
+                            src={thumbnails[item.pk]!}
+                            alt={item.style_code}
+                            w="32px"
+                            h="32px"
+                            objectFit="cover"
+                            borderRadius="sm"
+                            flexShrink={0}
+                          />
+                        )}
+                        <Box>
+                          <Text fontWeight="semibold" color="blue.500">#{item.pk}</Text>
+                          <Text fontSize="xs" color={mutedColor}>{item.style_code}</Text>
+                        </Box>
+                      </HStack>
                     </Td>
                     <Td px={3} py={2} borderColor={tableBorder}><Text lineHeight="1.5">{item.issue}</Text></Td>
                     <Td px={3} py={2} borderColor={tableBorder}><Text lineHeight="1.5" color="blue.600">{item.action}</Text></Td>
@@ -1306,13 +1365,27 @@ function AiAnalysisRenderer({ result, date }: { result: AIAnalysisResult; date: 
                     {section.items.map((item) => (
                       <Tr key={item.pk} bg={item.risk === "critical" ? "red.50" : undefined} _dark={{ bg: item.risk === "critical" ? "red.900" : undefined }} cursor="pointer" _hover={{ opacity: 0.85 }} onClick={() => openDetail(item.pk)}>
                         <Td px={3} py={2} borderColor={tableBorder} whiteSpace="nowrap">
-                          <HStack gap={1}>
-                            <Badge colorScheme={riskColor(item.risk)} variant="solid" borderRadius="sm" fontSize="9px">
-                              {item.risk === "critical" ? "위험" : "주의"}
-                            </Badge>
+                          <HStack gap={2} align="flex-start">
+                            {thumbnails?.[item.pk] && (
+                              <Image
+                                src={thumbnails[item.pk]!}
+                                alt={item.style_code}
+                                w="32px"
+                                h="32px"
+                                objectFit="cover"
+                                borderRadius="sm"
+                                flexShrink={0}
+                                mt={0.5}
+                              />
+                            )}
+                            <Box>
+                              <Badge colorScheme={riskColor(item.risk)} variant="solid" borderRadius="sm" fontSize="9px">
+                                {item.risk === "critical" ? "위험" : "주의"}
+                              </Badge>
+                              <Text fontWeight="semibold" color="blue.500" mt={0.5}>#{item.pk}</Text>
+                              <Text fontSize="xs" color={mutedColor}>{item.style_code}</Text>
+                            </Box>
                           </HStack>
-                          <Text fontWeight="semibold" color="blue.500" mt={0.5}>#{item.pk}</Text>
-                          <Text fontSize="xs" color={mutedColor}>{item.style_code}</Text>
                         </Td>
                         <Td px={3} py={2} borderColor={tableBorder} fontSize="xs" color={mutedColor} whiteSpace="nowrap">{item.line ?? "-"}</Td>
                         <Td px={3} py={2} borderColor={tableBorder}>
@@ -1345,7 +1418,6 @@ export default function VlFactoryLive() {
   const [searchQuery, setSearchQuery] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiStreamingText, setAiStreamingText] = useState("");
   const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
 
   const bgPage = useColorModeValue("gray.100", "gray.900");
@@ -1353,14 +1425,24 @@ export default function VlFactoryLive() {
   const headerBorder = useColorModeValue("gray.200", "gray.700");
   const mutedText = useColorModeValue("gray.500", "gray.400");
   const toggleHover = useColorModeValue("gray.700", "gray.200");
-  const aiStreamingBg = useColorModeValue("purple.50", "purple.900");
-
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["vl-factory-live-schedules", date],
     queryFn: () => getVlFactoryLiveSchedules(date),
     refetchInterval: 60_000,
     retry: false,
   });
+
+  const thumbnailMap = useMemo(() => {
+    const map: Record<number, string | null> = {};
+    if (data?.lines) {
+      for (const line of data.lines) {
+        for (const sched of line.schedules) {
+          map[sched.pk] = sched.thumbnail;
+        }
+      }
+    }
+    return map;
+  }, [data]);
 
   useEffect(() => {
     if (!isFetching) setLastRefreshed(new Date());
@@ -1499,14 +1581,10 @@ export default function VlFactoryLive() {
                   onAiOpen();
                   if (aiAnalysis) return;
                   setAiLoading(true);
-                  setAiStreamingText("");
                   try {
                     for await (const event of streamVlFactoryLiveAIAnalysis(date)) {
-                      if (event.type === "text") {
-                        setAiStreamingText((prev) => prev + event.delta);
-                      } else if (event.type === "done") {
+                      if (event.type === "done") {
                         setAiAnalysis(event.result as AIAnalysisResult);
-                        setAiStreamingText("");
                         setAiLoading(false);
                       } else if (event.type === "error") {
                         setAiLoading(false);
@@ -1719,46 +1797,10 @@ export default function VlFactoryLive() {
           </DrawerHeader>
           <DrawerBody py={4}>
             {aiLoading ? (
-              <Box>
-                <HStack mb={3} gap={2}>
-                  <Spinner size="sm" color="purple.500" />
-                  <Text fontSize="sm" color="purple.500" fontWeight="medium">AI 분석 중...</Text>
-                </HStack>
-                {aiStreamingText ? (
-                  <Box
-                    px={4}
-                    py={3}
-                    bg={aiStreamingBg}
-                    borderRadius="md"
-                    borderLeft="3px solid"
-                    borderLeftColor="purple.400"
-                  >
-                    <Text fontSize="sm" whiteSpace="pre-wrap" lineHeight="1.7">
-                      {aiStreamingText}
-                      <Box
-                        as="span"
-                        display="inline-block"
-                        w="2px"
-                        h="1em"
-                        bg="purple.500"
-                        ml="1px"
-                        verticalAlign="text-bottom"
-                        sx={{
-                          "@keyframes cursorBlink": { "0%, 100%": { opacity: 1 }, "50%": { opacity: 0 } },
-                          animation: "cursorBlink 1s step-end infinite",
-                        }}
-                      />
-                    </Text>
-                  </Box>
-                ) : (
-                  <Center h="120px">
-                    <Text fontSize="sm" color="gray.500">스케줄 데이터를 분석하는 중...</Text>
-                  </Center>
-                )}
-              </Box>
+              <AiLoadingAnimation />
             ) : aiAnalysis ? (
               <Box>
-                <AiAnalysisRenderer result={aiAnalysis} date={date} />
+                <AiAnalysisRenderer result={aiAnalysis} date={date} thumbnails={thumbnailMap} />
                 <Button
                   mt={6}
                   size="sm"
@@ -1769,14 +1811,10 @@ export default function VlFactoryLive() {
                   onClick={async () => {
                     setAiAnalysis(null);
                     setAiLoading(true);
-                    setAiStreamingText("");
                     try {
                       for await (const event of streamVlFactoryLiveAIAnalysis(date)) {
-                        if (event.type === "text") {
-                          setAiStreamingText((prev) => prev + event.delta);
-                        } else if (event.type === "done") {
+                        if (event.type === "done") {
                           setAiAnalysis(event.result as AIAnalysisResult);
-                          setAiStreamingText("");
                           setAiLoading(false);
                         } else if (event.type === "error") {
                           setAiLoading(false);
