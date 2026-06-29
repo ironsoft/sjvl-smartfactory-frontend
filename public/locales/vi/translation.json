@@ -2711,6 +2711,9 @@
       "urgentEfSub": "trong D-7",
       "urgentEfNone": "Không có"
     },
+    "searchPlaceholder": "Tìm kiếm đơn hàng...",
+    "searchFound": "{{count}} kết quả",
+    "searchNotFound": "Không tìm thấy",
     "lineSummaryToggle": "Tóm tắt dây chuyền",
     "collapse": "Thu gọn",
     "expand": "Mở rộng",

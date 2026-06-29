@@ -7,6 +7,10 @@ import {
   HStack,
   IconButton,
   Image,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  InputRightElement,
   Modal,
   ModalContent,
   ModalOverlay,
@@ -28,15 +32,17 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet";
 import {
   FiBox,
   FiChevronDown,
   FiChevronUp,
   FiRefreshCw,
+  FiSearch,
   FiTrendingDown,
   FiTrendingUp,
+  FiX,
 } from "react-icons/fi";
 import {
   getVlFactoryLiveSchedules,
@@ -72,6 +78,13 @@ const pulse = keyframes`
   0% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.5); }
   70% { box-shadow: 0 0 0 6px rgba(229, 62, 62, 0); }
   100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0); }
+`;
+
+// ── 검색 하이라이트 애니메이션 ───────────────────────────────────────────────
+const highlightPulse = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(237, 137, 54, 0.8); }
+  50% { box-shadow: 0 0 0 8px rgba(237, 137, 54, 0.3); }
+  100% { box-shadow: 0 0 0 4px rgba(237, 137, 54, 0.5); }
 `;
 
 export function LiveDot() {
@@ -361,7 +374,24 @@ function ModuleRow({ mod }: { mod: VlLiveModule }) {
 }
 
 // ── 스케줄 카드 ──────────────────────────────────────────────────────────────
-function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: string }) {
+function ScheduleCard({
+  schedule,
+  date,
+  highlighted,
+  isFirstMatch,
+}: {
+  schedule: VlLiveSchedule;
+  date: string;
+  highlighted?: boolean;
+  isFirstMatch?: boolean;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (highlighted && isFirstMatch && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlighted, isFirstMatch]);
   const { t } = useTranslation();
   const cardBg = useColorModeValue("white", "gray.700");
   const borderColor = useColorModeValue("gray.200", "gray.600");
@@ -419,13 +449,14 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
 
   return (
     <Box
+      ref={cardRef}
       bg={cardBg}
-      borderWidth="1px"
-      borderColor={isActiveToday ? "blue.300" : statusBorderColor}
+      borderWidth={highlighted ? "2px" : "1px"}
+      borderColor={highlighted ? "orange.400" : isActiveToday ? "blue.300" : statusBorderColor}
       borderRadius="xl"
       overflow="hidden"
-      shadow={effectiveStatus !== "not_started" ? "md" : "xs"}
-      opacity={statusOpacity}
+      shadow={highlighted ? "lg" : effectiveStatus !== "not_started" ? "md" : "xs"}
+      opacity={highlighted ? 1 : statusOpacity}
       w="100%"
       flexShrink={0}
       transition="all 0.2s"
@@ -433,6 +464,7 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
       position="relative"
       cursor="pointer"
       role="link"
+      animation={highlighted ? `${highlightPulse} 1.5s ease-in-out infinite` : undefined}
       onClick={() =>
         window.open(
           `/vl-factory-live/schedules/${schedule.pk}?date=${date}&popup=1`,
@@ -688,7 +720,7 @@ function ScheduleCard({ schedule, date }: { schedule: VlLiveSchedule; date: stri
 }
 
 // ── 라인 컬럼 ────────────────────────────────────────────────────────────────
-function LineColumn({ line, date }: { line: VlLiveLine; date: string }) {
+function LineColumn({ line, date, highlightedPks, firstMatchPk }: { line: VlLiveLine; date: string; highlightedPks: Set<number>; firstMatchPk: number | null }) {
   const { t } = useTranslation();
   const colBg = useColorModeValue("blackAlpha.50", "blackAlpha.300");
   const borderColor = useColorModeValue("gray.200", "gray.600");
@@ -758,7 +790,15 @@ function LineColumn({ line, date }: { line: VlLiveLine; date: string }) {
             </VStack>
           </Center>
         ) : (
-          line.schedules.map((sc) => <ScheduleCard key={sc.pk} schedule={sc} date={date} />)
+          line.schedules.map((sc) => (
+            <ScheduleCard
+              key={sc.pk}
+              schedule={sc}
+              date={date}
+              highlighted={highlightedPks.has(sc.pk)}
+              isFirstMatch={sc.pk === firstMatchPk}
+            />
+          ))
         )}
       </VStack>
     </Flex>
@@ -1097,6 +1137,7 @@ export default function VlFactoryLive() {
   const [date, setDate] = useState(today);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [showLineSummary, setShowLineSummary] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const bgPage = useColorModeValue("gray.100", "gray.900");
   const headerBg = useColorModeValue("white", "gray.800");
@@ -1118,6 +1159,27 @@ export default function VlFactoryLive() {
   const lines = data?.lines ?? [];
 
   const allSchedules = lines.flatMap((l) => l.schedules);
+
+  // ── 검색 일치 계산 ──
+  const trimmedSearch = searchQuery.trim().toLowerCase();
+  const highlightedPks = new Set<number>();
+  let firstMatchPk: number | null = null;
+  if (trimmedSearch) {
+    for (const line of lines) {
+      for (const sc of line.schedules) {
+        const matches =
+          sc.style_code?.toLowerCase().includes(trimmedSearch) ||
+          sc.style_name?.toLowerCase().includes(trimmedSearch) ||
+          sc.po_no?.toLowerCase().includes(trimmedSearch) ||
+          sc.sj_nos.some((sj) => sj.sj_no.toLowerCase().includes(trimmedSearch)) ||
+          String(sc.pk) === trimmedSearch;
+        if (matches) {
+          highlightedPks.add(sc.pk);
+          if (firstMatchPk === null) firstMatchPk = sc.pk;
+        }
+      }
+    }
+  }
   const totalOutput = allSchedules.reduce((s, sc) => s + sc.assembly_output_qty, 0);
   const totalOrder = allSchedules.reduce((s, sc) => s + (sc.vl_effective_qty || sc.total_order_qty), 0);
   const overallPct = totalOrder > 0 ? Math.round((totalOutput / totalOrder) * 100) : 0;
@@ -1214,7 +1276,41 @@ export default function VlFactoryLive() {
               </Text>
             </HStack>
 
-            <HStack gap={2} flexShrink={0}>
+            <HStack gap={2} flexShrink={0} flexWrap="wrap">
+              <InputGroup size="sm" w="200px" flexShrink={0}>
+                <InputLeftElement pointerEvents="none">
+                  <Box color={trimmedSearch && highlightedPks.size === 0 ? "red.400" : trimmedSearch ? "orange.400" : mutedText}>
+                    <FiSearch size={13} />
+                  </Box>
+                </InputLeftElement>
+                <Input
+                  placeholder={t("vlFactoryLive.searchPlaceholder", "오더 검색...")}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  borderRadius="md"
+                  pr="28px"
+                  borderColor={trimmedSearch && highlightedPks.size === 0 ? "red.400" : trimmedSearch ? "orange.400" : undefined}
+                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px var(--chakra-colors-orange-400)" }}
+                />
+                {searchQuery && (
+                  <InputRightElement>
+                    <IconButton
+                      aria-label="clear search"
+                      icon={<FiX size={12} />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => setSearchQuery("")}
+                    />
+                  </InputRightElement>
+                )}
+              </InputGroup>
+              {trimmedSearch && (
+                <Text fontSize="xs" color={highlightedPks.size > 0 ? "orange.500" : "red.400"} whiteSpace="nowrap" flexShrink={0}>
+                  {highlightedPks.size > 0
+                    ? t("vlFactoryLive.searchFound", { count: highlightedPks.size })
+                    : t("vlFactoryLive.searchNotFound", "없음")}
+                </Text>
+              )}
               <LocalizedDateInput value={date} onChange={(v) => setDate(v)} size="sm" />
               {lastRefreshed && (
                 <Text fontSize="xs" color={mutedText} whiteSpace="nowrap" sx={{ fontVariantNumeric: "tabular-nums" }}>
@@ -1359,7 +1455,7 @@ export default function VlFactoryLive() {
               <Box overflowX="auto">
                 <Flex gap={3} align="flex-start" width="max-content">
                   {lines.map((line) => (
-                    <LineColumn key={line.line_name} line={line} date={date} />
+                    <LineColumn key={line.line_name} line={line} date={date} highlightedPks={highlightedPks} firstMatchPk={firstMatchPk} />
                   ))}
                 </Flex>
               </Box>

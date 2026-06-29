@@ -2711,6 +2711,9 @@
       "urgentEfSub": "within D-7",
       "urgentEfNone": "None"
     },
+    "searchPlaceholder": "Search orders...",
+    "searchFound": "{{count}} found",
+    "searchNotFound": "No results",
     "lineSummaryToggle": "Line Summary",
     "collapse": "Collapse",
     "expand": "Expand",

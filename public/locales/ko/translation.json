@@ -2711,6 +2711,9 @@
       "urgentEfSub": "D-7 이내",
       "urgentEfNone": "없음"
     },
+    "searchPlaceholder": "오더 검색...",
+    "searchFound": "{{count}}건 찾음",
+    "searchNotFound": "검색 결과 없음",
     "lineSummaryToggle": "라인별 요약",
     "collapse": "접기",
     "expand": "펼치기",
