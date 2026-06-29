@@ -31,7 +31,7 @@ import {
   useColorModeValue,
   useDisclosure,
 } from "@chakra-ui/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet";
 import {
@@ -46,6 +46,9 @@ import {
 } from "react-icons/fi";
 import {
   getVlFactoryLiveSchedules,
+  getVlFactoryLiveScheduleDetail,
+  getVlAssemblyScheduleProductionDailyOutputs,
+  getVlAssemblyModuleProductionDailyOutputs,
   type VlLiveHourly,
   type VlLiveLine,
   type VlLiveModule,
@@ -393,12 +396,35 @@ function ScheduleCard({
   isFirstMatch?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const prefetchedRef = useRef(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (highlighted && isFirstMatch && cardRef.current) {
       cardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [highlighted, isFirstMatch]);
+
+  function handleMouseEnter() {
+    if (prefetchedRef.current) return;
+    prefetchedRef.current = true;
+    const pk = schedule.pk;
+    queryClient.prefetchQuery({
+      queryKey: ["vl-factory-live-schedule-detail", pk, date],
+      queryFn: () => getVlFactoryLiveScheduleDetail(pk, date),
+      staleTime: 60_000,
+    });
+    queryClient.prefetchQuery({
+      queryKey: ["vlScheduleDailyOutputs", pk],
+      queryFn: () => getVlAssemblyScheduleProductionDailyOutputs({ schedule: pk, page_size: 500 }),
+      staleTime: 60_000,
+    });
+    queryClient.prefetchQuery({
+      queryKey: ["vlModuleDailyOutputs", pk],
+      queryFn: () => getVlAssemblyModuleProductionDailyOutputs({ schedule: pk, page_size: 500 }),
+      staleTime: 60_000,
+    });
+  }
   const { t } = useTranslation();
   const cardBg = useColorModeValue("white", "gray.700");
   const borderColor = useColorModeValue("gray.200", "gray.600");
@@ -471,6 +497,7 @@ function ScheduleCard({
       position="relative"
       cursor="pointer"
       role="link"
+      onMouseEnter={handleMouseEnter}
       animation={
         highlighted
           ? `${highlightPulse} 1.5s ease-in-out infinite`
