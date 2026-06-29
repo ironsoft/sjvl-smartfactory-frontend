@@ -5545,6 +5545,53 @@ export const getVlFactoryLiveAIAnalysis = (date?: string): Promise<{
     .get("vl-assembly-production/factory-live/ai-analysis/", { params: date ? { date } : {} })
     .then((r) => r.data);
 
+export type VlLiveAIStreamEvent =
+  | { type: "text"; delta: string }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | { type: "done"; result: any }
+  | { type: "error"; text: string };
+
+export async function* streamVlFactoryLiveAIAnalysis(date?: string): AsyncGenerator<VlLiveAIStreamEvent> {
+  const baseURL = getApiBaseURL();
+  const jwtToken = localStorage.getItem("jwt") || "";
+  const params = date ? `?date=${encodeURIComponent(date)}` : "";
+  const response = await fetch(
+    `${baseURL}vl-assembly-production/factory-live/ai-analysis-stream/${params}`,
+    {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        "X-CSRFToken": Cookies.get("csrftoken") || "",
+        ...(jwtToken ? { jwt: jwtToken } : {}),
+      },
+    }
+  );
+
+  if (!response.ok || !response.body) {
+    yield { type: "error", text: `HTTP ${response.status}` };
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      try {
+        const event = JSON.parse(line.slice(6)) as VlLiveAIStreamEvent;
+        yield event;
+      } catch {}
+    }
+  }
+}
+
 export const createVlAssemblyDailyOutput = (data: {
   vl_assembly_schedule: number;
   vl_assembly_sj_no?: number | null;

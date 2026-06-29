@@ -58,6 +58,7 @@ import {
   getVlAssemblyScheduleProductionDailyOutputs,
   getVlAssemblyModuleProductionDailyOutputs,
   getVlFactoryLiveAIAnalysis,
+  streamVlFactoryLiveAIAnalysis,
   type VlLiveHourly,
   type VlLiveLine,
   type VlLiveModule,
@@ -1344,6 +1345,7 @@ export default function VlFactoryLive() {
   const [searchQuery, setSearchQuery] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiStreamingText, setAiStreamingText] = useState("");
   const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
 
   const bgPage = useColorModeValue("gray.100", "gray.900");
@@ -1351,6 +1353,7 @@ export default function VlFactoryLive() {
   const headerBorder = useColorModeValue("gray.200", "gray.700");
   const mutedText = useColorModeValue("gray.500", "gray.400");
   const toggleHover = useColorModeValue("gray.700", "gray.200");
+  const aiStreamingBg = useColorModeValue("purple.50", "purple.900");
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["vl-factory-live-schedules", date],
@@ -1496,12 +1499,20 @@ export default function VlFactoryLive() {
                   onAiOpen();
                   if (aiAnalysis) return;
                   setAiLoading(true);
+                  setAiStreamingText("");
                   try {
-                    const res = await getVlFactoryLiveAIAnalysis(date);
-                    setAiAnalysis(res.analysis as AIAnalysisResult);
+                    for await (const event of streamVlFactoryLiveAIAnalysis(date)) {
+                      if (event.type === "text") {
+                        setAiStreamingText((prev) => prev + event.delta);
+                      } else if (event.type === "done") {
+                        setAiAnalysis(event.result as AIAnalysisResult);
+                        setAiStreamingText("");
+                        setAiLoading(false);
+                      } else if (event.type === "error") {
+                        setAiLoading(false);
+                      }
+                    }
                   } catch {
-                    setAiAnalysis(null);
-                  } finally {
                     setAiLoading(false);
                   }
                 }}
@@ -1708,12 +1719,43 @@ export default function VlFactoryLive() {
           </DrawerHeader>
           <DrawerBody py={4}>
             {aiLoading ? (
-              <Center h="200px">
-                <VStack gap={3}>
-                  <Spinner size="lg" color="purple.500" />
-                  <Text fontSize="sm" color="gray.500">스케줄 데이터를 분석하는 중...</Text>
-                </VStack>
-              </Center>
+              <Box>
+                <HStack mb={3} gap={2}>
+                  <Spinner size="sm" color="purple.500" />
+                  <Text fontSize="sm" color="purple.500" fontWeight="medium">AI 분석 중...</Text>
+                </HStack>
+                {aiStreamingText ? (
+                  <Box
+                    px={4}
+                    py={3}
+                    bg={aiStreamingBg}
+                    borderRadius="md"
+                    borderLeft="3px solid"
+                    borderLeftColor="purple.400"
+                  >
+                    <Text fontSize="sm" whiteSpace="pre-wrap" lineHeight="1.7">
+                      {aiStreamingText}
+                      <Box
+                        as="span"
+                        display="inline-block"
+                        w="2px"
+                        h="1em"
+                        bg="purple.500"
+                        ml="1px"
+                        verticalAlign="text-bottom"
+                        sx={{
+                          "@keyframes cursorBlink": { "0%, 100%": { opacity: 1 }, "50%": { opacity: 0 } },
+                          animation: "cursorBlink 1s step-end infinite",
+                        }}
+                      />
+                    </Text>
+                  </Box>
+                ) : (
+                  <Center h="120px">
+                    <Text fontSize="sm" color="gray.500">스케줄 데이터를 분석하는 중...</Text>
+                  </Center>
+                )}
+              </Box>
             ) : aiAnalysis ? (
               <Box>
                 <AiAnalysisRenderer result={aiAnalysis} date={date} />
@@ -1727,12 +1769,20 @@ export default function VlFactoryLive() {
                   onClick={async () => {
                     setAiAnalysis(null);
                     setAiLoading(true);
+                    setAiStreamingText("");
                     try {
-                      const res = await getVlFactoryLiveAIAnalysis(date);
-                      setAiAnalysis(res.analysis as AIAnalysisResult);
+                      for await (const event of streamVlFactoryLiveAIAnalysis(date)) {
+                        if (event.type === "text") {
+                          setAiStreamingText((prev) => prev + event.delta);
+                        } else if (event.type === "done") {
+                          setAiAnalysis(event.result as AIAnalysisResult);
+                          setAiStreamingText("");
+                          setAiLoading(false);
+                        } else if (event.type === "error") {
+                          setAiLoading(false);
+                        }
+                      }
                     } catch {
-                      setAiAnalysis(null);
-                    } finally {
                       setAiLoading(false);
                     }
                   }}
