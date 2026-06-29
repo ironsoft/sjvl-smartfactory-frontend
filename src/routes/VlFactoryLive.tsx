@@ -1418,7 +1418,7 @@ export default function VlFactoryLive() {
                 <KpiCard
                   label={t("vlFactoryLive.kpi.activeSchedules")}
                   value={String(activeScheduleCount)}
-                  suffix="건"
+                  suffix={t("vlFactoryLive.kpi.countSuffix") || undefined}
                   sub={t("vlFactoryLive.kpi.activeSchedulesSub", { total: allSchedules.length })}
                   colorScheme={activeScheduleCount > 0 ? "blue" : undefined}
                 />
@@ -1426,7 +1426,7 @@ export default function VlFactoryLive() {
                 <KpiCard
                   label={t("vlFactoryLive.kpi.urgentEf")}
                   value={urgentCount > 0 ? String(urgentCount) : t("vlFactoryLive.kpi.urgentEfNone")}
-                  suffix={urgentCount > 0 ? "건" : undefined}
+                  suffix={urgentCount > 0 ? (t("vlFactoryLive.kpi.countSuffix") || undefined) : undefined}
                   sub={urgentCount > 0 ? t("vlFactoryLive.kpi.urgentEfSub") : undefined}
                   colorScheme={urgentCount > 0 ? "orange" : undefined}
                 />

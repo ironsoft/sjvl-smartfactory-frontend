@@ -2709,7 +2709,8 @@
       "activeSchedulesSub": "of {{total}} total",
       "urgentEf": "EF Urgent",
       "urgentEfSub": "within D-7",
-      "urgentEfNone": "None"
+      "urgentEfNone": "None",
+      "countSuffix": ""
     },
     "searchPlaceholder": "Search orders...",
     "searchFound": "{{count}} found",

@@ -2709,7 +2709,8 @@
       "activeSchedulesSub": "전체 {{total}}건 중",
       "urgentEf": "EF 임박",
       "urgentEfSub": "D-7 이내",
-      "urgentEfNone": "없음"
+      "urgentEfNone": "없음",
+      "countSuffix": "건"
     },
     "searchPlaceholder": "오더 검색...",
     "searchFound": "{{count}}건 찾음",
