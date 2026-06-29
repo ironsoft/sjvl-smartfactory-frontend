@@ -87,6 +87,13 @@ const highlightPulse = keyframes`
   100% { box-shadow: 0 0 0 4px rgba(237, 137, 54, 0.5); }
 `;
 
+// ── 금일 생산중 (isActiveToday) 애니메이션 ──────────────────────────────────
+const productionPulse = keyframes`
+  0%   { box-shadow: 0 0 0 0   rgba(66, 153, 225, 0.7), 0 0 8px 2px rgba(66, 153, 225, 0.15); }
+  50%  { box-shadow: 0 0 0 5px rgba(66, 153, 225, 0.2), 0 0 16px 4px rgba(66, 153, 225, 0.25); }
+  100% { box-shadow: 0 0 0 0   rgba(66, 153, 225, 0.0), 0 0 8px 2px rgba(66, 153, 225, 0.15); }
+`;
+
 export function LiveDot() {
   return (
     <Box
@@ -451,20 +458,26 @@ function ScheduleCard({
     <Box
       ref={cardRef}
       bg={cardBg}
-      borderWidth={highlighted ? "2px" : "1px"}
-      borderColor={highlighted ? "orange.400" : isActiveToday ? "blue.300" : statusBorderColor}
+      borderWidth={highlighted || isActiveToday ? "2px" : "1px"}
+      borderColor={highlighted ? "orange.400" : isActiveToday ? "blue.400" : statusBorderColor}
       borderRadius="xl"
       overflow="hidden"
-      shadow={highlighted ? "lg" : effectiveStatus !== "not_started" ? "md" : "xs"}
+      shadow={highlighted ? "lg" : isActiveToday || effectiveStatus !== "not_started" ? "md" : "xs"}
       opacity={highlighted ? 1 : statusOpacity}
       w="100%"
       flexShrink={0}
-      transition="all 0.2s"
+      transition="border-color 0.2s, opacity 0.2s"
       _hover={{ opacity: 1, shadow: "md" }}
       position="relative"
       cursor="pointer"
       role="link"
-      animation={highlighted ? `${highlightPulse} 1.5s ease-in-out infinite` : undefined}
+      animation={
+        highlighted
+          ? `${highlightPulse} 1.5s ease-in-out infinite`
+          : isActiveToday
+            ? `${productionPulse} 2s ease-in-out infinite`
+            : undefined
+      }
       onClick={() =>
         window.open(
           `/vl-factory-live/schedules/${schedule.pk}?date=${date}&popup=1`,
