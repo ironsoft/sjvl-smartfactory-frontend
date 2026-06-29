@@ -47,9 +47,15 @@ const instance = axios.create({
 
 // 개발: 최초 번들 로드 시점에 window가 없으면 baseURL이 127.0.0.1로 고정될 수 있고,
 // 이후 브라우저에서 localhost로 열면 로그인 쿠키 호스트와 API 호스트가 달라져 /users/me 가 403이 될 수 있음.
+// 로그인 후 localStorage에 JWT 저장 → iOS Safari 크로스 사이트 쿠키 차단 우회
 instance.interceptors.request.use((config) => {
   if (process.env.NODE_ENV === "development") {
     config.baseURL = getApiBaseURL();
+  }
+  const token = localStorage.getItem("jwt");
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers["jwt"] = token;
   }
   return config;
 });
@@ -3141,6 +3147,7 @@ export const createMachine = async (data: {
   manufacturer?: string;
   supplier?: string;
   purchase_date?: string | null;
+  model_3d_url?: string;
 }): Promise<IMachine> =>
   instance.post("machines/machines/", data).then((r) => r.data);
 
@@ -3373,6 +3380,12 @@ export interface IEpSjNoCopy {
   sj_no: string;
   output_qty?: number | null;
   total_qty?: number | null;
+  /** VL 공장 배정 수량. 설정 시 목표·잔량 기준으로 사용 (total_qty 대신). */
+  vl_qty?: number | null;
+  /** 나머지 수량을 생산하는 외부 공장명 (예: BD, SJBD) */
+  outsource_factory?: string | null;
+  /** 외부 공장 배정 수량 */
+  outsource_qty?: number | null;
   status?: string;
   status_display?: string;
   cycle_time?: string | null;
@@ -3545,6 +3558,8 @@ export interface ISjOrderSearchResult {
   sj_no_value: string | null;
   sj_style_code?: string | null;
   style_name: string | null;
+  has_vl_schedule?: boolean;
+  vl_schedules?: { pk: number; line: string | null; start: string | null; finish: string | null }[];
   color: string | null;
   total_order_qty: number | null;
   ex_factory_date: string | null;
@@ -3553,7 +3568,7 @@ export interface ISjOrderSearchResult {
 
 export const searchSjOrders = (query: string) =>
   instance
-    .get(`sj-orders/?search=${encodeURIComponent(query)}&page=1`)
+    .get(`sj-orders/?search=${encodeURIComponent(query)}&page=1&page_size=100`)
     .then((r) => r.data.results as ISjOrderSearchResult[]);
 
 export const getEpScheduleDetail = (pk: number) =>
@@ -4417,6 +4432,45 @@ export const getVlAssemblySchedules = ({
     .then((r) => (Array.isArray(r.data) ? r.data.map(normalizeVlAssemblySchedule) : []) as IVlAssemblySchedule[]);
 };
 
+export interface IVlAssemblySchedulesPage {
+  results: IVlAssemblySchedule[];
+  current_page: number;
+  total_pages: number;
+  total_results: number;
+}
+
+export const getVlAssemblySchedulesPaginated = ({
+  search = "",
+  year,
+  month,
+  page = 1,
+  page_size = 20,
+}: {
+  search?: string;
+  year?: number;
+  month?: number;
+  page?: number;
+  page_size?: number;
+} = {}) => {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (year != null) params.set("year", String(year));
+  if (month != null) params.set("month", String(month));
+  params.set("page", String(page));
+  params.set("page_size", String(page_size));
+  return instance
+    .get(`vl-assembly-production/schedules/?${params.toString()}`)
+    .then((r) => {
+      const data = r.data as { results: unknown[]; current_page: number; total_pages: number; total_results: number };
+      return {
+        results: (data.results ?? []).map(normalizeVlAssemblySchedule) as IVlAssemblySchedule[],
+        current_page: data.current_page,
+        total_pages: data.total_pages,
+        total_results: data.total_results,
+      } as IVlAssemblySchedulesPage;
+    });
+};
+
 /** VL 조립 생산 — 계획 근무일에서 제외할 등록 공휴일(일요일은 프론트에서 별도 제외) */
 export interface IVlPlanHoliday {
   pk: number;
@@ -5228,7 +5282,39 @@ export const updateMachinePlacement = (
 export const removeMachinePlacement = (pk: number): Promise<void> =>
   instance.delete(`welding-room/placements/${pk}/`).then((r) => r.data);
 
-// ── Factory Overview AI Analysis ──────────────────────────────────────────
+// ── AI Analysis ──────────────────────────────────────────────────────────────
+
+export interface IHotColdPressAnalysisRequest {
+  machine_iot_id: string;
+  hot_temp: number;
+  cold_temp: number;
+  hot_duration: number | null;
+  cold_duration: number | null;
+  cycle_count: number | null;
+  std_hot_temp: number;
+  std_cold_temp: number;
+  std_hot_duration: number;
+  std_cold_duration: number;
+  tolerance_temp?: number;
+  tolerance_duration?: number;
+  language?: string;
+}
+
+export interface IHotColdPressAnalysisResponse {
+  severity: "ok" | "warning" | "critical";
+  summary: string;
+  issues: string[];
+  recommendations: string[];
+}
+
+export const analyzeHotColdPress = async (
+  data: IHotColdPressAnalysisRequest
+): Promise<IHotColdPressAnalysisResponse> => {
+  const r = await instance.post("ai-analysis/hot-cold-press/", data, {
+    headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+  });
+  return r.data;
+};
 
 export interface IFactoryMachineInput {
   machine_name: string;
@@ -5237,7 +5323,7 @@ export interface IFactoryMachineInput {
   cold_temp: number | null;
   std_hot_temp: number | null;
   std_cold_temp: number | null;
-  tolerance_temp: number;
+  tolerance_temp?: number;
   is_connected: boolean;
 }
 
@@ -5249,11 +5335,23 @@ export interface IFactoryMachineIssue {
 }
 
 export interface IFactoryOverviewAnalysisResponse {
-  summary: string;
   overall_severity: "ok" | "warning" | "critical";
+  summary: string;
   machine_issues: IFactoryMachineIssue[];
   recommendations: string[];
 }
+
+export const analyzeFactoryOverview = async (
+  machines: IFactoryMachineInput[],
+  language = "ko"
+): Promise<IFactoryOverviewAnalysisResponse> => {
+  const r = await instance.post(
+    "ai-analysis/factory-overview/",
+    { machines, language },
+    { headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" } }
+  );
+  return r.data;
+};
 
 export type FactoryStreamEvent =
   | { type: "delta"; text: string }
@@ -5265,12 +5363,14 @@ export async function* streamFactoryOverview(
   language = "ko"
 ): AsyncGenerator<FactoryStreamEvent> {
   const baseURL = getApiBaseURL();
+  const jwtToken = localStorage.getItem("jwt") || "";
   const response = await fetch(`${baseURL}ai-analysis/factory-overview/stream/`, {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
       "X-CSRFToken": Cookies.get("csrftoken") || "",
+      ...(jwtToken ? { jwt: jwtToken } : {}),
     },
     body: JSON.stringify({ machines, language }),
   });
@@ -5436,7 +5536,8 @@ export const getVlFactoryLiveScheduleDetail = (
     .then((r) => r.data);
 
 export const getVlFactoryLiveAIAnalysis = (date?: string): Promise<{
-  analysis: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  analysis: any;
   date: string;
   schedule_count: number;
 }> =>
@@ -5528,39 +5629,5 @@ export const endWeldingPressJob = async (pk: number): Promise<IWeldingPressJob> 
     { ended_at: new Date().toISOString() },
     { headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" } }
   );
-  return r.data;
-};
-
-// ── AI Analysis — Hot Cold Press ──────────────────────────────────────────────
-
-export interface IHotColdPressAnalysisRequest {
-  machine_iot_id: string;
-  hot_temp: number;
-  cold_temp: number;
-  hot_duration: number | null;
-  cold_duration: number | null;
-  cycle_count: number | null;
-  std_hot_temp: number;
-  std_cold_temp: number;
-  std_hot_duration: number;
-  std_cold_duration: number;
-  tolerance_temp?: number;
-  tolerance_duration?: number;
-  language?: string;
-}
-
-export interface IHotColdPressAnalysisResponse {
-  severity: "ok" | "warning" | "critical";
-  summary: string;
-  issues: string[];
-  recommendations: string[];
-}
-
-export const analyzeHotColdPress = async (
-  data: IHotColdPressAnalysisRequest
-): Promise<IHotColdPressAnalysisResponse> => {
-  const r = await instance.post("ai-analysis/hot-cold-press/", data, {
-    headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
-  });
   return r.data;
 };

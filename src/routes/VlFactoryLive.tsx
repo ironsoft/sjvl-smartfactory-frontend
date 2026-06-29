@@ -1179,148 +1179,148 @@ export function KpiCard({
   );
 }
 
-// ── AI 분석 결과 렌더러 ───────────────────────────────────────────────────────
-
-// 인라인 **bold** 파싱
-function InlineText({ children }: { children: string }) {
-  const parts = children.split(/(\*\*[^*]+\*\*)/g);
-  return (
-    <>
-      {parts.map((p, i) =>
-        p.startsWith("**") && p.endsWith("**")
-          ? <Text as="span" key={i} fontWeight="bold">{p.slice(2, -2)}</Text>
-          : <Text as="span" key={i}>{p}</Text>
-      )}
-    </>
-  );
+// ── AI 분석 결과 타입 & 렌더러 ──────────────────────────────────────────────
+interface AIItem {
+  pk: number;
+  style_code: string;
+  line?: string;
+  risk: "warning" | "critical";
+  summary: string;
+  detail?: string;
+  action?: string;
+}
+interface AISection {
+  id: string;
+  title: string;
+  status: "ok" | "warning" | "critical";
+  items: AIItem[];
+}
+interface AITop3Item {
+  rank: number;
+  pk: number;
+  style_code: string;
+  risk: "warning" | "critical";
+  issue: string;
+  action: string;
+}
+interface AIAnalysisResult {
+  sections: AISection[];
+  top3: AITop3Item[];
 }
 
-// 텍스트를 블록 단위로 파싱 (테이블 블록 감지)
-type Block =
-  | { type: "h2"; text: string }
-  | { type: "h3"; text: string }
-  | { type: "h1"; text: string }
-  | { type: "hr" }
-  | { type: "bullet"; text: string }
-  | { type: "ordered"; n: string; text: string }
-  | { type: "blank" }
-  | { type: "bold_line"; text: string }
-  | { type: "text"; text: string }
-  | { type: "table"; rows: string[][] };
+const SECTION_LABELS: Record<string, string> = {
+  ef_risk: "EF 기한 위험 스케줄",
+  assembly_risk: "어셈블리 기간 내 완료 불가",
+  hourly_miss: "금일 시간당 목표 미달",
+  module_risk: "모듈 (B·C) 위험 현황",
+};
 
-function parseBlocks(text: string): Block[] {
-  const lines = text.split("\n");
-  const blocks: Block[] = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    // 테이블 블록: 연속된 | 로 시작하는 줄들
-    if (line.trimStart().startsWith("|")) {
-      const tableLines: string[] = [];
-      while (i < lines.length && lines[i].trimStart().startsWith("|")) {
-        tableLines.push(lines[i]);
-        i++;
-      }
-      // separator 행(|---|) 제외하고 파싱
-      const rows = tableLines
-        .filter((l) => !/^\s*\|[\s\-|:]+\|\s*$/.test(l))
-        .map((l) =>
-          l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim())
-        );
-      if (rows.length > 0) blocks.push({ type: "table", rows });
-      continue;
-    }
-    if (line.startsWith("## ")) { blocks.push({ type: "h2", text: line.slice(3) }); i++; continue; }
-    if (line.startsWith("### ")) { blocks.push({ type: "h3", text: line.slice(4) }); i++; continue; }
-    if (line.startsWith("# ")) { blocks.push({ type: "h1", text: line.slice(2) }); i++; continue; }
-    if (/^-{3,}$/.test(line.trim())) { blocks.push({ type: "hr" }); i++; continue; }
-    if (line.startsWith("- ") || line.startsWith("* ")) { blocks.push({ type: "bullet", text: line.slice(2) }); i++; continue; }
-    if (/^\d+\.\s/.test(line)) {
-      const m = line.match(/^(\d+)\.\s(.*)/);
-      blocks.push({ type: "ordered", n: m?.[1] ?? "", text: m?.[2] ?? "" });
-      i++; continue;
-    }
-    if (line.trim() === "") { blocks.push({ type: "blank" }); i++; continue; }
-    if (/^\*\*[^*].*[^*]\*\*$/.test(line.trim())) { blocks.push({ type: "bold_line", text: line.trim().slice(2, -2) }); i++; continue; }
-    blocks.push({ type: "text", text: line });
-    i++;
-  }
-  return blocks;
+function riskColor(risk: "warning" | "critical" | "ok") {
+  if (risk === "critical") return "red";
+  if (risk === "warning") return "orange";
+  return "green";
 }
 
-function AiAnalysisRenderer({ text }: { text: string }) {
-  const headingColor = useColorModeValue("gray.800", "gray.100");
+function AiAnalysisRenderer({ result }: { result: AIAnalysisResult }) {
+  const sectionBg = useColorModeValue("white", "gray.800");
+  const sectionBorder = useColorModeValue("gray.200", "gray.600");
   const mutedColor = useColorModeValue("gray.500", "gray.400");
-  const dividerColor = useColorModeValue("gray.200", "gray.600");
-  const tableBorder = useColorModeValue("gray.200", "gray.600");
-  const tableHeaderBg = useColorModeValue("gray.50", "gray.700");
-  const tableRowHover = useColorModeValue("purple.50", "purple.900");
-  const codeBg = useColorModeValue("purple.50", "purple.900");
-
-  const blocks = parseBlocks(text);
+  const itemBg = useColorModeValue("gray.50", "gray.700");
+  const tableBorder = useColorModeValue("gray.100", "gray.600");
+  const theadBg = useColorModeValue("gray.50", "gray.700");
 
   return (
-    <VStack align="stretch" gap={1} fontSize="sm">
-      {blocks.map((block, i) => {
-        switch (block.type) {
-          case "h1":
-            return <Text key={i} fontWeight="bold" fontSize="lg" color={headingColor} mt={i > 0 ? 4 : 0}><InlineText>{block.text}</InlineText></Text>;
-          case "h2":
-            return <Text key={i} fontWeight="bold" fontSize="md" color={headingColor} mt={i > 0 ? 5 : 0} borderBottomWidth="2px" borderColor="purple.300" pb={1}><InlineText>{block.text}</InlineText></Text>;
-          case "h3":
-            return <Text key={i} fontWeight="semibold" color={headingColor} mt={3}><InlineText>{block.text}</InlineText></Text>;
-          case "hr":
-            return <Box key={i} borderTopWidth="1px" borderColor={dividerColor} my={3} />;
-          case "bullet":
-            return (
-              <HStack key={i} align="flex-start" gap={1.5} pl={3}>
-                <Text color={mutedColor} flexShrink={0} mt="2px">•</Text>
-                <Text lineHeight="1.7"><InlineText>{block.text}</InlineText></Text>
-              </HStack>
-            );
-          case "ordered":
-            return (
-              <HStack key={i} align="flex-start" gap={1.5} pl={3}>
-                <Text color="purple.500" fontWeight="semibold" flexShrink={0} minW="18px">{block.n}.</Text>
-                <Text lineHeight="1.7"><InlineText>{block.text}</InlineText></Text>
-              </HStack>
-            );
-          case "blank":
-            return <Box key={i} h={2} />;
-          case "bold_line":
-            return <Text key={i} fontWeight="semibold" bg={codeBg} px={2} py={1} borderRadius="md"><InlineText>{block.text}</InlineText></Text>;
-          case "text":
-            return <Text key={i} lineHeight="1.7"><InlineText>{block.text}</InlineText></Text>;
-          case "table": {
-            const [headerRow, ...dataRows] = block.rows;
-            return (
-              <Box key={i} overflowX="auto" my={2} borderWidth="1px" borderColor={tableBorder} borderRadius="md">
+    <VStack align="stretch" gap={4} fontSize="sm">
+      {/* Top 3 우선순위 */}
+      {result.top3?.length > 0 && (
+        <Box borderWidth="1px" borderColor="red.200" borderRadius="lg" overflow="hidden">
+          <Box bg="red.50" px={3} py={2} borderBottomWidth="1px" borderColor="red.200">
+            <Text fontWeight="bold" color="red.700" fontSize="xs" textTransform="uppercase" letterSpacing="wide">
+              🚨 즉시 조치 필요 — Top {result.top3.length}
+            </Text>
+          </Box>
+          <TableContainer>
+            <Table size="sm" variant="simple">
+              <Thead bg={theadBg}>
+                <Tr>
+                  <Th fontSize="10px" px={3} py={2} borderColor={tableBorder}>순위</Th>
+                  <Th fontSize="10px" px={3} py={2} borderColor={tableBorder}>스케줄</Th>
+                  <Th fontSize="10px" px={3} py={2} borderColor={tableBorder}>문제</Th>
+                  <Th fontSize="10px" px={3} py={2} borderColor={tableBorder}>조치</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {result.top3.map((item) => (
+                  <Tr key={item.rank}>
+                    <Td px={3} py={2} borderColor={tableBorder}>
+                      <Badge colorScheme={riskColor(item.risk)} borderRadius="full" px={2}>{item.rank}</Badge>
+                    </Td>
+                    <Td px={3} py={2} borderColor={tableBorder} whiteSpace="nowrap">
+                      <Text fontWeight="semibold">#{item.pk}</Text>
+                      <Text fontSize="xs" color={mutedColor}>{item.style_code}</Text>
+                    </Td>
+                    <Td px={3} py={2} borderColor={tableBorder}><Text lineHeight="1.5">{item.issue}</Text></Td>
+                    <Td px={3} py={2} borderColor={tableBorder}><Text lineHeight="1.5" color="blue.600">{item.action}</Text></Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+
+      {/* 섹션별 상세 */}
+      {result.sections?.map((section) => {
+        const statusColor = section.status === "critical" ? "red" : section.status === "warning" ? "orange" : "green";
+        const label = SECTION_LABELS[section.id] ?? section.title;
+        return (
+          <Box key={section.id} bg={sectionBg} borderWidth="1px" borderColor={sectionBorder} borderRadius="lg" overflow="hidden">
+            <Flex align="center" gap={2} px={3} py={2.5} borderBottomWidth={section.status !== "ok" ? "1px" : "0"} borderColor={sectionBorder}>
+              <Badge colorScheme={statusColor} variant="subtle" borderRadius="full" px={2} py={0.5} fontSize="10px">
+                {section.status === "ok" ? "✅ 이상없음" : section.status === "warning" ? "⚠ 주의" : "🔴 위험"}
+              </Badge>
+              <Text fontWeight="bold" fontSize="sm">{label}</Text>
+            </Flex>
+
+            {section.items.length > 0 && (
+              <TableContainer>
                 <Table size="sm" variant="simple">
-                  <Thead bg={tableHeaderBg}>
+                  <Thead bg={theadBg}>
                     <Tr>
-                      {headerRow.map((cell, ci) => (
-                        <Th key={ci} fontSize="11px" py={2} px={3} borderColor={tableBorder} whiteSpace="nowrap">
-                          <InlineText>{cell}</InlineText>
-                        </Th>
-                      ))}
+                      <Th fontSize="10px" px={3} py={2} borderColor={tableBorder}>스케줄</Th>
+                      <Th fontSize="10px" px={3} py={2} borderColor={tableBorder}>라인</Th>
+                      <Th fontSize="10px" px={3} py={2} borderColor={tableBorder}>현황</Th>
+                      <Th fontSize="10px" px={3} py={2} borderColor={tableBorder}>조치</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {dataRows.map((row, ri) => (
-                      <Tr key={ri} _hover={{ bg: tableRowHover }}>
-                        {row.map((cell, ci) => (
-                          <Td key={ci} py={1.5} px={3} borderColor={tableBorder} fontSize="xs">
-                            <InlineText>{cell}</InlineText>
-                          </Td>
-                        ))}
+                    {section.items.map((item) => (
+                      <Tr key={item.pk} bg={item.risk === "critical" ? "red.50" : undefined} _dark={{ bg: item.risk === "critical" ? "red.900" : undefined }}>
+                        <Td px={3} py={2} borderColor={tableBorder} whiteSpace="nowrap">
+                          <HStack gap={1}>
+                            <Badge colorScheme={riskColor(item.risk)} variant="solid" borderRadius="sm" fontSize="9px">
+                              {item.risk === "critical" ? "위험" : "주의"}
+                            </Badge>
+                          </HStack>
+                          <Text fontWeight="semibold" mt={0.5}>#{item.pk}</Text>
+                          <Text fontSize="xs" color={mutedColor}>{item.style_code}</Text>
+                        </Td>
+                        <Td px={3} py={2} borderColor={tableBorder} fontSize="xs" color={mutedColor} whiteSpace="nowrap">{item.line ?? "-"}</Td>
+                        <Td px={3} py={2} borderColor={tableBorder}>
+                          <Text fontWeight="medium" lineHeight="1.5">{item.summary}</Text>
+                          {item.detail && <Text fontSize="xs" color={mutedColor} mt={0.5} lineHeight="1.4">{item.detail}</Text>}
+                        </Td>
+                        <Td px={3} py={2} borderColor={tableBorder}>
+                          <Box bg={itemBg} px={2} py={1} borderRadius="md" fontSize="xs" lineHeight="1.5">{item.action}</Box>
+                        </Td>
                       </Tr>
                     ))}
                   </Tbody>
                 </Table>
-              </Box>
-            );
-          }
-        }
+              </TableContainer>
+            )}
+          </Box>
+        );
       })}
     </VStack>
   );
@@ -1334,7 +1334,7 @@ export default function VlFactoryLive() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [showLineSummary, setShowLineSummary] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
 
@@ -1490,9 +1490,9 @@ export default function VlFactoryLive() {
                   setAiLoading(true);
                   try {
                     const res = await getVlFactoryLiveAIAnalysis(date);
-                    setAiAnalysis(res.analysis);
+                    setAiAnalysis(res.analysis as AIAnalysisResult);
                   } catch {
-                    setAiAnalysis("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+                    setAiAnalysis(null);
                   } finally {
                     setAiLoading(false);
                   }
@@ -1708,7 +1708,7 @@ export default function VlFactoryLive() {
               </Center>
             ) : aiAnalysis ? (
               <Box>
-                <AiAnalysisRenderer text={aiAnalysis} />
+                <AiAnalysisRenderer result={aiAnalysis} />
                 <Button
                   mt={6}
                   size="sm"
@@ -1721,9 +1721,9 @@ export default function VlFactoryLive() {
                     setAiLoading(true);
                     try {
                       const res = await getVlFactoryLiveAIAnalysis(date);
-                      setAiAnalysis(res.analysis);
+                      setAiAnalysis(res.analysis as AIAnalysisResult);
                     } catch {
-                      setAiAnalysis("분석 중 오류가 발생했습니다.");
+                      setAiAnalysis(null);
                     } finally {
                       setAiLoading(false);
                     }
