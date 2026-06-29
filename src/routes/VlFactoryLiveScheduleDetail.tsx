@@ -284,6 +284,7 @@ export default function VlFactoryLiveScheduleDetail() {
   const isPopup = searchParams.get("popup") === "1";
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [calOpen, setCalOpen] = useState(false);
+  const { isOpen: isThumbOpen, onOpen: onThumbOpen, onClose: onThumbClose } = useDisclosure();
 
   const setDate = (v: string) => {
     setSearchParams(
@@ -302,7 +303,6 @@ export default function VlFactoryLiveScheduleDetail() {
   const mutedText = useColorModeValue("gray.500", "gray.400");
   const cardBg = useColorModeValue("white", "gray.800");
   const thumbBg = useColorModeValue("gray.100", "gray.600");
-  const { isOpen: isImgOpen, onOpen: onImgOpen, onClose: onImgClose } = useDisclosure();
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["vl-factory-live-schedule-detail", pk, date],
@@ -334,19 +334,18 @@ export default function VlFactoryLiveScheduleDetail() {
   });
 
   // ── 일별 생산실적 fetch ───────────────────────────────────────────────────
+  // schedule 로드를 기다리지 않고 pk만으로 즉시 시작 (waterfall 제거)
   const { data: dailyOutputData } = useQuery({
-    queryKey: ["vlScheduleDailyOutputs", pk, schedule?.assembly_start, schedule?.assembly_end],
+    queryKey: ["vlScheduleDailyOutputs", pk],
     queryFn: async () => {
       try {
         return await getVlAssemblyScheduleProductionDailyOutputs({
           schedule: pk,
-          date_from: schedule?.assembly_start ?? undefined,
-          date_to: schedule?.assembly_end ?? undefined,
           page_size: 500,
         });
       } catch { return null; }
     },
-    enabled: !!schedule?.assembly_start,
+    enabled: !!pk,
     staleTime: 60_000,
     refetchInterval: 60_000,
   });
@@ -354,9 +353,9 @@ export default function VlFactoryLiveScheduleDetail() {
   const dailyOutputMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const row of dailyOutputData?.results ?? []) {
-      const d = String(row.recorded_at ?? "").slice(0, 10);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-        map.set(d, (map.get(d) ?? 0) + row.qty);
+      const date = String(row.recorded_at ?? "").slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        map.set(date, (map.get(date) ?? 0) + row.qty);
       }
     }
     return map;
@@ -367,19 +366,18 @@ export default function VlFactoryLiveScheduleDetail() {
     : null;
 
   // ── 모듈 일별 실적 fetch ──────────────────────────────────────────────────
+  // schedule 로드를 기다리지 않고 pk만으로 즉시 시작 (waterfall 제거)
   const { data: moduleDailyOutputData } = useQuery({
-    queryKey: ["vlModuleDailyOutputs", pk, schedule?.assembly_start, schedule?.assembly_end],
+    queryKey: ["vlModuleDailyOutputs", pk],
     queryFn: async () => {
       try {
         return await getVlAssemblyModuleProductionDailyOutputs({
           schedule: pk,
-          date_from: schedule?.assembly_start ?? undefined,
-          date_to: schedule?.assembly_end ?? undefined,
           page_size: 500,
         });
       } catch { return null; }
     },
-    enabled: !!schedule?.assembly_start,
+    enabled: !!pk,
     staleTime: 60_000,
     refetchInterval: 60_000,
   });
@@ -388,11 +386,11 @@ export default function VlFactoryLiveScheduleDetail() {
     const map = new Map<string, Map<string, number>>();
     for (const row of moduleDailyOutputData?.results ?? []) {
       const code = row.vl_assembly_module_code;
-      const d = String(row.recorded_at ?? "").slice(0, 10);
-      if (!code || !/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const date = String(row.recorded_at ?? "").slice(0, 10);
+      if (!code || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!map.has(code)) map.set(code, new Map());
       const dateMap = map.get(code)!;
-      dateMap.set(d, (dateMap.get(d) ?? 0) + row.qty);
+      dateMap.set(date, (dateMap.get(date) ?? 0) + row.qty);
     }
     return map;
   }, [moduleDailyOutputData]);
@@ -562,7 +560,7 @@ export default function VlFactoryLiveScheduleDetail() {
                     border="1px solid"
                     borderColor={headerBorder}
                     cursor={schedule.thumbnail ? "zoom-in" : "default"}
-                    onClick={schedule.thumbnail ? onImgOpen : undefined}
+                    onClick={schedule.thumbnail ? onThumbOpen : undefined}
                   >
                     {schedule.thumbnail ? (
                       <Image
@@ -579,9 +577,9 @@ export default function VlFactoryLiveScheduleDetail() {
                     )}
                   </Center>
                   {schedule.thumbnail && (
-                    <Modal isOpen={isImgOpen} onClose={onImgClose} isCentered size="xl">
+                    <Modal isOpen={isThumbOpen} onClose={onThumbClose} isCentered size="xl">
                       <ModalOverlay backdropFilter="blur(4px)" />
-                      <ModalContent bg="transparent" boxShadow="none" onClick={onImgClose} cursor="zoom-out">
+                      <ModalContent bg="transparent" boxShadow="none" onClick={onThumbClose} cursor="zoom-out">
                         <Image
                           src={schedule.thumbnail}
                           alt={schedule.style_name}
@@ -653,6 +651,18 @@ export default function VlFactoryLiveScheduleDetail() {
                         {t("vlFactoryLive.detail.schedule")}
                       </Text>
                       <Text fontSize="sm" fontWeight="medium">#{schedule.pk}</Text>
+                      <Link
+                        as={RouterLink}
+                        to={`/vl-assembly-production/${schedule.pk}`}
+                        target={isPopup ? "_blank" : undefined}
+                        fontSize="xs"
+                        color="blue.400"
+                        display="inline-flex"
+                        alignItems="center"
+                        gap="3px"
+                      >
+                        {t("vlFactoryLive.detail.scheduleDetail")} <FiExternalLink size={11} />
+                      </Link>
                     </VStack>
                   </Flex>
 
@@ -813,7 +823,9 @@ export default function VlFactoryLiveScheduleDetail() {
                           return (
                             <Tr key={sj.pk}>
                               <Td fontSize="xs" fontWeight="bold" color="purple.500">
-                                {sj.sj_no}
+                                <Link as={RouterLink} to={`/vl-assembly-production/sj-nos/${sj.pk}`} color="purple.500" _hover={{ textDecoration: "underline" }}>
+                                  {sj.sj_no}
+                                </Link>
                               </Td>
                               <Td fontSize="xs" isNumeric fontWeight="semibold" sx={{ fontVariantNumeric: "tabular-nums" }}>
                                 {sj.output_qty.toLocaleString()}
