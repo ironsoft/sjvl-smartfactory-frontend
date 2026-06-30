@@ -11,6 +11,7 @@ export default function Root() {
   const navigate = useNavigate();
   const location = useLocation();
   const isPopup = new URLSearchParams(location.search).get("popup") === "1";
+  const isEmbedded = new URLSearchParams(location.search).get("readOnly") === "1" || new URLSearchParams(location.search).get("embedded") === "1";
 
   // worker 계정: 프로필 + EP QR로 열리는 실적 입력·공정(영상/QC/작업지시)만 허용
   useEffect(() => {
@@ -47,8 +48,8 @@ export default function Root() {
 
   return (
     <Box backgroundColor={bgColor} minH="100vh" display="flex" flexDirection="column">
-      {!isPopup && <Navbar />}
-      <Box flex="1" display="flex" flexDirection="column" minH={isPopup ? "100vh" : "calc(100vh - 120px)"} backgroundColor={contentBg}>
+      {!isPopup && !isEmbedded && <Navbar />}
+      <Box flex="1" display="flex" flexDirection="column" minH={(isPopup || isEmbedded) ? "100vh" : "calc(100vh - 120px)"} backgroundColor={contentBg}>
         <Outlet />
       </Box>
       <ReactQueryDevtools />

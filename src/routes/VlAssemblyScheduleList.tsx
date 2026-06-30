@@ -1478,6 +1478,7 @@ export default function VlAssemblyScheduleList() {
   const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const highlightPk = searchParams.get("highlight") ? Number(searchParams.get("highlight")) : null;
+  const isReadOnly = searchParams.get("readOnly") === "1";
   const fmtDate = (d?: string | null) => formatIsoDateDisplay(d, i18n.language);
 
   const statusOptions = [
@@ -3256,6 +3257,7 @@ export default function VlAssemblyScheduleList() {
         const flags = monthFlags?.[col.day - 1];
         const inPeriod = !!flags?.inPeriod;
         const canDrag =
+          !isReadOnly &&
           inPeriod &&
           showPeriodInCalendar &&
           hasBothDates &&
@@ -3323,8 +3325,11 @@ export default function VlAssemblyScheduleList() {
               ? `mod-day-${entityPk}-${col.key}`
               : `proc-day-${entityPk}-${col.key}`;
 
-        const openPath =
-          kind === "schedule"
+        const openPath = isReadOnly
+          ? kind === "schedule"
+            ? `/vl-factory-live/schedules/${entityPk}`
+            : ""
+          : kind === "schedule"
             ? `/vl-assembly-production/${entityPk}`
             : kind === "module"
               ? `/vl-assembly-production/modules/${entityPk}`
@@ -3336,8 +3341,8 @@ export default function VlAssemblyScheduleList() {
             isNumeric
             fontSize="xs"
             p={0}
-            minW="40px"
-            minH="38px"
+            minW={isReadOnly ? "32px" : "40px"}
+            minH={isReadOnly ? "30px" : "38px"}
             position="relative"
             zIndex={kind === "schedule" && isRStart && (barStyleThumb || barStyleName) ? 1 : 0}
             overflow={kind === "schedule" && isRStart && (barStyleThumb || barStyleName) ? "visible" : undefined}
@@ -4244,20 +4249,22 @@ export default function VlAssemblyScheduleList() {
                 />
               </Tooltip>
 
-              <Tooltip label={t("vlAssembly.list.planHolidaysButtonHint")} placement="top">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  colorScheme="gray"
-                  leftIcon={<FaCalendarMinus />}
-                  onClick={onPlanHolidayModalOpen}
-                >
-                  {t("vlAssembly.list.planHolidaysButton")}
-                </Button>
-              </Tooltip>
+              {!isReadOnly && (
+                <Tooltip label={t("vlAssembly.list.planHolidaysButtonHint")} placement="top">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    colorScheme="gray"
+                    leftIcon={<FaCalendarMinus />}
+                    onClick={onPlanHolidayModalOpen}
+                  >
+                    {t("vlAssembly.list.planHolidaysButton")}
+                  </Button>
+                </Tooltip>
+              )}
 
               {/* 컬럼 가시성 설정 */}
-              <Popover placement="bottom-end" isLazy isOpen={isColPopoverOpen} onClose={onColPopoverClose}>
+              {!isReadOnly && <Popover placement="bottom-end" isLazy isOpen={isColPopoverOpen} onClose={onColPopoverClose}>
                 <PopoverTrigger>
                   <IconButton
                     aria-label="Column visibility"
@@ -4323,16 +4330,18 @@ export default function VlAssemblyScheduleList() {
                     </Button>
                   </PopoverBody>
                 </PopoverContent>
-              </Popover>
+              </Popover>}
 
               {/* 신규 생성 */}
-              <IconButton
-                aria-label="Create schedule"
-                icon={<FaPlus />}
-                colorScheme="blue"
-                size="sm"
-                onClick={() => { resetModal(); onOpen(); }}
-              />
+              {!isReadOnly && (
+                <IconButton
+                  aria-label="Create schedule"
+                  icon={<FaPlus />}
+                  colorScheme="blue"
+                  size="sm"
+                  onClick={() => { resetModal(); onOpen(); }}
+                />
+              )}
             </HStack>
           </HStack>
 
@@ -4767,7 +4776,7 @@ export default function VlAssemblyScheduleList() {
                         fontSize="xs"
                         px={1}
                         py={1.5}
-                        minW="40px"
+                        minW={isReadOnly ? "32px" : "40px"}
                         whiteSpace="nowrap"
                         bgColor={thBg}
                         position="sticky"
@@ -5031,7 +5040,7 @@ export default function VlAssemblyScheduleList() {
                                         </MenuList>
                                       </Portal>
                                     </Menu>
-                                    {!isSubRow && sjIdx === sjNos.length - 1 && (
+                                    {!isReadOnly && !isSubRow && sjIdx === sjNos.length - 1 && (
                                       <Button
                                         size="xs"
                                         variant="link"
@@ -5777,10 +5786,12 @@ export default function VlAssemblyScheduleList() {
                                 <VStack spacing={0} align="center">
                                   <IconButton aria-label="expand" icon={isScheduleExpanded ? <FaChevronDown /> : <FaChevronRight />}
                                     size="xs" variant="ghost" onClick={(e) => { e.stopPropagation(); toggleSchedule(s.pk); }} />
-                                  <Button size="xs" variant="link" colorScheme="blue" mt={1}
-                                    onClick={(e) => { e.stopPropagation(); openAddSjNoModal(s); }}>
-                                    + {t("vlAssembly.list.addSjNo")}
-                                  </Button>
+                                  {!isReadOnly && (
+                                    <Button size="xs" variant="link" colorScheme="blue" mt={1}
+                                      onClick={(e) => { e.stopPropagation(); openAddSjNoModal(s); }}>
+                                      + {t("vlAssembly.list.addSjNo")}
+                                    </Button>
+                                  )}
                                 </VStack>
                               </Td>
                               {columnOrder.map(key => {

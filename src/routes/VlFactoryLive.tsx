@@ -19,7 +19,10 @@ import {
   InputLeftElement,
   InputRightElement,
   Modal,
+  ModalBody,
+  ModalCloseButton,
   ModalContent,
+  ModalHeader,
   ModalOverlay,
   Progress,
   Spinner,
@@ -43,6 +46,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet";
 import {
   FiBox,
+  FiCalendar,
   FiChevronDown,
   FiChevronUp,
   FiCpu,
@@ -1419,6 +1423,7 @@ export default function VlFactoryLive() {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
+  const { isOpen: isCalOpen, onOpen: onCalOpen, onClose: onCalClose } = useDisclosure();
 
   const bgPage = useColorModeValue("gray.100", "gray.900");
   const headerBg = useColorModeValue("white", "gray.800");
@@ -1632,6 +1637,16 @@ export default function VlFactoryLive() {
                 </Text>
               )}
               <LocalizedDateInput value={date} onChange={(v) => setDate(v)} size="sm" />
+              <Tooltip label="월별 생산 스케줄">
+                <IconButton
+                  aria-label="월별 생산 스케줄 캘린더"
+                  icon={<FiCalendar size={14} />}
+                  size="sm"
+                  variant="outline"
+                  colorScheme="gray"
+                  onClick={onCalOpen}
+                />
+              </Tooltip>
               {lastRefreshed && (
                 <Text fontSize="xs" color={mutedText} whiteSpace="nowrap" sx={{ fontVariantNumeric: "tabular-nums" }}>
                   {lastRefreshed.toLocaleTimeString([], {
@@ -1832,6 +1847,24 @@ export default function VlFactoryLive() {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+
+      {/* 월별 생산 스케줄 캘린더 Modal */}
+      <Modal isOpen={isCalOpen} onClose={onCalClose} size="full">
+        <ModalOverlay />
+        <ModalContent m={0} borderRadius={0}>
+          <ModalHeader borderBottomWidth="1px" py={3} px={4} fontSize="md">
+            월별 생산 스케줄
+          </ModalHeader>
+          <ModalCloseButton top={3} />
+          <ModalBody p={0} overflow="hidden">
+            <iframe
+              src={`/vl-assembly-production?readOnly=1&year=${date.slice(0, 4)}&month=${String(Number(date.slice(5, 7)))}`}
+              style={{ width: "100%", height: "calc(100vh - 57px)", border: "none" }}
+              title="월별 생산 스케줄"
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </>
   );
 }
