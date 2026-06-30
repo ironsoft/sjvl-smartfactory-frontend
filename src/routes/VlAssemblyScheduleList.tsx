@@ -2285,7 +2285,7 @@ export default function VlAssemblyScheduleList() {
     maxW: `${columnWidths.status ?? 160}px`,
   } as const;
 
-  const vis = (key: ColKey) => visibleCols.has(key);
+  const vis = (key: ColKey) => isReadOnly ? false : visibleCols.has(key);
   // infoCollapsed 상태를 고려한 vis
   const visInfo = (key: ColKey) => {
     if (infoCollapsed && (INFO_GROUP as string[]).includes(key)) return false;
