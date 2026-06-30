@@ -3349,7 +3349,7 @@ export default function VlAssemblyScheduleList() {
             fontSize="xs"
             p={0}
             minW={isReadOnly ? "32px" : "40px"}
-            minH={isReadOnly ? "30px" : "38px"}
+            minH={isReadOnly ? "36px" : "38px"}
             position="relative"
             zIndex={kind === "schedule" && isRStart && (barStyleThumb || barStyleName) ? 1 : 0}
             overflow={kind === "schedule" && isRStart && (barStyleThumb || barStyleName) ? "visible" : undefined}
@@ -3434,15 +3434,15 @@ export default function VlAssemblyScheduleList() {
                 bg={barBg}
                 borderRadius="sm"
                 px="4px"
-                py="8px"
+                py={isReadOnly ? "3px" : "8px"}
                 boxShadow="0 1px 4px rgba(0,0,0,0.20)"
               >
                 {barStyleThumb && (
                   <Box
                     as="img"
                     src={barStyleThumb}
-                    w="26px"
-                    h="26px"
+                    w={isReadOnly ? "22px" : "26px"}
+                    h={isReadOnly ? "22px" : "26px"}
                     sx={{ objectFit: "cover" }}
                     borderRadius="3px"
                     flexShrink={0}
@@ -4821,7 +4821,7 @@ export default function VlAssemblyScheduleList() {
                         lineHeight="1.1"
                         verticalAlign="top"
                       >
-                        {day15Abbr != null && day15Abbr.length > 0 && (
+                        {day15Abbr != null && day15Abbr.length > 0 && !isReadOnly && (
                           <Box
                             position="absolute"
                             top={0}
@@ -4982,18 +4982,6 @@ export default function VlAssemblyScheduleList() {
                                     <HStack spacing={1}>
                                       <Icon as={FaIndustry} boxSize="11px" color="teal.400" />
                                       <Text as="span" fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.assemblyOutputSum", { qty: kpis.assemblyOutSum.toLocaleString() })}</Text>
-                                    </HStack>
-                                  </HStack>
-                                  <HStack spacing={3}>
-                                    <HStack spacing={1}>
-                                      <Icon as={FaUsers} boxSize="11px" color="gray.400" />
-                                      <Text as="span" fontSize="xs" fontWeight="semibold" color="gray.600">{t("vlAssembly.list.lineGroup.authorizedHeadcount")}:</Text>
-                                      <Text as="span" fontSize="xs" color="gray.500">{t("vlAssembly.list.lineGroup.placeholder")}</Text>
-                                    </HStack>
-                                    <HStack spacing={1}>
-                                      <Icon as={FaUser} boxSize="11px" color="gray.400" />
-                                      <Text as="span" fontSize="xs" fontWeight="semibold" color="gray.600">{t("vlAssembly.list.lineGroup.teamLeader")}:</Text>
-                                      <Text as="span" fontSize="xs" color="gray.500">{t("vlAssembly.list.lineGroup.placeholder")}</Text>
                                     </HStack>
                                   </HStack>
                                 </HStack>
