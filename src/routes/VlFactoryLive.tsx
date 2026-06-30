@@ -1424,6 +1424,10 @@ export default function VlFactoryLive() {
   const [aiLoading, setAiLoading] = useState(false);
   const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
   const { isOpen: isCalOpen, onOpen: onCalOpen, onClose: onCalClose } = useDisclosure();
+  const calendarSrc = useMemo(() => {
+    const now = new Date();
+    return `/vl-assembly-production?readOnly=1&year=${now.getFullYear()}&month=${now.getMonth() + 1}`;
+  }, []);
 
   const bgPage = useColorModeValue("gray.100", "gray.900");
   const headerBg = useColorModeValue("white", "gray.800");
@@ -1848,23 +1852,44 @@ export default function VlFactoryLive() {
         </DrawerContent>
       </Drawer>
 
-      {/* 월별 생산 스케줄 캘린더 Modal */}
-      <Modal isOpen={isCalOpen} onClose={onCalClose} size="full">
-        <ModalOverlay />
-        <ModalContent m={0} borderRadius={0}>
-          <ModalHeader borderBottomWidth="1px" py={3} px={4} fontSize="md">
-            월별 생산 스케줄
-          </ModalHeader>
-          <ModalCloseButton top={3} />
-          <ModalBody p={0} overflow="hidden">
-            <iframe
-              src={`/vl-assembly-production?readOnly=1&year=${date.slice(0, 4)}&month=${String(Number(date.slice(5, 7)))}`}
-              style={{ width: "100%", height: "calc(100vh - 57px)", border: "none" }}
-              title="월별 생산 스케줄"
-            />
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+      {/* 월별 생산 스케줄 - 항상 마운트, CSS로 보이기/숨기기 (백그라운드 프리로드) */}
+      <Box
+        position="fixed"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        zIndex={1400}
+        display={isCalOpen ? "flex" : "none"}
+        flexDirection="column"
+        bg={headerBg}
+      >
+        <HStack
+          px={4}
+          py={3}
+          borderBottomWidth="1px"
+          justify="space-between"
+          align="center"
+          flexShrink={0}
+          bg={headerBg}
+        >
+          <Text fontWeight="semibold" fontSize="md">월별 생산 스케줄</Text>
+          <IconButton
+            aria-label="닫기"
+            icon={<FiX size={16} />}
+            size="sm"
+            variant="ghost"
+            onClick={onCalClose}
+          />
+        </HStack>
+        <Box flex={1} overflow="hidden">
+          <iframe
+            src={calendarSrc}
+            style={{ width: "100%", height: "100%", border: "none" }}
+            title="월별 생산 스케줄"
+          />
+        </Box>
+      </Box>
     </>
   );
 }
