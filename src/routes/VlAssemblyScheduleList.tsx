@@ -4166,10 +4166,10 @@ export default function VlAssemblyScheduleList() {
   return (
     <>
       <Helmet><title>VL Assembly Production</title></Helmet>
-      <Box bg={pageBg} minW="100%" display="flex" flexDirection="column" px={{ base: "4", md: "8", lg: "12" }} pt={{ base: "6", md: "8" }} pb={10}>
+      <Box bg={pageBg} minW="100%" display="flex" flexDirection="column" px={isReadOnly ? 2 : { base: "4", md: "8", lg: "12" }} pt={isReadOnly ? 2 : { base: "6", md: "8" }} pb={isReadOnly ? 2 : 10}>
 
           {/* ── 월별 네비게이션 ── */}
-          <HStack justify="center" align="center" mb={5} spacing={1} sx={{ flexWrap: "wrap" }}>
+          <HStack justify="center" align="center" mb={isReadOnly ? 1 : 5} spacing={1} sx={{ flexWrap: "wrap" }}>
             <IconButton
               aria-label="Previous months"
               icon={<FaChevronLeft />}
@@ -4212,18 +4212,19 @@ export default function VlAssemblyScheduleList() {
           </HStack>
 
           {/* ── 헤더 영역 ── */}
-          <HStack justify="space-between" align="center" mb={5}>
+          {!isReadOnly && <HStack justify="space-between" align="center" mb={5}>
             <Heading size="md">{t("vlAssembly.list.pageTitle")}</Heading>
             <SearchInput
               onSearch={(q) => setSearchQuery(q)}
               onInputChange={(v) => { if (v === "") setSearchQuery(""); }}
             />
-          </HStack>
+          </HStack>}
 
-          <HStack justify="space-between" align="center" mb={6}>
-            <Text fontSize="sm" color="gray.500">
+          <HStack justify="space-between" align="center" mb={isReadOnly ? 1 : 6}>
+            {!isReadOnly && <Text fontSize="sm" color="gray.500">
               {t("vlAssembly.list.totalSchedules", { count: schedules.length })}
-            </Text>
+            </Text>}
+            {isReadOnly && <Box />}
             <HStack spacing={2}>
               {/* 앞쪽 정보 컬럼 접기 / 펼치기 */}
               <Tooltip label={infoCollapsed ? t("vlAssembly.list.showInfoCols") : t("vlAssembly.list.hideInfoCols")} placement="top">
@@ -4425,9 +4426,9 @@ export default function VlAssemblyScheduleList() {
                     bgColor={tableBgColor}
                     borderBottomWidth="1px"
                     borderBottomColor="blackAlpha.200"
-                    boxShadow="2px 0 4px rgba(0,0,0,0.08)"
+                    boxShadow={isReadOnly ? undefined : "2px 0 4px rgba(0,0,0,0.08)"}
                   />
-                  {visibleCount > 1 && (
+                  {!isReadOnly && visibleCount > 1 && (
                     <Th
                       colSpan={visibleCount - 1}
                       position="sticky"
