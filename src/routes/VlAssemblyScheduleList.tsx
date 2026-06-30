@@ -4960,7 +4960,7 @@ export default function VlAssemblyScheduleList() {
                                 <HStack sx={{ flexWrap: "wrap" }} spacing={3} align="center">
                                   <HStack spacing={1} align="center">
                                     <Icon as={FaCalendarAlt} boxSize="11px" color="blue.400" />
-                                    <Text fontSize="sm" fontWeight="semibold">
+                                    <Text as="span" fontSize="sm" fontWeight="semibold">
                                       {t("vlAssembly.list.lineGroup.scheduleCount", { count: kpis.scheduleCount })}
                                       {" · "}
                                       {t("vlAssembly.list.lineGroup.sjCount", { count: kpis.sjCount })}
@@ -4969,35 +4969,31 @@ export default function VlAssemblyScheduleList() {
                                   <HStack spacing={2} align="center">
                                     <HStack spacing={1}>
                                       <Icon as={FaBoxes} boxSize="11px" color="gray.400" />
-                                      <Text fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.totalQty", { qty: kpis.totalQty.toLocaleString() })}</Text>
+                                      <Text as="span" fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.totalQty", { qty: kpis.totalQty.toLocaleString() })}</Text>
                                     </HStack>
                                     <HStack spacing={1}>
                                       <Icon as={FaCheckCircle} boxSize="11px" color="green.400" />
-                                      <Text fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.outputQty", { qty: kpis.outputQty.toLocaleString() })}</Text>
+                                      <Text as="span" fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.outputQty", { qty: kpis.outputQty.toLocaleString() })}</Text>
                                     </HStack>
                                     <HStack spacing={1}>
                                       <Icon as={FaExclamationTriangle} boxSize="11px" color="red.400" />
-                                      <Text fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.defectQty", { qty: kpis.defectQty.toLocaleString() })}</Text>
+                                      <Text as="span" fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.defectQty", { qty: kpis.defectQty.toLocaleString() })}</Text>
                                     </HStack>
                                     <HStack spacing={1}>
                                       <Icon as={FaIndustry} boxSize="11px" color="teal.400" />
-                                      <Text fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.assemblyOutputSum", { qty: kpis.assemblyOutSum.toLocaleString() })}</Text>
+                                      <Text as="span" fontSize="sm" color="gray.600">{t("vlAssembly.list.lineGroup.assemblyOutputSum", { qty: kpis.assemblyOutSum.toLocaleString() })}</Text>
                                     </HStack>
                                   </HStack>
-                                  <HStack spacing={3} fontSize="xs" color="gray.500">
+                                  <HStack spacing={3}>
                                     <HStack spacing={1}>
-                                      <Icon as={FaUsers} boxSize="11px" />
-                                      <Text>
-                                        <Text as="span" fontWeight="semibold" color="gray.600">{t("vlAssembly.list.lineGroup.authorizedHeadcount")}</Text>
-                                        {": "}{t("vlAssembly.list.lineGroup.placeholder")}
-                                      </Text>
+                                      <Icon as={FaUsers} boxSize="11px" color="gray.400" />
+                                      <Text as="span" fontSize="xs" fontWeight="semibold" color="gray.600">{t("vlAssembly.list.lineGroup.authorizedHeadcount")}:</Text>
+                                      <Text as="span" fontSize="xs" color="gray.500">{t("vlAssembly.list.lineGroup.placeholder")}</Text>
                                     </HStack>
                                     <HStack spacing={1}>
-                                      <Icon as={FaUser} boxSize="11px" />
-                                      <Text>
-                                        <Text as="span" fontWeight="semibold" color="gray.600">{t("vlAssembly.list.lineGroup.teamLeader")}</Text>
-                                        {": "}{t("vlAssembly.list.lineGroup.placeholder")}
-                                      </Text>
+                                      <Icon as={FaUser} boxSize="11px" color="gray.400" />
+                                      <Text as="span" fontSize="xs" fontWeight="semibold" color="gray.600">{t("vlAssembly.list.lineGroup.teamLeader")}:</Text>
+                                      <Text as="span" fontSize="xs" color="gray.500">{t("vlAssembly.list.lineGroup.placeholder")}</Text>
                                     </HStack>
                                   </HStack>
                                 </HStack>
