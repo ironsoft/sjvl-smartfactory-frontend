@@ -12,6 +12,7 @@ import {
   ModalContent,
   ModalOverlay,
   Progress,
+  Skeleton,
   Spinner,
   Table,
   TableContainer,
@@ -329,7 +330,7 @@ export default function VlFactoryLiveScheduleDetail() {
     queryFn: async () => {
       try { return await getVlPlanHolidays(planHolidayApiRange); } catch { return []; }
     },
-    enabled: !!schedule,
+    enabled: true,
     staleTime: 300_000,
   });
 
@@ -520,9 +521,48 @@ export default function VlFactoryLiveScheduleDetail() {
         {/* 컨텐츠 */}
         <Flex direction="column" px={4} py={3} gap={3} maxW="1100px" mx="auto">
           {isLoading ? (
-            <Center py={20}>
-              <Spinner size="xl" color="blue.400" thickness="3px" />
-            </Center>
+            <Flex direction="column" gap={4} pt={2}>
+              {/* 기본 정보 카드 스켈레톤 */}
+              <Box borderWidth="1px" borderRadius="xl" p={4}>
+                <Flex gap={4} align="flex-start" flexWrap="wrap">
+                  <Skeleton boxSize="96px" borderRadius="lg" flexShrink={0} />
+                  <Flex direction="column" gap={2} flex="1">
+                    <Skeleton height="12px" width="60px" />
+                    <Skeleton height="20px" width="140px" />
+                    <Skeleton height="14px" width="200px" />
+                    <Flex gap={4} mt={1}>
+                      <Skeleton height="12px" width="80px" />
+                      <Skeleton height="12px" width="100px" />
+                      <Skeleton height="12px" width="80px" />
+                    </Flex>
+                  </Flex>
+                  <Skeleton height="40px" width="60px" borderRadius="md" />
+                </Flex>
+              </Box>
+              {/* KPI 카드 스켈레톤 */}
+              <Flex gap={2.5} flexWrap="wrap">
+                {[...Array(5)].map((_, i) => (
+                  <Box key={i} borderWidth="1px" borderRadius="lg" p={3} minW="120px" flex="1">
+                    <Skeleton height="10px" width="60%" mb={2} />
+                    <Skeleton height="22px" width="70%" mb={1} />
+                    <Skeleton height="10px" width="50%" />
+                  </Box>
+                ))}
+              </Flex>
+              {/* 테이블 스켈레톤 */}
+              <Box borderWidth="1px" borderRadius="lg" overflow="hidden">
+                {[...Array(4)].map((_, i) => (
+                  <Box key={i} px={4} py={3} borderBottomWidth={i < 3 ? "1px" : 0}>
+                    <Flex gap={4}>
+                      <Skeleton height="14px" width="120px" />
+                      <Skeleton height="14px" width="60px" />
+                      <Skeleton height="14px" width="60px" />
+                      <Skeleton height="14px" flex="1" />
+                    </Flex>
+                  </Box>
+                ))}
+              </Box>
+            </Flex>
           ) : isError ? (
             <Center py={20}>
               <Text color="red.400">{t("vlFactoryLive.errorLoading")}</Text>
@@ -650,7 +690,9 @@ export default function VlFactoryLiveScheduleDetail() {
                       <Text fontSize="10px" color={mutedText} fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
                         {t("vlFactoryLive.detail.schedule")}
                       </Text>
-                      <Text fontSize="sm" fontWeight="medium">#{schedule.pk}</Text>
+                      <Link as={RouterLink} to={`/vl-assembly-production/${schedule.pk}`} fontSize="sm" fontWeight="medium" color="purple.500" _hover={{ textDecoration: "underline" }}>
+                        #{schedule.pk}
+                      </Link>
                     </VStack>
                   </Flex>
 

@@ -26,6 +26,7 @@ import {
   ModalOverlay,
   Progress,
   Spinner,
+  Skeleton,
   Table,
   TableContainer,
   Tbody,
@@ -1677,9 +1678,29 @@ export default function VlFactoryLive() {
         {/* 컨텐츠 */}
         <Flex direction="column" px={4} py={3} gap={3}>
           {isLoading ? (
-            <Center h="100%">
-              <Spinner size="xl" color="blue.400" thickness="3px" />
-            </Center>
+            <>
+              <Flex gap={2.5} flexWrap="wrap" flexShrink={0}>
+                {[...Array(4)].map((_, i) => (
+                  <Box key={i} borderWidth="1px" borderRadius="lg" p={3} minW="140px" flex="1">
+                    <Skeleton height="12px" width="60%" mb={2} />
+                    <Skeleton height="24px" width="80%" mb={1} />
+                    <Skeleton height="10px" width="50%" />
+                  </Box>
+                ))}
+              </Flex>
+              <Box borderWidth="1px" borderRadius="lg" overflow="hidden">
+                {[...Array(5)].map((_, i) => (
+                  <Box key={i} px={4} py={3} borderBottomWidth={i < 4 ? "1px" : 0}>
+                    <Flex gap={4} align="center">
+                      <Skeleton height="14px" width="120px" />
+                      <Skeleton height="14px" width="80px" />
+                      <Skeleton height="14px" width="60px" />
+                      <Skeleton height="14px" flex="1" />
+                    </Flex>
+                  </Box>
+                ))}
+              </Box>
+            </>
           ) : isError ? (
             <Center h="100%">
               <Text color="red.400">{t("vlFactoryLive.errorLoading")}</Text>
