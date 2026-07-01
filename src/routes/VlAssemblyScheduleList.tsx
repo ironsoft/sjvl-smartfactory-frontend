@@ -11,6 +11,7 @@ import {
   useColorModeValue,
   useBreakpointValue,
   Spinner,
+  Skeleton,
   Center,
   Text,
   Button,
@@ -4888,7 +4889,17 @@ export default function VlAssemblyScheduleList() {
               </Thead>
               <Tbody>
                 {(isLoading || isFetching) && schedules.length === 0 && (
-                  <Tr><Td colSpan={tableColSpanWithDays + 1}><Center py={6}><Spinner size="md" /></Center></Td></Tr>
+                  <>
+                    {[...Array(6)].map((_, i) => (
+                      <Tr key={i}>
+                        {[...Array(Math.min(tableColSpanWithDays + 1, 8))].map((__, j) => (
+                          <Td key={j} py={3}>
+                            <Skeleton height="16px" borderRadius="sm" />
+                          </Td>
+                        ))}
+                      </Tr>
+                    ))}
+                  </>
                 )}
                 {!isLoading && !isFetching && schedules.length === 0 && (
                   <Tr><Td colSpan={tableColSpanWithDays + 1}><Text color="gray.400" textAlign="center">{t("vlAssembly.list.noSchedules")}</Text></Td></Tr>
