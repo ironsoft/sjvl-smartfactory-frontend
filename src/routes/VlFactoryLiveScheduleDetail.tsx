@@ -811,7 +811,9 @@ export default function VlFactoryLiveScheduleDetail() {
                           return (
                             <Tr key={sj.pk}>
                               <Td fontSize="xs" fontWeight="bold" color="purple.500">
-                                <Text as="span">{sj.sj_no}</Text>
+                                <Link as={RouterLink} to={`/vl-assembly-production/sj-nos/${sj.pk}`} _hover={{ textDecoration: "underline" }}>
+                                  {sj.sj_no}
+                                </Link>
                               </Td>
                               <Td fontSize="xs" isNumeric fontWeight="semibold" sx={{ fontVariantNumeric: "tabular-nums" }}>
                                 {sj.output_qty.toLocaleString()}
