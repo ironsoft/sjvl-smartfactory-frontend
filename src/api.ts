@@ -4277,6 +4277,8 @@ export type IVlAssemblyModuleDetail = IEpModuleDetail & {
 export type IVlAssemblySjNoDetail = IEpSjNoDetail & {
   vl_assembly_schedule_pk?: number;
   vl_assembly_modules?: IVlAssemblyModuleDetail[];
+  schedule_sj_order_info?: { pk: number; sj_po_number: string } | null;
+  schedule_sj_style_info?: { style_name: string | null; thumbnail: string | null } | null;
 };
 
 export type IVlAssemblyProductionDailyOutput = IEpProductionDailyOutput & {
@@ -4412,6 +4414,8 @@ export const getVlAssemblySchedules = ({
   /** 목록 필터: 이 기간(YMD)과 production_assembly_start~finish가 겹치는 행만 (백엔드 구현 필요) */
   date_from,
   date_to,
+  /** 특정 생산 라인 PK로 필터링 (2-phase 로딩용) */
+  line,
 }: {
   search?: string;
   year?: number;
@@ -4419,6 +4423,7 @@ export const getVlAssemblySchedules = ({
   sj_order?: number;
   date_from?: string;
   date_to?: string;
+  line?: number;
 } = {}) => {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
@@ -4427,9 +4432,38 @@ export const getVlAssemblySchedules = ({
   if (sj_order != null) params.set("sj_order", String(sj_order));
   if (date_from) params.set("date_from", date_from);
   if (date_to) params.set("date_to", date_to);
+  if (line != null) params.set("line", String(line));
   return instance
     .get(`vl-assembly-production/schedules/?${params.toString()}`)
     .then((r) => (Array.isArray(r.data) ? r.data.map(normalizeVlAssemblySchedule) : []) as IVlAssemblySchedule[]);
+};
+
+export interface VlLineSummary {
+  line_pk: number | null;
+  line_name: string;
+  schedule_count: number;
+  active_count: number;
+}
+
+export const getVlLineSummaries = ({
+  search = "",
+  year,
+  month,
+  sj_order,
+}: {
+  search?: string;
+  year?: number;
+  month?: number;
+  sj_order?: number;
+} = {}): Promise<VlLineSummary[]> => {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (year != null) params.set("year", String(year));
+  if (month != null) params.set("month", String(month));
+  if (sj_order != null) params.set("sj_order", String(sj_order));
+  return instance
+    .get(`vl-assembly-production/line-summaries/?${params.toString()}`)
+    .then((r) => (Array.isArray(r.data) ? r.data : []) as VlLineSummary[]);
 };
 
 export interface IVlAssemblySchedulesPage {

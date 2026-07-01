@@ -35,7 +35,7 @@ import { useParams, useNavigate, Link as RouterLink, useSearchParams } from "rea
 import { FaArrowLeft, FaClipboardList, FaExternalLinkAlt, FaSync, FaTrash } from "react-icons/fa";
 import {
   getVlAssemblySjNoDetail, patchVlAssemblySjNo, deleteVlAssemblySjNo, syncVlAssemblySjNoFromSource,
-  IVlAssemblySjNoDetail, getVlAssemblyScheduleDetail, IVlAssemblySchedule,
+  IVlAssemblySjNoDetail,
 } from "../api";
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -120,14 +120,8 @@ export default function VlAssemblySjNoDetail() {
     return bottleneckThroughputFromProcesses(procs);
   }, [data]);
 
-  const { data: scheduleData } = useQuery<IVlAssemblySchedule>({
-    queryKey: ["epSchedule", data?.ep_schedule_pk],
-    queryFn: () => getVlAssemblyScheduleDetail(data!.ep_schedule_pk),
-    enabled: !!data?.ep_schedule_pk,
-  });
-
-  const styleThumbnail = scheduleData?.sj_order_info?.sj_style?.thumbnail ?? null;
-  const styleName = scheduleData?.sj_order_info?.sj_style?.style_name ?? scheduleData?.sj_order_info?.style_name ?? null;
+  const styleThumbnail = data?.schedule_sj_style_info?.thumbnail ?? null;
+  const styleName = data?.schedule_sj_style_info?.style_name ?? null;
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["epSjNoDetail", pk] });

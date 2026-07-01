@@ -3,8 +3,10 @@ import {
   Box,
   Button,
   Center,
+  Divider,
   Flex,
   HStack,
+  Image,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -18,8 +20,10 @@ import {
   NumberInputField,
   NumberInputStepper,
   Progress,
+  SimpleGrid,
   Spinner,
   Text,
+  Tooltip,
   VStack,
   useColorModeValue,
   useDisclosure,
@@ -28,7 +32,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
-import { FiLock, FiRefreshCw, FiX, FiZap } from "react-icons/fi";
+import { FiLock, FiPrinter, FiRefreshCw, FiX, FiZap } from "react-icons/fi";
 import { Link as RouterLink, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import useUser from "../lib/useUser";
@@ -36,18 +40,31 @@ import QRCode from "qrcode";
 import {
   createVlModuleDailyOutput,
   getVlFactoryLiveScheduleDetail,
+  type VlLiveModule,
   type VlLiveModuleInstance,
+  type VlLiveSchedule,
 } from "../api";
 import VlHourlyBarChart from "../components/VlHourlyBarChart";
 import { hourlyStats, pctColor, pctTextColor } from "./VlFactoryLive";
 
 
-// ── 모듈 인스턴스별 QR 카드 ──────────────────────────────────────────────────
-function ModuleInstanceQr({ instance }: { instance: VlLiveModuleInstance }) {
+// ── 모듈 인스턴스별 QR 카드 (클릭 → 프린트 모달) ─────────────────────────────
+function ModuleInstanceQr({
+  instance,
+  schedule,
+  mod,
+  lineName,
+}: {
+  instance: VlLiveModuleInstance;
+  schedule: VlLiveSchedule;
+  mod: VlLiveModule;
+  lineName: string;
+}) {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const url = `${window.location.origin}/vl-assembly-production/module-daily-outputs?vl_assembly_module=${instance.pk}`;
   const labelColor = useColorModeValue("gray.600", "gray.300");
   const borderColor = useColorModeValue("gray.200", "gray.600");
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   useEffect(() => {
     QRCode.toDataURL(url, { margin: 1, width: 120 })
@@ -56,19 +73,309 @@ function ModuleInstanceQr({ instance }: { instance: VlLiveModuleInstance }) {
   }, [url]);
 
   return (
-    <Box border="1px solid" borderColor={borderColor} borderRadius="xl" p={4} textAlign="center">
-      <Text fontSize="xs" fontWeight="bold" color="purple.500" mb={2}>{instance.sj_no}</Text>
-      {qrDataUrl ? (
-        <Box bg="white" p={2} borderRadius="lg" display="inline-block" mb={2}>
-          <Box as="img" src={qrDataUrl} alt="QR" w="120px" h="120px" display="block" />
+    <>
+      <Box border="1px solid" borderColor={borderColor} borderRadius="xl" p={4} textAlign="center">
+        <Text fontSize="xs" fontWeight="bold" color="purple.500" mb={2}>{instance.sj_no}</Text>
+        <Tooltip label="클릭하여 프린트 미리보기" placement="top" hasArrow>
+          <Box
+            bg="white"
+            p={2}
+            borderRadius="lg"
+            display="inline-block"
+            mb={2}
+            cursor={qrDataUrl ? "pointer" : "default"}
+            onClick={qrDataUrl ? onOpen : undefined}
+            transition="transform 0.15s, box-shadow 0.15s"
+            _hover={qrDataUrl ? { transform: "scale(1.04)", boxShadow: "md" } : undefined}
+            role="button"
+            aria-label="Open QR print preview"
+          >
+            {qrDataUrl ? (
+              <Box as="img" src={qrDataUrl} alt="QR" w="120px" h="120px" display="block" />
+            ) : (
+              <Center w="120px" h="120px"><Spinner size="sm" /></Center>
+            )}
+          </Box>
+        </Tooltip>
+        <Text fontSize="xs" color={labelColor}>
+          {instance.output_qty.toLocaleString()} / {instance.total_qty.toLocaleString()}
+        </Text>
+      </Box>
+
+      <ModuleQrPrintModal
+        isOpen={isOpen}
+        onClose={onClose}
+        instance={instance}
+        schedule={schedule}
+        mod={mod}
+        lineName={lineName}
+      />
+    </>
+  );
+}
+
+// ── 모듈 QR 프린트 모달 ──────────────────────────────────────────────────────
+function ModuleQrPrintModal({
+  isOpen,
+  onClose,
+  instance,
+  schedule,
+  mod,
+  lineName,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  instance: VlLiveModuleInstance;
+  schedule: VlLiveSchedule;
+  mod: VlLiveModule;
+  lineName: string;
+}) {
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const url = `${window.location.origin}/vl-assembly-production/module-daily-outputs?vl_assembly_module=${instance.pk}`;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    QRCode.toDataURL(url, { margin: 1, width: 640 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [url, isOpen]);
+
+  const handlePrint = () => window.print();
+  const formatDate = (s?: string | null) => (s ? s.replaceAll("-", ".") : "-");
+
+  const instBalance = Math.max(instance.total_qty - instance.output_qty, 0);
+  const instPct = instance.total_qty > 0 ? Math.min((instance.output_qty / instance.total_qty) * 100, 100) : 0;
+  const modPct = mod.total_qty > 0 ? Math.min((mod.output_qty / mod.total_qty) * 100, 100) : 0;
+
+  const printBody = (
+    <Box className="qr-print-area" p={{ base: 4, md: 8 }} bg="white">
+      {/* ── 헤더 ── */}
+      <Flex justify="space-between" align="flex-start" mb={6} pb={4} borderBottomWidth="2px" borderColor="gray.800">
+        <Box>
+          <Text fontSize="xs" color="gray.500" fontWeight="bold" letterSpacing="wider" mb={1}>
+            VL FACTORY — MODULE PRODUCTION
+          </Text>
+          <Text fontSize="3xl" fontWeight="black" lineHeight={1.1} mb={1}>
+            {schedule.style_code || schedule.style_name}
+          </Text>
+          <Text fontSize="md" color="gray.700">
+            {schedule.style_name}
+          </Text>
         </Box>
-      ) : (
-        <Spinner size="sm" />
-      )}
-      <Text fontSize="xs" color={labelColor}>
-        {instance.output_qty.toLocaleString()} / {instance.total_qty.toLocaleString()}
-      </Text>
+        <VStack spacing={1} align="flex-end">
+          <HStack>
+            <Badge colorScheme="orange" fontSize="md" px={3} py={1}>MODULE {mod.code}</Badge>
+            <Badge colorScheme="purple" fontSize="md" px={3} py={1}>{instance.sj_no}</Badge>
+          </HStack>
+          <Text fontSize="sm" fontWeight="bold" color="gray.700">
+            {lineName}
+          </Text>
+          <Text fontSize="xs" color="gray.500">
+            Schedule #{schedule.pk} · PO: {schedule.po_no}
+          </Text>
+        </VStack>
+      </Flex>
+
+      {/* ── QR + 사진 + 요약 ── */}
+      <Flex gap={5} mb={6} align="stretch" flexWrap={{ base: "wrap", md: "nowrap" }}>
+        {/* QR 코드 */}
+        <VStack
+          spacing={3}
+          p={5}
+          borderWidth="2px"
+          borderColor="gray.800"
+          borderRadius="lg"
+          bg="white"
+          className="qr-print-highlight"
+          minW="320px"
+          align="center"
+          justify="center"
+        >
+          {qrDataUrl ? (
+            <Box as="img" src={qrDataUrl} alt="QR Code" w="280px" h="280px" display="block" />
+          ) : (
+            <Center w="280px" h="280px"><Spinner /></Center>
+          )}
+          <Text fontSize="lg" fontWeight="black" textAlign="center">
+            SCAN TO REGISTER OUTPUT
+          </Text>
+          <Text fontSize="xs" color="gray.600" textAlign="center">
+            휴대폰 카메라로 스캔하여 모듈 생산 수량을 입력하세요
+          </Text>
+          <Text fontSize="2xs" color="gray.500" textAlign="center" mt={1}>
+            Module {mod.code} · {instance.sj_no}
+          </Text>
+        </VStack>
+
+        {/* 사진 + 진행률 */}
+        <VStack spacing={4} flex={1} minW={0} align="stretch">
+          <HStack spacing={4} align="stretch">
+            {schedule.thumbnail && (
+              <Box
+                w="160px"
+                h="160px"
+                borderWidth="1px"
+                borderColor="gray.300"
+                borderRadius="lg"
+                overflow="hidden"
+                bg="white"
+                flexShrink={0}
+              >
+                <Image
+                  src={schedule.thumbnail}
+                  alt={schedule.style_name}
+                  w="100%"
+                  h="100%"
+                  objectFit="cover"
+                />
+              </Box>
+            )}
+            <VStack align="stretch" spacing={1} flex={1} minW={0} justify="center">
+              <Text fontSize="xs" color="gray.500" fontWeight="bold" textTransform="uppercase">
+                Ex-Factory
+              </Text>
+              <Text fontSize="xl" fontWeight="black" lineHeight={1}>
+                {formatDate(schedule.ex_factory_date)}
+              </Text>
+              <Text fontSize="xs" color="gray.500" mt={2}>
+                Assembly Period
+              </Text>
+              <Text fontSize="sm" fontWeight="bold">
+                {formatDate(schedule.assembly_start)} ~ {formatDate(schedule.assembly_end)}
+              </Text>
+            </VStack>
+          </HStack>
+
+          {/* 인스턴스 (SJ No 단위) 진행률 */}
+          <Box borderWidth="1px" borderColor="gray.300" borderRadius="lg" p={4}>
+            <Flex justify="space-between" align="baseline" mb={2}>
+              <Text fontSize="xs" color="gray.600" fontWeight="bold" textTransform="uppercase">
+                {instance.sj_no} · Output
+              </Text>
+              <Text fontSize="sm" color="gray.500">
+                Target {instance.total_qty.toLocaleString()}
+              </Text>
+            </Flex>
+            <HStack align="baseline" spacing={2} mb={2}>
+              <Text fontSize="4xl" fontWeight="black" lineHeight={1}>
+                {instance.output_qty.toLocaleString()}
+              </Text>
+              <Text fontSize="lg" color="gray.500">/ {instance.total_qty.toLocaleString()}</Text>
+              <Text ml="auto" fontSize="3xl" fontWeight="black">
+                {instPct.toFixed(1)}%
+              </Text>
+            </HStack>
+            <Progress
+              value={instPct}
+              size="md"
+              borderRadius="full"
+              colorScheme={instPct >= 100 ? "green" : instPct >= 80 ? "blue" : "orange"}
+            />
+            <Text fontSize="xs" color="gray.600" mt={2}>
+              Balance: <strong>{instBalance.toLocaleString()}</strong>
+            </Text>
+          </Box>
+        </VStack>
+      </Flex>
+
+      {/* ── 상세 정보 그리드 ── */}
+      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3} mb={6}>
+        {[
+          { label: "PO No.", value: schedule.po_no || "-" },
+          { label: "Style Code", value: schedule.style_code || "-" },
+          { label: "Module Code", value: mod.code || "-" },
+          { label: "Module Name", value: mod.name || "-" },
+          { label: "SJ No", value: instance.sj_no },
+          { label: "Line", value: lineName || "-" },
+          { label: "Target / Hour", value: mod.target_qty_per_hour != null ? `${mod.target_qty_per_hour.toLocaleString()}/h` : "-" },
+          {
+            label: "Module Total",
+            value: `${mod.output_qty.toLocaleString()} / ${mod.total_qty.toLocaleString()} (${modPct.toFixed(1)}%)`,
+          },
+        ].map((item) => (
+          <Box
+            key={item.label}
+            borderWidth="1px"
+            borderColor="gray.300"
+            borderRadius="md"
+            px={3}
+            py={2}
+          >
+            <Text fontSize="2xs" color="gray.600" fontWeight="bold" textTransform="uppercase" letterSpacing="wide">
+              {item.label}
+            </Text>
+            <Text fontSize="md" fontWeight="bold" color="gray.900" mt={0.5}>
+              {item.value}
+            </Text>
+          </Box>
+        ))}
+      </SimpleGrid>
+
+      <Divider mb={3} />
+      <Flex justify="space-between" fontSize="2xs" color="gray.500">
+        <Text>Printed: {new Date().toLocaleString()}</Text>
+        <Text>SJ INNO SYSTEM · VL FACTORY · MODULE {mod.code}</Text>
+      </Flex>
     </Box>
+  );
+
+  return (
+    <>
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 10mm; }
+          html, body {
+            background: white !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          body * { visibility: hidden !important; }
+          .qr-print-only-root,
+          .qr-print-only-root * { visibility: visible !important; }
+          .qr-print-only-root {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .qr-print-only-root .qr-print-highlight {
+            background: #f5f5f5 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+        @media screen {
+          .qr-print-only-root { display: none !important; }
+        }
+      `}</style>
+
+      <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader borderBottomWidth="1px">QR 프린트 미리보기 · Module {mod.code} · {instance.sj_no}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody p={0}>{printBody}</ModalBody>
+          <ModalFooter borderTopWidth="1px">
+            <Button variant="ghost" mr={3} onClick={onClose}>
+              닫기
+            </Button>
+            <Button colorScheme="blue" leftIcon={<FiPrinter />} onClick={handlePrint}>
+              프린트
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {isOpen && (
+        <Box className="qr-print-only-root">
+          {printBody}
+        </Box>
+      )}
+    </>
   );
 }
 
@@ -375,11 +682,11 @@ export default function VlFactoryLiveModuleDisplay() {
             {mod.instances.length === 0 ? (
               <Text fontSize="sm" color={labelColor} textAlign="center">{t("vlFactoryLive.monitor.noModuleInstance")}</Text>
             ) : mod.instances.length === 1 ? (
-              <ModuleInstanceQr instance={mod.instances[0]} />
+              <ModuleInstanceQr instance={mod.instances[0]} schedule={schedule} mod={mod} lineName={data?.line_name ?? ""} />
             ) : (
               <VStack spacing={3}>
                 {mod.instances.map((inst) => (
-                  <ModuleInstanceQr key={inst.pk} instance={inst} />
+                  <ModuleInstanceQr key={inst.pk} instance={inst} schedule={schedule} mod={mod} lineName={data?.line_name ?? ""} />
                 ))}
               </VStack>
             )}

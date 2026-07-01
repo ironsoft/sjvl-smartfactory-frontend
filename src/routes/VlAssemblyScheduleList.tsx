@@ -2770,19 +2770,6 @@ export default function VlAssemblyScheduleList() {
     staleTime: 30_000,
   });
 
-  const epScheduleMonthQueries = useQueries({
-    queries: monthBlocks.map((b) => ({
-      queryKey: vlKeys.list({ search: searchQuery, year: b.year, month: b.month }),
-      queryFn: () =>
-        getVlAssemblySchedules({
-          search: searchQuery,
-          year: b.year,
-          month: b.month,
-        }),
-      staleTime: 30_000,
-    })),
-  });
-
   const data = useMemo(() => {
     if (!calendarWindowDates) return [];
     const { dateFrom, dateTo } = calendarWindowDates;
@@ -2794,22 +2781,14 @@ export default function VlAssemblyScheduleList() {
       }
     };
     addRows(epSchedulesOverlapQuery.data as IVlAssemblySchedule[] | undefined);
-    for (const q of epScheduleMonthQueries) {
-      addRows(q.data as IVlAssemblySchedule[] | undefined);
-    }
     return Array.from(seen.values());
   }, [
     calendarWindowDates,
     epSchedulesOverlapQuery.data,
-    epScheduleMonthQueries,
   ]);
 
-  const isLoading =
-    epSchedulesOverlapQuery.isPending ||
-    epScheduleMonthQueries.some((q) => q.isPending);
-  const isFetching =
-    epSchedulesOverlapQuery.isFetching ||
-    epScheduleMonthQueries.some((q) => q.isFetching);
+  const isLoading = epSchedulesOverlapQuery.isPending;
+  const isFetching = epSchedulesOverlapQuery.isFetching;
 
   useEffect(() => {
     if (!highlightPk || data.length === 0 || highlightScrolledRef.current) return;
