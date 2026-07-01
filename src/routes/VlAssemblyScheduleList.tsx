@@ -4892,7 +4892,7 @@ export default function VlAssemblyScheduleList() {
                   <>
                     {[...Array(6)].map((_, i) => (
                       <Tr key={i}>
-                        {[...Array(Math.min(tableColSpanWithDays + 1, 8))].map((__, j) => (
+                        {[...Array(tableColSpanWithDays + 1)].map((__, j) => (
                           <Td key={j} py={3}>
                             <Skeleton height="16px" borderRadius="sm" />
                           </Td>
