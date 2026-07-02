@@ -150,7 +150,6 @@ import {
 } from "../lib/moduleCategoryDisplay";
 import { vlSjThroughputDisplayFields, vlModuleThroughputDisplayFields } from "../lib/vlAssemblyThroughput";
 import { findPreparationEpLeafCategoryId } from "../lib/preparationEpCategory";
-import { runPreparationEpModuleMigrationOnce } from "../lib/runPreparationEpModuleMigrationOnce";
 import {
   VL_ASSEMBLY_SCHEDULE_LIST_CACHE_BUST_KEY,
   broadcastVlAssemblyScheduleListCacheBust,
@@ -1925,10 +1924,6 @@ export default function VlAssemblyScheduleList() {
     },
     [commitCalendarRange, savingCalendar]
   );
-
-  useEffect(() => {
-    void runPreparationEpModuleMigrationOnce(queryClient, toast);
-  }, [queryClient, toast]);
 
   /** 상세가 popup 창에서 저장될 때 다른 창의 React Query와 분리되므로, storage 로 목록 무효화 */
   useEffect(() => {

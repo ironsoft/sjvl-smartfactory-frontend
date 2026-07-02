@@ -103,7 +103,6 @@ import LocalizedDateInput from "../components/LocalizedDateInput";
 import { formatIsoDateDisplay } from "../lib/dateLocale";
 import { displayModuleCategoryName } from "../lib/moduleCategoryDisplay";
 import { findPreparationEpLeafCategoryId } from "../lib/preparationEpCategory";
-import { runPreparationEpModuleMigrationOnce } from "../lib/runPreparationEpModuleMigrationOnce";
 
 const openWindow = (path: string) => {
   const w = 1200, h = 900;
@@ -572,10 +571,6 @@ export default function EpScheduleList() {
   const [searchQuery, setSearchQuery] = useState("");
   const toast = useToast();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    void runPreparationEpModuleMigrationOnce(queryClient, toast);
-  }, [queryClient, toast]);
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isColPopoverOpen, onOpen: onColPopoverOpen, onClose: onColPopoverClose } = useDisclosure();

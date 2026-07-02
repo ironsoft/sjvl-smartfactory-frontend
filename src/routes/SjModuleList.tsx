@@ -54,7 +54,6 @@ import {
 } from "../api";
 import SearchInput from "../components/SearchInput";
 import { displayModuleCategoryName } from "../lib/moduleCategoryDisplay";
-import { findPreparationEpLeafCategoryId } from "../lib/preparationEpCategory";
 
 export default function SjModuleList() {
   const { i18n } = useTranslation();
@@ -112,13 +111,6 @@ export default function SjModuleList() {
     [allModuleCategories]
   );
 
-  const preparationEpDefaults = useMemo(() => {
-    const cats = allModuleCategories ?? [];
-    const prep = cats.find((c) => c.parent === null && c.slug === "preparation");
-    const ep = findPreparationEpLeafCategoryId(cats);
-    return { preparationPk: prep?.pk ?? null, epLeafPk: ep };
-  }, [allModuleCategories]);
-
   const [topCategoryPk, setTopCategoryPk] = useState<number | "">("");
   const [leafCategoryPk, setLeafCategoryPk] = useState<number | "">("");
   const [prepAppliesTo, setPrepAppliesTo] = useState<"general" | "handbag">("general");
@@ -147,24 +139,13 @@ export default function SjModuleList() {
     setLeafCategoryPk("");
   }, [topCategoryPk, prepAppliesTo]);
 
-  /** EP 전용 앱: 모달 열 때 Preparation · EP 기본 */
+  /** 모달 열 때 카테고리 비우기 — 사용자가 명시적으로 선택 */
   useEffect(() => {
-    if (!isOpen || preparationEpDefaults.preparationPk == null) return;
-    setTopCategoryPk(preparationEpDefaults.preparationPk);
+    if (!isOpen) return;
+    setTopCategoryPk("");
     setPrepAppliesTo("general");
     setLeafCategoryPk("");
-  }, [isOpen, preparationEpDefaults.preparationPk]);
-
-  useEffect(() => {
-    if (!isOpen || selectedTop?.slug !== "preparation" || prepAppliesTo !== "general") return;
-    const subs = childCategories ?? [];
-    if (subs.length === 0) return;
-    const epPk = preparationEpDefaults.epLeafPk;
-    const target =
-      epPk != null ? subs.find((c) => c.pk === epPk) : subs.find((c) => c.slug === "ep" || /^ep$/i.test(String(c.name).trim()));
-    if (!target) return;
-    setLeafCategoryPk((prev) => (prev === "" ? target.pk : prev));
-  }, [isOpen, selectedTop, prepAppliesTo, childCategories, preparationEpDefaults.epLeafPk]);
+  }, [isOpen]);
 
   const handleCloseModal = () => {
     setNewCode("");

@@ -62,7 +62,6 @@ import {
   IModule,
   IModuleCategory,
 } from "../api";
-import { findPreparationEpLeafCategoryId } from "../lib/preparationEpCategory";
 import { displayModuleCategoryName } from "../lib/moduleCategoryDisplay";
 import {
   parseCycleTimeSeconds,
@@ -132,13 +131,6 @@ export default function SjNoDetail() {
         .sort((a, b) => a.sort_order - b.sort_order),
     [allModuleCategories]
   );
-
-  const preparationEpDefaults = useMemo(() => {
-    const cats = allModuleCategories ?? [];
-    const prep = cats.find((c) => c.parent === null && c.slug === "preparation");
-    const ep = findPreparationEpLeafCategoryId(cats);
-    return { preparationPk: prep?.pk ?? null, epLeafPk: ep };
-  }, [allModuleCategories]);
 
   // ── 편집 상태 ──
   const [isEditing, setIsEditing] = useState(false);
@@ -275,27 +267,6 @@ export default function SjNoDetail() {
     setNewModuleForm((f) => ({ ...f, leafCategoryPk: "" }));
   }, [topPk, prepAppliesToVal]);
 
-  /** EP 전용 앱: Preparation → general 로드 후 EP 리프 자동 선택 */
-  useEffect(() => {
-    if (!isAddModuleOpen || !selectedTop || selectedTop.slug !== "preparation") return;
-    if (prepAppliesToVal !== "general") return;
-    const subs = childCategories ?? [];
-    if (subs.length === 0) return;
-    const epPk = preparationEpDefaults.epLeafPk;
-    const target =
-      epPk != null ? subs.find((c) => c.pk === epPk) : subs.find((c) => c.slug === "ep" || /^ep$/i.test(String(c.name).trim()));
-    if (!target) return;
-    setNewModuleForm((f) => {
-      if (f.leafCategoryPk !== "") return f;
-      return { ...f, leafCategoryPk: target.pk };
-    });
-  }, [
-    isAddModuleOpen,
-    selectedTop,
-    prepAppliesToVal,
-    childCategories,
-    preparationEpDefaults.epLeafPk,
-  ]);
 
   const moduleGroups = useMemo(() => {
     const list = modulesData?.results ?? [];
@@ -317,7 +288,7 @@ export default function SjNoDetail() {
     setNewModuleForm({
       code: "",
       name: "",
-      topCategoryPk: preparationEpDefaults.preparationPk ?? "",
+      topCategoryPk: "",
       leafCategoryPk: "",
       prepAppliesTo: "general",
     });
