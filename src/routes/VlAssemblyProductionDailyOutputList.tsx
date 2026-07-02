@@ -80,7 +80,7 @@ export default function VlAssemblyProductionDailyOutputList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isLoggedIn } = useUser();
+  const { user, isLoggedIn, userLoading } = useUser();
   const isWorker = user?.role === "worker";
   const { isOpen, onOpen, onClose: closeDisclosure } = useDisclosure();
   const [qrScanPrefill, setQrScanPrefill] = useState(false);
@@ -114,9 +114,13 @@ export default function VlAssemblyProductionDailyOutputList() {
       searchParams.get("vl_assembly_module") ?? searchParams.get("ep_module");
 
     if (!procParam && !moduleParam) return;
+    if (userLoading) return;
 
     if (!isLoggedIn) {
-      navigate("/users/login");
+      const redirectTo = `${window.location.pathname}${window.location.search}`;
+      navigate(`/users/login?redirect=${encodeURIComponent(redirectTo)}`, {
+        replace: true
+      });
       return;
     }
 
@@ -209,7 +213,7 @@ export default function VlAssemblyProductionDailyOutputList() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, navigate, toast, t, onOpen, isLoggedIn]);
+  }, [searchParams, navigate, toast, t, onOpen, isLoggedIn, userLoading]);
 
   useEffect(() => {
     setCurrentPage(1);

@@ -14,7 +14,7 @@ import {
   useDisclosure,
   useToast
 } from "@chakra-ui/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useRef } from "react";
 import useUser from "../lib/useUser";
 import { useForm } from "react-hook-form";
@@ -36,6 +36,8 @@ export default function LoginPage() {
   // 현재 접속한 사용자가 로그인 상태인지 확인
   const { isLoggedIn } = useUser();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
 
   // 비밀번호 입력 필드 눌깔 아이콘 클릭시 비밀번호 표시
   const { isOpen, onToggle } = useDisclosure();
@@ -79,7 +81,9 @@ export default function LoginPage() {
       });
       const result = await queryClient.refetchQueries({ queryKey: [`me`] });
       const me = queryClient.getQueryData<IUser>([`me`]);
-      if (me?.role === "worker") {
+      if (redirectTo && redirectTo.startsWith("/")) {
+        navigate(redirectTo);
+      } else if (me?.role === "worker") {
         navigate("/worker/me");
       } else if (me?.factory_access === "DEVELOPMENT") {
         navigate("/jigs");

@@ -75,7 +75,7 @@ export default function VlAssemblyScheduleProductionDailyOutputList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useUser();
+  const { user, isLoggedIn, userLoading } = useUser();
   const isWorker = user?.role === "worker";
   const { isOpen, onOpen, onClose: closeDisclosure } = useDisclosure();
   const [qrSchedPrefill, setQrSchedPrefill] = useState(false);
@@ -111,6 +111,14 @@ export default function VlAssemblyScheduleProductionDailyOutputList() {
     if (!sp) return;
     const sid = Number(sp);
     if (!Number.isFinite(sid) || sid < 1) return;
+    if (userLoading) return;
+    if (!isLoggedIn) {
+      const redirectTo = `${window.location.pathname}${window.location.search}`;
+      navigate(`/users/login?redirect=${encodeURIComponent(redirectTo)}`, {
+        replace: true
+      });
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -147,7 +155,7 @@ export default function VlAssemblyScheduleProductionDailyOutputList() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, navigate, toast, t, onOpen]);
+  }, [searchParams, navigate, toast, t, onOpen, isLoggedIn, userLoading]);
 
   useEffect(() => {
     setCurrentPage(1);

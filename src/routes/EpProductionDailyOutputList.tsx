@@ -78,7 +78,7 @@ export default function EpProductionDailyOutputList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useUser();
+  const { user, isLoggedIn, userLoading } = useUser();
   const isWorker = user?.role === "worker";
   const { isOpen, onOpen, onClose: closeDisclosure } = useDisclosure();
   const [qrScanPrefill, setQrScanPrefill] = useState(false);
@@ -110,6 +110,14 @@ export default function EpProductionDailyOutputList() {
     if (!ep) return;
     const pid = Number(ep);
     if (!Number.isFinite(pid) || pid < 1) return;
+    if (userLoading) return;
+    if (!isLoggedIn) {
+      const redirectTo = `${window.location.pathname}${window.location.search}`;
+      navigate(`/users/login?redirect=${encodeURIComponent(redirectTo)}`, {
+        replace: true
+      });
+      return;
+    }
 
     let cancelled = false;
     (async () => {
@@ -160,7 +168,7 @@ export default function EpProductionDailyOutputList() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, navigate, toast, t, onOpen]);
+  }, [searchParams, navigate, toast, t, onOpen, isLoggedIn, userLoading]);
 
   useEffect(() => {
     setCurrentPage(1);
