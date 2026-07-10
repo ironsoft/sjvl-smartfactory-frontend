@@ -45,6 +45,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet";
+import useUser from "../lib/useUser";
 import {
   FiBox,
   FiCalendar,
@@ -1416,6 +1417,8 @@ function AiAnalysisRenderer({ result, date, thumbnails }: { result: AIAnalysisRe
 // ── 메인 페이지 ──────────────────────────────────────────────────────────────
 export default function VlFactoryLive() {
   const { t } = useTranslation();
+  const { user } = useUser();
+  const isAdminUser = user?.username === "admin";
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
@@ -1423,8 +1426,36 @@ export default function VlFactoryLive() {
   const [searchQuery, setSearchQuery] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
   const { isOpen: isCalOpen, onOpen: onCalOpen, onClose: onCalClose } = useDisclosure();
+  const runAiAnalysis = async (force: boolean) => {
+    if (!force && aiAnalysis) return;
+    setAiAnalysis(null);
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      let gotResult = false;
+      for await (const event of streamVlFactoryLiveAIAnalysis(date)) {
+        if (event.type === "done") {
+          gotResult = true;
+          setAiAnalysis(event.result as AIAnalysisResult);
+          setAiLoading(false);
+        } else if (event.type === "error") {
+          gotResult = true;
+          setAiError(event.text || "분석에 실패했습니다.");
+          setAiLoading(false);
+        }
+      }
+      if (!gotResult) {
+        setAiError("분석 결과를 받지 못했습니다.");
+        setAiLoading(false);
+      }
+    } catch {
+      setAiError("분석 중 오류가 발생했습니다.");
+      setAiLoading(false);
+    }
+  };
   const calendarSrc = useMemo(() => {
     const now = new Date();
     return `/vl-assembly-production?readOnly=1&year=${now.getFullYear()}&month=${now.getMonth() + 1}`;
@@ -1579,6 +1610,7 @@ export default function VlFactoryLive() {
             </HStack>
 
             <HStack gap={2} flexShrink={0} flexWrap="wrap">
+              {isAdminUser && (
               <Button
                 size="sm"
                 leftIcon={<FiCpu size={14} />}
@@ -1587,26 +1619,14 @@ export default function VlFactoryLive() {
                 flexShrink={0}
                 isLoading={aiLoading}
                 loadingText="AI 분석 중..."
-                onClick={async () => {
+                onClick={() => {
                   onAiOpen();
-                  if (aiAnalysis) return;
-                  setAiLoading(true);
-                  try {
-                    for await (const event of streamVlFactoryLiveAIAnalysis(date)) {
-                      if (event.type === "done") {
-                        setAiAnalysis(event.result as AIAnalysisResult);
-                        setAiLoading(false);
-                      } else if (event.type === "error") {
-                        setAiLoading(false);
-                      }
-                    }
-                  } catch {
-                    setAiLoading(false);
-                  }
+                  runAiAnalysis(false);
                 }}
               >
                 AI 분석
               </Button>
+              )}
               <InputGroup size="sm" w="200px" flexShrink={0}>
                 <InputLeftElement pointerEvents="none">
                   <Box color={trimmedSearch && highlightedPks.size === 0 ? "red.400" : trimmedSearch ? "orange.400" : mutedText}>
@@ -1848,26 +1868,28 @@ export default function VlFactoryLive() {
                   colorScheme="purple"
                   leftIcon={<FiRefreshCw size={13} />}
                   isLoading={aiLoading}
-                  onClick={async () => {
-                    setAiAnalysis(null);
-                    setAiLoading(true);
-                    try {
-                      for await (const event of streamVlFactoryLiveAIAnalysis(date)) {
-                        if (event.type === "done") {
-                          setAiAnalysis(event.result as AIAnalysisResult);
-                          setAiLoading(false);
-                        } else if (event.type === "error") {
-                          setAiLoading(false);
-                        }
-                      }
-                    } catch {
-                      setAiLoading(false);
-                    }
-                  }}
+                  onClick={() => runAiAnalysis(true)}
                 >
                   다시 분석
                 </Button>
               </Box>
+            ) : aiError ? (
+              <VStack align="stretch" gap={3} py={6}>
+                <Text color="red.500" fontSize="sm">
+                  {aiError}
+                </Text>
+                <Button
+                  alignSelf="flex-start"
+                  size="sm"
+                  variant="outline"
+                  colorScheme="purple"
+                  leftIcon={<FiRefreshCw size={13} />}
+                  isLoading={aiLoading}
+                  onClick={() => runAiAnalysis(true)}
+                >
+                  다시 시도
+                </Button>
+              </VStack>
             ) : null}
           </DrawerBody>
         </DrawerContent>
