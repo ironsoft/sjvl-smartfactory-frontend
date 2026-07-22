@@ -29,7 +29,7 @@ import {
 } from "./types";
 
 /** 개발 시 브라우저 호스트와 API 호스트를 맞춤 (localhost vs 127.0.0.1 혼용 시 쿠키/CSRF 꼬임 방지) */
-function getApiBaseURL(): string {
+export function getApiBaseURL(): string {
   if (process.env.NODE_ENV === "development") {
     if (typeof window !== "undefined" && window.location?.hostname) {
       return `http://${window.location.hostname}:8000/api/v1/`;
@@ -2502,6 +2502,622 @@ export const getSjStylePhotos = async (pk: number): Promise<IFilePhotos[]> => {
   }
 };
 
+// ── SAM Styles (sj_sam app, api/v1/sam/) ────────────────────────────────────
+export interface ISamStyleMini {
+  pk: number;
+  code: string;
+  style_name: string | null;
+  primary_photo?: number | null;
+  thumbnail?: string | null;
+}
+
+export interface ISamStyleUserBrief {
+  pk?: number;
+  username?: string;
+  display_name?: string | null;
+}
+
+export interface ISamStyleListItem {
+  pk: number;
+  sj_style: ISamStyleMini;
+  remark: string;
+  process_analysis_outline: string;
+  created_at: string;
+  updated_at: string;
+  created_by_user?: ISamStyleUserBrief | null;
+  updated_by_user?: ISamStyleUserBrief | null;
+}
+
+export interface ISamProcess {
+  pk: number;
+  sam_module: number;
+  /** Preceding process (FK) within the same SAM style. DRF may return a pk or a nested object. */
+  previous_process?: number | { pk: number } | null;
+  /** Following process (FK) within the same SAM style. */
+  next_process?: number | { pk: number } | null;
+  previous_process_id?: number | null;
+  next_process_id?: number | null;
+  /** Display/sort order within the module (lower = earlier). */
+  sort_order?: number | null;
+  code: string;
+  name: string;
+  name_ko: string;
+  name_en: string;
+  description: string;
+  flow: string;
+  standard_work_video_url?: string;
+  cycle_time: string | null;
+  prep_seconds: string | null;
+  machining_seconds: string | null;
+  finishing_seconds: string | null;
+  /** Only present when the API supplies it — used for allowance-sum display. */
+  allowance_seconds?: string | null;
+  target_qty_per_hour: number | null;
+  daily_target_qty_8h: number | null;
+  sj_machine?: number | { pk: number } | null;
+  sj_machine_id?: number | null;
+  sj_machine_name?: string | null;
+  machine?: number | { pk: number } | null;
+  machine_pk?: number | null;
+  machine_id?: number | null;
+  machine_name?: string | null;
+  /** Linked motion-analysis (SjMotion) pk — auto-linked via drag/drop from a Draft. */
+  sj_motion?: number | null;
+  photos?: IFilePhotos[];
+  videos?: IProcessVideo[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ISamModule {
+  pk: number;
+  sam_style: number;
+  /** Preceding module (FK) within the same SAM style. */
+  previous_module?: number | null;
+  /** Following module (FK) within the same SAM style. */
+  next_module?: number | null;
+  module_category: number;
+  module_category_name: string;
+  code: string;
+  name: string;
+  sort_order: number;
+  sam_processes: ISamProcess[];
+  photos?: IFilePhotos[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ISamStyleDetail extends ISamStyleListItem {
+  sam_modules: ISamModule[];
+}
+
+const samMutHeaders = () => ({
+  headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" }
+});
+
+/** SAM API base — server: api/v1/sam/ */
+const SAM_API = "sam/";
+
+export const getSamStyles = (params?: { search?: string; sj_style?: number }) =>
+  instance.get(`${SAM_API}styles/`, { params }).then((r) => r.data as ISamStyleListItem[]);
+
+export const getSamStyleDetail = (pk: number) =>
+  instance.get(`${SAM_API}styles/${pk}/`).then((r) => r.data as ISamStyleDetail);
+
+export const createSamStyle = (data: { sj_style: number; remark?: string; process_analysis_outline?: string }) =>
+  instance.post(`${SAM_API}styles/`, data, samMutHeaders()).then((r) => r.data as ISamStyleDetail);
+
+export const patchSamStyle = (pk: number, data: Partial<Pick<ISamStyleListItem, "remark" | "process_analysis_outline">>) =>
+  instance.patch(`${SAM_API}styles/${pk}/`, data, samMutHeaders()).then((r) => r.data as ISamStyleDetail);
+
+export const deleteSamStyle = (pk: number) => instance.delete(`${SAM_API}styles/${pk}/`, samMutHeaders());
+
+export const createSamModule = (data: {
+  sam_style: number;
+  module_category: number;
+  code: string;
+  name?: string;
+  sort_order?: number;
+}) => instance.post(`${SAM_API}modules/`, data, samMutHeaders()).then((r) => r.data as ISamModule);
+
+export const patchSamModule = (
+  pk: number,
+  data: Partial<{
+    module_category: number;
+    code: string;
+    name: string;
+    sort_order: number;
+    previous_module: number | null;
+    previous_module_id: number | null;
+    next_module: number | null;
+    next_module_id: number | null;
+  }>
+) => instance.patch(`${SAM_API}modules/${pk}/`, data, samMutHeaders()).then((r) => r.data as ISamModule);
+
+export const deleteSamModule = (pk: number) => instance.delete(`${SAM_API}modules/${pk}/`, samMutHeaders());
+
+export const getSamModuleDetail = (pk: number) => instance.get(`${SAM_API}modules/${pk}/`).then((r) => r.data as ISamModule);
+
+export const getSamProcessDetail = (pk: number) => instance.get(`${SAM_API}processes/${pk}/`).then((r) => r.data as ISamProcess);
+
+export const createSamProcess = (data: {
+  sam_module: number;
+  code: string;
+  name?: string;
+  name_ko?: string;
+  name_en?: string;
+  description?: string;
+  flow?: string;
+  cycle_time?: string | number | null;
+  prep_seconds?: string | number | null;
+  machining_seconds?: string | number | null;
+  finishing_seconds?: string | number | null;
+  sort_order?: number | null;
+  sj_machine?: number | null;
+  sj_machine_id?: number | null;
+  sj_motion?: number | null;
+}) => instance.post(`${SAM_API}processes/`, data, samMutHeaders()).then((r) => r.data as ISamProcess);
+
+export const patchSamProcess = (
+  pk: number,
+  data: Partial<{
+    code: string;
+    name: string;
+    name_ko: string;
+    name_en: string;
+    description: string;
+    flow: string;
+    standard_work_video_url: string;
+    cycle_time: string | number | null;
+    prep_seconds: string | number | null;
+    machining_seconds: string | number | null;
+    finishing_seconds: string | number | null;
+    previous_process: number | null;
+    previous_process_id: number | null;
+    next_process: number | null;
+    next_process_id: number | null;
+    sort_order: number | null;
+    sj_machine?: number | null;
+    sj_machine_id?: number | null;
+    sj_motion?: number | null;
+  }>
+) => instance.patch(`${SAM_API}processes/${pk}/`, data, samMutHeaders()).then((r) => r.data as ISamProcess);
+
+export const deleteSamProcess = (pk: number) => instance.delete(`${SAM_API}processes/${pk}/`, samMutHeaders());
+
+/** SAM nested photo/video routes may be unregistered on the server (404 HTML). Fall back to production-process endpoints using the same pk. */
+const isSamRouteNotFound = (e: unknown) => axios.isAxiosError(e) && e.response?.status === 404;
+
+export const createSamModulePhoto = async ({ file, modulePk, description = "" }: { file: string; modulePk: number; description?: string }) => {
+  try {
+    const r = await instance.post(`${SAM_API}modules/${modulePk}/photos/`, { file, description, module: modulePk }, samMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return createModulePhoto({ file, modulePk, description });
+    throw e;
+  }
+};
+
+export const deleteSamModulePhoto = async (modulePk: number, photoPk: number | string) => {
+  try {
+    const r = await instance.delete(`${SAM_API}modules/${modulePk}/photos/${photoPk}/`, samMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return deleteModulePhoto({ modulePk, photoPk: Number(photoPk) });
+    throw e;
+  }
+};
+
+export const createSamProcessPhoto = async ({ file, processPk, description = "" }: { file: string; processPk: number; description?: string }) => {
+  try {
+    const r = await instance.post(`${SAM_API}processes/${processPk}/photos/`, { file, description, process: processPk }, samMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return createProcessPhoto({ file, processPk, description });
+    throw e;
+  }
+};
+
+export const deleteSamProcessPhoto = async (processPk: number, photoPk: number | string) => {
+  try {
+    const r = await instance.delete(`${SAM_API}processes/${processPk}/photos/${photoPk}/`, samMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return deleteProcessPhoto({ processPk, photoPk: Number(photoPk) });
+    throw e;
+  }
+};
+
+export const createSamProcessVideo = async ({
+  VideoFile,
+  ThumbnailFile = "",
+  processPk,
+  description = ""
+}: {
+  VideoFile: string;
+  ThumbnailFile?: string;
+  processPk: number;
+  description?: string;
+}) => {
+  try {
+    const r = await instance.post(`${SAM_API}processes/${processPk}/videos/`, { VideoFile, ThumbnailFile, description, process: processPk }, samMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return createProcessVideo({ VideoFile, ThumbnailFile, processPk, description });
+    throw e;
+  }
+};
+
+export const deleteSamProcessVideo = async (processPk: number, videoPk: number) => {
+  try {
+    const r = await instance.delete(`${SAM_API}processes/${processPk}/videos/${videoPk}/`, samMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return deleteProcessVideo({ processPk, videoPk });
+    throw e;
+  }
+};
+
+// ── Layouts (layouts app, api/v1/layouts/) ──────────────────────────────────
+export interface ILayoutStyleMini {
+  pk: number;
+  code: string;
+  style_name: string | null;
+  primary_photo?: number | null;
+  thumbnail?: string | null;
+}
+
+export interface ILayoutStyleListItem {
+  pk: number;
+  sj_style: ILayoutStyleMini;
+  remark: string;
+  process_analysis_outline: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ILayoutProcessHelper {
+  pk: number;
+  layout_process: number;
+  name: string;
+  manpower: number;
+  cycle_time: string | null;
+  sort_order?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ILayoutProcess {
+  pk: number;
+  layout_module: number;
+  previous_process?: number | { pk: number } | null;
+  next_process?: number | { pk: number } | null;
+  previous_process_id?: number | null;
+  next_process_id?: number | null;
+  sort_order?: number | null;
+  code: string;
+  name: string;
+  name_ko: string;
+  name_en: string;
+  description: string;
+  flow: string;
+  standard_work_video_url?: string;
+  cycle_time: string | null;
+  prep_seconds: string | null;
+  machining_seconds: string | null;
+  finishing_seconds: string | null;
+  allowance_seconds?: string | null;
+  manpower?: number | null;
+  target_qty_per_hour: number | null;
+  target_qty_per_hour_total?: number | null;
+  daily_target_qty_8h: number | null;
+  sj_machine?: number | { pk: number } | null;
+  sj_machine_id?: number | null;
+  sj_machine_name?: string | null;
+  machine?: number | { pk: number } | null;
+  machine_pk?: number | null;
+  machine_id?: number | null;
+  machine_name?: string | null;
+  layout_tool?: number | { pk: number } | null;
+  layout_tool_id?: number | null;
+  layout_tool_name?: string | null;
+  sj_motion?: number | null;
+  photos?: IFilePhotos[];
+  videos?: IProcessVideo[];
+  measurements?: ILayoutProcessMeasurement[];
+  helpers?: ILayoutProcessHelper[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ILayoutModule {
+  pk: number;
+  layout_style: number;
+  previous_module?: number | null;
+  next_module?: number | null;
+  module_category: number;
+  module_category_name: string;
+  code: string;
+  name: string;
+  sort_order: number;
+  layout_processes: ILayoutProcess[];
+  photos?: IFilePhotos[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ILayoutStyleDetail extends ILayoutStyleListItem {
+  layout_modules: ILayoutModule[];
+}
+
+const layoutMutHeaders = () => ({
+  headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" }
+});
+
+/** Layouts API base — server: api/v1/layouts/ */
+const LAYOUT_API = "layouts/";
+
+export const getLayoutStyles = (params?: { search?: string; sj_style?: number }) =>
+  instance.get(`${LAYOUT_API}styles/`, { params }).then((r) => r.data as ILayoutStyleListItem[]);
+
+export const getLayoutStyleDetail = (pk: number) =>
+  instance.get(`${LAYOUT_API}styles/${pk}/`).then((r) => r.data as ILayoutStyleDetail);
+
+export const createLayoutStyle = (data: { sj_style: number; remark?: string; process_analysis_outline?: string }) =>
+  instance.post(`${LAYOUT_API}styles/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutStyleDetail);
+
+export const patchLayoutStyle = (pk: number, data: Partial<Pick<ILayoutStyleListItem, "remark" | "process_analysis_outline">>) =>
+  instance.patch(`${LAYOUT_API}styles/${pk}/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutStyleDetail);
+
+export const deleteLayoutStyle = (pk: number) => instance.delete(`${LAYOUT_API}styles/${pk}/`, layoutMutHeaders());
+
+export const createLayoutModule = (data: {
+  layout_style: number;
+  module_category: number;
+  code: string;
+  name?: string;
+  sort_order?: number;
+}) => instance.post(`${LAYOUT_API}modules/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutModule);
+
+export const patchLayoutModule = (
+  pk: number,
+  data: Partial<{
+    module_category: number;
+    code: string;
+    name: string;
+    sort_order: number;
+    previous_module: number | null;
+    previous_module_id: number | null;
+    next_module: number | null;
+    next_module_id: number | null;
+  }>
+) => instance.patch(`${LAYOUT_API}modules/${pk}/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutModule);
+
+export const deleteLayoutModule = (pk: number) => instance.delete(`${LAYOUT_API}modules/${pk}/`, layoutMutHeaders());
+
+export const getLayoutModuleDetail = (pk: number) => instance.get(`${LAYOUT_API}modules/${pk}/`).then((r) => r.data as ILayoutModule);
+
+export interface ILayoutTool {
+  pk: number;
+  code: string;
+  name: string;
+  description: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getLayoutTools = (params?: { include_inactive?: boolean }) => {
+  const q = new URLSearchParams();
+  if (params?.include_inactive) q.set("include_inactive", "1");
+  const qs = q.toString();
+  return instance.get(`${LAYOUT_API}tools/${qs ? `?${qs}` : ""}`).then((r) => r.data as ILayoutTool[]);
+};
+
+export const createLayoutTool = (data: { code: string; name?: string; description?: string; sort_order?: number; is_active?: boolean }) =>
+  instance.post(`${LAYOUT_API}tools/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutTool);
+
+export const patchLayoutTool = (pk: number, data: Partial<Pick<ILayoutTool, "code" | "name" | "description" | "sort_order" | "is_active">>) =>
+  instance.patch(`${LAYOUT_API}tools/${pk}/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutTool);
+
+export const deleteLayoutTool = (pk: number) => instance.delete(`${LAYOUT_API}tools/${pk}/`, layoutMutHeaders());
+
+export const getLayoutProcessDetail = (pk: number) => instance.get(`${LAYOUT_API}processes/${pk}/`).then((r) => r.data as ILayoutProcess);
+
+export const createLayoutProcess = (data: {
+  layout_module: number;
+  code: string;
+  name?: string;
+  name_ko?: string;
+  name_en?: string;
+  description?: string;
+  flow?: string;
+  cycle_time?: string | number | null;
+  prep_seconds?: string | number | null;
+  machining_seconds?: string | number | null;
+  finishing_seconds?: string | number | null;
+  sort_order?: number | null;
+  manpower?: number | null;
+  sj_machine?: number | null;
+  sj_machine_id?: number | null;
+  layout_tool?: number | null;
+  layout_tool_id?: number | null;
+  sj_motion?: number | null;
+}) => instance.post(`${LAYOUT_API}processes/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutProcess);
+
+export const patchLayoutProcess = (
+  pk: number,
+  data: Partial<{
+    code: string;
+    name: string;
+    name_ko: string;
+    name_en: string;
+    description: string;
+    flow: string;
+    standard_work_video_url: string;
+    cycle_time: string | number | null;
+    prep_seconds: string | number | null;
+    machining_seconds: string | number | null;
+    finishing_seconds: string | number | null;
+    previous_process: number | null;
+    previous_process_id: number | null;
+    next_process: number | null;
+    next_process_id: number | null;
+    sort_order: number | null;
+    manpower: number | null;
+    sj_machine?: number | null;
+    sj_machine_id?: number | null;
+    layout_tool?: number | null;
+    layout_tool_id?: number | null;
+    sj_motion?: number | null;
+  }>
+) => instance.patch(`${LAYOUT_API}processes/${pk}/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutProcess);
+
+export const deleteLayoutProcess = (pk: number) => instance.delete(`${LAYOUT_API}processes/${pk}/`, layoutMutHeaders());
+
+export const getLayoutProcessHelpers = (layoutProcessPk: number) =>
+  instance.get(`${LAYOUT_API}process-helpers/`, { params: { layout_process: layoutProcessPk } }).then((r) => r.data as ILayoutProcessHelper[]);
+export const createLayoutProcessHelper = (data: { layout_process: number; name: string; manpower: number; cycle_time?: string | number | null; sort_order?: number }) =>
+  instance.post(`${LAYOUT_API}process-helpers/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutProcessHelper);
+export const patchLayoutProcessHelper = (pk: number, data: Partial<{ name: string; manpower: number; cycle_time: string | number | null; sort_order: number }>) =>
+  instance.patch(`${LAYOUT_API}process-helpers/${pk}/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutProcessHelper);
+export const deleteLayoutProcessHelper = (pk: number) => instance.delete(`${LAYOUT_API}process-helpers/${pk}/`, layoutMutHeaders());
+
+export interface ILayoutSettings {
+  upmh_divisor_seconds: number;
+}
+
+export const getLayoutSettings = () => instance.get(`${LAYOUT_API}settings/`).then((r) => r.data as ILayoutSettings);
+
+export const patchLayoutSettings = (data: Partial<ILayoutSettings>) =>
+  instance.patch(`${LAYOUT_API}settings/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutSettings);
+
+export const createLayoutModulePhoto = async ({ file, modulePk, description = "" }: { file: string; modulePk: number; description?: string }) => {
+  try {
+    const r = await instance.post(`${LAYOUT_API}modules/${modulePk}/photos/`, { file, description, module: modulePk }, layoutMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return createModulePhoto({ file, modulePk, description });
+    throw e;
+  }
+};
+
+export const deleteLayoutModulePhoto = async (modulePk: number, photoPk: number | string) => {
+  try {
+    const r = await instance.delete(`${LAYOUT_API}modules/${modulePk}/photos/${photoPk}/`, layoutMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return deleteModulePhoto({ modulePk, photoPk: Number(photoPk) });
+    throw e;
+  }
+};
+
+export const createLayoutProcessPhoto = async ({ file, processPk, description = "" }: { file: string; processPk: number; description?: string }) => {
+  try {
+    const r = await instance.post(`${LAYOUT_API}processes/${processPk}/photos/`, { file, description, process: processPk }, layoutMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return createProcessPhoto({ file, processPk, description });
+    throw e;
+  }
+};
+
+export const deleteLayoutProcessPhoto = async (processPk: number, photoPk: number | string) => {
+  try {
+    const r = await instance.delete(`${LAYOUT_API}processes/${processPk}/photos/${photoPk}/`, layoutMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return deleteProcessPhoto({ processPk, photoPk: Number(photoPk) });
+    throw e;
+  }
+};
+
+export const createLayoutProcessVideo = async ({
+  VideoFile,
+  ThumbnailFile = "",
+  processPk,
+  description = ""
+}: {
+  VideoFile: string;
+  ThumbnailFile?: string;
+  processPk: number;
+  description?: string;
+}) => {
+  try {
+    const r = await instance.post(`${LAYOUT_API}processes/${processPk}/videos/`, { VideoFile, ThumbnailFile, description, process: processPk }, layoutMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return createProcessVideo({ VideoFile, ThumbnailFile, processPk, description });
+    throw e;
+  }
+};
+
+export const deleteLayoutProcessVideo = async (processPk: number, videoPk: number) => {
+  try {
+    const r = await instance.delete(`${LAYOUT_API}processes/${processPk}/videos/${videoPk}/`, layoutMutHeaders());
+    return r.data;
+  } catch (e) {
+    if (isSamRouteNotFound(e)) return deleteProcessVideo({ processPk, videoPk });
+    throw e;
+  }
+};
+
+export interface ILayoutProcessMeasurement {
+  pk: number;
+  layout_process: number;
+  round: 1 | 2 | 3;
+  measured_at: string | null;
+  cycle_time: string | null;
+  manpower: number | null;
+  remark?: string;
+  target_qty_per_hour: number | null;
+  target_qty_per_hour_total: number | null;
+  photos?: IFilePhotos[];
+  videos?: IProcessVideo[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const createLayoutProcessMeasurement = (data: {
+  layout_process: number;
+  round: 1 | 2 | 3;
+  measured_at?: string | null;
+  cycle_time?: string | null;
+  manpower?: number | null;
+  remark?: string;
+}) => instance.post(`${LAYOUT_API}processes/${data.layout_process}/measurements/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutProcessMeasurement);
+
+export const patchLayoutProcessMeasurement = (
+  measurementPk: number,
+  data: Partial<{ measured_at: string | null; cycle_time: string | number | null; manpower: number | null; remark: string }>
+) => instance.patch(`${LAYOUT_API}measurements/${measurementPk}/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutProcessMeasurement);
+
+export const deleteLayoutProcessMeasurement = (measurementPk: number) => instance.delete(`${LAYOUT_API}measurements/${measurementPk}/`, layoutMutHeaders());
+
+export const createLayoutProcessMeasurementPhoto = ({ file, measurementPk, description = "" }: { file: string; measurementPk: number; description?: string }) =>
+  instance.post(`${LAYOUT_API}measurements/${measurementPk}/photos/`, { file, description }, layoutMutHeaders()).then((r) => r.data);
+
+export const deleteLayoutProcessMeasurementPhoto = (measurementPk: number, photoPk: number | string) =>
+  instance.delete(`${LAYOUT_API}measurements/${measurementPk}/photos/${photoPk}/`, layoutMutHeaders());
+
+export const createLayoutProcessMeasurementVideo = ({
+  VideoFile,
+  ThumbnailFile = "",
+  measurementPk,
+  description = ""
+}: {
+  VideoFile: string;
+  ThumbnailFile?: string;
+  measurementPk: number;
+  description?: string;
+}) =>
+  instance.post(`${LAYOUT_API}measurements/${measurementPk}/videos/`, { VideoFile, ThumbnailFile, description }, layoutMutHeaders()).then((r) => r.data);
+
+export const deleteLayoutProcessMeasurementVideo = (measurementPk: number, videoPk: number) =>
+  instance.delete(`${LAYOUT_API}measurements/${measurementPk}/videos/${videoPk}/`, layoutMutHeaders());
+
+
 // SjStyle 사진 저장 (Cloudflare URL → Django)
 export const createSjStylePhoto = (stylePk: number, file: string, description: string) =>
   instance
@@ -3391,6 +4007,10 @@ export interface IEpSjNoCopy {
   cycle_time?: string | null;
   target_qty_per_hour?: number | null;
   daily_target_qty_8h?: number | null;
+  /** 원본 SJ No 자체의 target/h (VL Assembly 측 override와 무관, source_sj_no.cycle_time 기준) */
+  source_target_qty_per_hour?: number | null;
+  /** 원본 SJ No 자체의 daily target (8h) */
+  source_daily_target_qty_8h?: number | null;
   /** EP 검사 기록 불량 수량 합계 (해당 SJ No 기준) */
   total_defect_qty?: number;
   override_fields?: string[];
@@ -4278,7 +4898,7 @@ export type IVlAssemblySjNoDetail = IEpSjNoDetail & {
   vl_assembly_schedule_pk?: number;
   vl_assembly_modules?: IVlAssemblyModuleDetail[];
   schedule_sj_order_info?: { pk: number; sj_po_number: string } | null;
-  schedule_sj_style_info?: { style_name: string | null; thumbnail: string | null } | null;
+  schedule_sj_style_info?: { pk: number; style_name: string | null; thumbnail: string | null } | null;
 };
 
 export type IVlAssemblyProductionDailyOutput = IEpProductionDailyOutput & {

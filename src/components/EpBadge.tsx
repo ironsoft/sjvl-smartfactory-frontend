@@ -86,3 +86,32 @@ export function EpOriginalReferenceBadges({
     </HStack>
   );
 }
+
+/** SAM/Layout document — Module / Process (same color scheme as EP's EP M / EP P) */
+const SAM_LABELS = {
+  samModule: "SAM M",
+  samProcess: "SAM P",
+  layoutModule: "LAYOUT M",
+  layoutProcess: "LAYOUT P"
+} as const;
+
+const SAM_COLOR_SCHEME: Record<keyof typeof SAM_LABELS, string> = {
+  samModule: "blue",
+  samProcess: "teal",
+  layoutModule: "blue",
+  layoutProcess: "teal"
+};
+
+export type SamBadgeKind = keyof typeof SAM_LABELS;
+
+export type SamBadgeProps = Omit<BadgeProps, "children" | "variant" | "colorScheme"> & {
+  kind: SamBadgeKind;
+};
+
+export function SamBadge({ kind, fontSize = "xs", borderRadius = "md", px = 2, ...rest }: SamBadgeProps) {
+  return (
+    <Badge variant="solid" colorScheme={SAM_COLOR_SCHEME[kind]} fontSize={fontSize} borderRadius={borderRadius} px={px} flexShrink={0} {...rest}>
+      {SAM_LABELS[kind]}
+    </Badge>
+  );
+}

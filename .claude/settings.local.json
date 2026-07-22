@@ -106,7 +106,18 @@
       "Bash(git -C /Users/keunsunglee/airbnb-clone-frontend3 commit -m ' *)",
       "Bash(git -C /Users/keunsunglee/airbnb-clone-backend3 add aluminum_molds/models.py aluminum_molds/serializers.py aluminum_molds/views.py aluminum_molds/migrations/ binding_guides/models.py binding_guides/serializers.py binding_guides/views.py binding_guides/migrations/ hot_cold_press_iot/models.py hot_cold_press_iot/serializers.py hot_cold_press_iot/views.py hot_cold_press_iot/migrations/ jigs/models.py jigs/serializers.py jigs/views.py jigs/migrations/ sj_machines/serializers.py vl_assembly_production/models.py vl_assembly_production/serializers.py vl_assembly_production/urls.py vl_assembly_production/views.py vl_assembly_production/migrations/ welding_room/models.py welding_room/serializers.py welding_room/urls.py welding_room/views.py welding_room/migrations/)",
       "Bash(git -C /Users/keunsunglee/airbnb-clone-backend3 commit -m ' *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(npx eslint *)",
+      "Bash(npm start *)",
+      "Bash(lsof -ti:3001)",
+      "Bash(xargs ps *)",
+      "Bash(render deploys *)",
+      "Bash(render services *)",
+      "Skill(fewer-permission-prompts)",
+      "Bash(render --version)",
+      "Bash(render logs *)",
+      "Bash(render env-groups *)",
+      "Bash(lsof -ti:3000)"
     ]
   }
 }

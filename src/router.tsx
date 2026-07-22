@@ -141,6 +141,12 @@ import VlFactoryLiveScheduleDetail from "./routes/VlFactoryLiveScheduleDetail";
 import VlFactoryLiveAssemblyDisplay from "./routes/VlFactoryLiveAssemblyDisplay";
 import VlFactoryLiveModuleDisplay from "./routes/VlFactoryLiveModuleDisplay";
 import VlErpDashboard from "./routes/VlErpDashboard";
+import VlLayouts from "./routes/VlLayouts";
+import VlLayoutDetail from "./routes/VlLayoutDetail";
+import VlLayoutModuleDetail from "./routes/VlLayoutModuleDetail";
+import VlLayoutProcessDetail from "./routes/VlLayoutProcessDetail";
+import VlLayoutMeasurementsReport from "./routes/VlLayoutMeasurementsReport";
+import VlLayoutToolSettings from "./routes/VlLayoutToolSettings";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -707,6 +713,30 @@ const router = createBrowserRouter([
       {
         path: "vl-erp-dashboard",
         element: <VlErpDashboard />
+      },
+      {
+        path: "vl-layouts",
+        element: <VlLayouts />
+      },
+      {
+        path: "vl-layouts/tools",
+        element: <VlLayoutToolSettings />
+      },
+      {
+        path: "vl-layouts/:pk/modules/:modPk",
+        element: <VlLayoutModuleDetail />
+      },
+      {
+        path: "vl-layouts/:pk/processes/:procPk",
+        element: <VlLayoutProcessDetail />
+      },
+      {
+        path: "vl-layouts/:pk/measurements",
+        element: <VlLayoutMeasurementsReport />
+      },
+      {
+        path: "vl-layouts/:pk",
+        element: <VlLayoutDetail />
       }
     ]
   },
