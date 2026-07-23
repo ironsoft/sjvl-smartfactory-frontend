@@ -169,7 +169,8 @@ function AnalysisDetailSection({
     blue: "blue.400",
     green: "green.400",
     gray: "gray.400",
-    red: "red.400"
+    red: "red.400",
+    purple: "purple.400"
   }[accent];
   const labelColor = useColorModeValue("gray.600", "gray.300");
   const sectionBg = useColorModeValue("white", "gray.800");
@@ -197,7 +198,7 @@ function AnalysisDetailSection({
   );
 }
 
-type KpiAccent = "teal" | "orange" | "blue" | "green" | "gray" | "red";
+type KpiAccent = "teal" | "orange" | "blue" | "green" | "gray" | "red" | "purple";
 
 function AnalysisKpiCard({
   label,
@@ -221,7 +222,8 @@ function AnalysisKpiCard({
     blue: "blue.400",
     green: "green.400",
     gray: "gray.300",
-    red: "red.400"
+    red: "red.400",
+    purple: "purple.400"
   }[accent];
   const lightBg = {
     teal: "teal.50",
@@ -229,7 +231,8 @@ function AnalysisKpiCard({
     blue: "blue.50",
     green: "green.50",
     gray: "gray.50",
-    red: "red.50"
+    red: "red.50",
+    purple: "purple.50"
   }[accent];
   const accentBg = useColorModeValue(lightBg, "whiteAlpha.100");
   const cardBorder = useColorModeValue("gray.200", "gray.600");
@@ -559,7 +562,7 @@ function LayoutAnalysisSummaryPanel({
           label={t("vlLayouts.detail.analysisCapacityBottleneck")}
           value={capacityBnLabel}
           hint={capacityBnHint}
-          accent="red"
+          accent="purple"
           compact={compact}
           latest={
             latestRound && latestCapacityBnLabel ? (
@@ -682,12 +685,12 @@ function SortableProcessTr({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `proc-${id}` });
   const cycleBnBg = useColorModeValue("orange.50", "orange.900");
-  const capacityBnBg = useColorModeValue("red.50", "red.900");
+  const capacityBnBg = useColorModeValue("purple.50", "purple.900");
   const bothBnBg = useColorModeValue("orange.50", "orange.900");
   const highlight = isCapacityBottleneck && isCycleBottleneck
-    ? { bg: bothBnBg, shadow: "inset 3px 0 0 var(--chakra-colors-red-400), inset 6px 0 0 var(--chakra-colors-orange-400)" }
+    ? { bg: bothBnBg, shadow: "inset 3px 0 0 var(--chakra-colors-purple-400), inset 6px 0 0 var(--chakra-colors-orange-400)" }
     : isCapacityBottleneck
-      ? { bg: capacityBnBg, shadow: "inset 3px 0 0 var(--chakra-colors-red-400)" }
+      ? { bg: capacityBnBg, shadow: "inset 3px 0 0 var(--chakra-colors-purple-400)" }
       : isCycleBottleneck
         ? { bg: cycleBnBg, shadow: "inset 3px 0 0 var(--chakra-colors-orange-400)" }
         : { bg: undefined, shadow: undefined };
@@ -739,7 +742,7 @@ export default function VlLayoutDetail() {
   const lineBorderColor = useColorModeValue("gray.300", "gray.500");
   const lineArrowColor = useColorModeValue("gray.300", "gray.500");
   const overviewBottleneckBg = useColorModeValue("orange.50", "orange.900");
-  const overviewCapacityBottleneckBg = useColorModeValue("red.50", "red.900");
+  const overviewCapacityBottleneckBg = useColorModeValue("purple.50", "purple.900");
   const measOriginalBg = useColorModeValue("gray.50", "whiteAlpha.100");
   const measVl1Bg = useColorModeValue("blue.50", "blue.900");
   const measVl2Bg = useColorModeValue("purple.50", "purple.900");
@@ -1760,7 +1763,7 @@ export default function VlLayoutDetail() {
               )}
               {isCapacityBottleneck && (
                 <Tooltip label={t("vlLayouts.detail.capacityBottleneckBadge")} hasArrow>
-                  <Box as="span" color="red.500" display="inline-flex" aria-label={t("vlLayouts.detail.capacityBottleneckBadge")}>
+                  <Box as="span" color="purple.500" display="inline-flex" aria-label={t("vlLayouts.detail.capacityBottleneckBadge")}>
                     <FaTachometerAlt size={11} />
                   </Box>
                 </Tooltip>
@@ -1924,7 +1927,7 @@ export default function VlLayoutDetail() {
         )}
         {isCapacity && (
           <Tooltip label={t("vlLayouts.detail.capacityBottleneckBadge")} hasArrow>
-            <Box as="span" color="red.500" display="inline-flex" aria-label={t("vlLayouts.detail.capacityBottleneckBadge")}>
+            <Box as="span" color="purple.500" display="inline-flex" aria-label={t("vlLayouts.detail.capacityBottleneckBadge")}>
               <FaTachometerAlt size={11} />
             </Box>
           </Tooltip>
@@ -2247,9 +2250,9 @@ export default function VlLayoutDetail() {
         }
         boxShadow={
           isCapacityBottleneck && isCycleBottleneck
-            ? "inset 3px 0 0 var(--chakra-colors-red-400), inset 6px 0 0 var(--chakra-colors-orange-400)"
+            ? "inset 3px 0 0 var(--chakra-colors-purple-400), inset 6px 0 0 var(--chakra-colors-orange-400)"
             : isCapacityBottleneck
-              ? "inset 3px 0 0 var(--chakra-colors-red-400)"
+              ? "inset 3px 0 0 var(--chakra-colors-purple-400)"
               : isCycleBottleneck
                 ? "inset 3px 0 0 var(--chakra-colors-orange-400)"
                 : undefined
