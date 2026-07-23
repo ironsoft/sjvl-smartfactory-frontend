@@ -35,9 +35,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { FiChevronDown, FiChevronRight, FiSearch, FiX } from "react-icons/fi";
-import { FaThumbtack } from "react-icons/fa";
+import { FaThumbtack, FaThLarge, FaProjectDiagram } from "react-icons/fa";
 import { Helmet } from "react-helmet";
 import { useTranslation } from "react-i18next";
+import { Link as RouterLink } from "react-router-dom";
 import {
   getLayoutStyles,
   getVlAssemblyModuleProductionDailyOutputs,
@@ -1158,6 +1159,22 @@ export default function VlErpDashboard() {
             {t("navbar.vlErpDashboard")}
           </Text>
           <HStack spacing={3} flexWrap="wrap" justify="flex-end">
+            <IconButton
+              as={RouterLink}
+              to="/vl-factory-live"
+              aria-label={t("navbar.vlFactoryLive")}
+              icon={<FaThLarge />}
+              size="sm"
+              variant="outline"
+            />
+            <IconButton
+              as={RouterLink}
+              to="/vl-layouts"
+              aria-label={t("navbar.vlLayouts")}
+              icon={<FaProjectDiagram />}
+              size="sm"
+              variant="outline"
+            />
             <InputGroup size="sm" w={{ base: "100%", sm: "220px" }} maxW="280px">
               <InputLeftElement pointerEvents="none" color="gray.400">
                 <FiSearch size={14} />

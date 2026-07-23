@@ -1355,7 +1355,8 @@
     "kaizen": "SJ Kaizen",
     "tgBindingGuideManagement": "TG 납바 관리",
     "tgJigManagement": "TG 지그 관리",
-    "vlLayouts": "VL Layouts"
+    "vlLayouts": "VL Layouts",
+    "backToVlErpDashboard": "Daily CH Dashboard로 돌아가기"
   },
   "epInspection": {
     "defectCategorySettingsButton": "불량 종류 설정",

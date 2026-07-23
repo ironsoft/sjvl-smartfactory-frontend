@@ -1355,7 +1355,8 @@
     "kaizen": "SJ Kaizen",
     "tgBindingGuideManagement": "TG Binding Guide Management",
     "tgJigManagement": "TG Jig Management",
-    "vlLayouts": "VL Layouts"
+    "vlLayouts": "VL Layouts",
+    "backToVlErpDashboard": "Back to Daily CH Dashboard"
   },
   "epInspection": {
     "defectCategorySettingsButton": "Defect categories",

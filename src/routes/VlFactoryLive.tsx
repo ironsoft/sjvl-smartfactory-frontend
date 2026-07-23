@@ -58,6 +58,8 @@ import {
   FiTrendingUp,
   FiX,
 } from "react-icons/fi";
+import { FaList } from "react-icons/fa";
+import { Link as RouterLink } from "react-router-dom";
 import {
   getVlFactoryLiveSchedules,
   getVlFactoryLiveScheduleDetail,
@@ -1610,6 +1612,17 @@ export default function VlFactoryLive() {
             </HStack>
 
             <HStack gap={2} flexShrink={0} flexWrap="wrap">
+              <Tooltip label={t("navbar.backToVlErpDashboard")}>
+                <IconButton
+                  as={RouterLink}
+                  to="/vl-erp-dashboard"
+                  aria-label={t("navbar.backToVlErpDashboard")}
+                  icon={<FaList size={14} />}
+                  size="sm"
+                  variant="outline"
+                  flexShrink={0}
+                />
+              </Tooltip>
               {isAdminUser && (
               <Button
                 size="sm"

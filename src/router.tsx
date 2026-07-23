@@ -155,7 +155,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: "",
-        element: <VlFactoryLive />
+        element: <VlErpDashboard />
       },
       {
         path: "home",

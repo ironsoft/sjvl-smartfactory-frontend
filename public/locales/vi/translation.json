@@ -1355,7 +1355,8 @@
     "kaizen": "SJ Kaizen",
     "tgBindingGuideManagement": "Quản lý viền TG",
     "tgJigManagement": "Quản lý jig TG",
-    "vlLayouts": "VL Layouts"
+    "vlLayouts": "VL Layouts",
+    "backToVlErpDashboard": "Trở lại Daily CH Dashboard"
   },
   "epInspection": {
     "defectCategorySettingsButton": "Loại lỗi (QC)",

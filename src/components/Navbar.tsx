@@ -23,9 +23,6 @@ import useUser from "../lib/useUser";
 import {
   FaMoon,
   FaSun,
-  FaBroadcastTower,
-  FaChartBar,
-  FaThLarge,
 } from "react-icons/fa";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
@@ -146,37 +143,6 @@ export default function Navbar() {
             </Box>
           </Link>
         </Box>
-
-        {/* VL 공장 메뉴 */}
-        <HStack spacing={{ base: "1", md: "2" }} display={{ base: "none", md: "flex" }}>
-          <Button
-            as={RouterLink}
-            to="/vl-factory-live"
-            leftIcon={<FaBroadcastTower />}
-            variant={location.pathname.startsWith("/vl-factory-live") ? "solid" : "ghost"}
-            size="sm"
-          >
-            {t("navbar.vlFactoryLive")}
-          </Button>
-          <Button
-            as={RouterLink}
-            to="/vl-erp-dashboard"
-            leftIcon={<FaChartBar />}
-            variant={location.pathname.startsWith("/vl-erp-dashboard") ? "solid" : "ghost"}
-            size="sm"
-          >
-            {t("navbar.vlErpDashboard")}
-          </Button>
-          <Button
-            as={RouterLink}
-            to="/vl-layouts"
-            leftIcon={<FaThLarge />}
-            variant={location.pathname.startsWith("/vl-layouts") ? "solid" : "ghost"}
-            size="sm"
-          >
-            {t("navbar.vlLayouts")}
-          </Button>
-        </HStack>
 
         {/* 오른쪽: 다크모드, 언어, 아바타 */}
         <Box>
