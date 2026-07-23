@@ -200,7 +200,7 @@ export default function VlLayoutProcessDetail() {
     }
     setSavingHelper(true);
     try {
-      await createLayoutProcessHelper({ layout_process: processPk, name: helperForm.name.trim(), manpower: Math.round(mp), cycle_time: cycle.value });
+      await createLayoutProcessHelper({ layout_process: processPk, name: helperForm.name.trim(), manpower: Math.round(mp * 100) / 100, cycle_time: cycle.value });
       setHelperForm({ name: "", manpower: "", cycle_time: "" });
       invalidateAfterHelperChange();
     } catch (e) {
@@ -224,7 +224,7 @@ export default function VlLayoutProcessDetail() {
     }
     setSavingHelper(true);
     try {
-      await patchLayoutProcessHelper(editingHelper.pk, { name: editingHelper.name.trim(), manpower: Math.round(mp), cycle_time: cycle.value });
+      await patchLayoutProcessHelper(editingHelper.pk, { name: editingHelper.name.trim(), manpower: Math.round(mp * 100) / 100, cycle_time: cycle.value });
       setEditingHelper(null);
       invalidateAfterHelperChange();
     } catch (e) {
@@ -411,12 +411,12 @@ export default function VlLayoutProcessDetail() {
         manpowerPatch = null;
       } else {
         const n = Number(rawMp);
-        if (!Number.isInteger(n) || n < 0) {
+        if (!Number.isFinite(n) || n < 0) {
           toast({ title: t("vlLayouts.processDetail.manpowerInvalid"), status: "warning", duration: 2500, position: "bottom-right" });
           setIsSaving(false);
           return;
         }
-        manpowerPatch = n;
+        manpowerPatch = Math.round(n * 100) / 100;
       }
       const raw = await patchLayoutProcess(processPk, {
         code: form.code.trim(),
@@ -947,7 +947,8 @@ export default function VlLayoutProcessDetail() {
                           <Input
                             size="sm"
                             type="number"
-                            min={1}
+                            min={0.25}
+                            step={0.25}
                             value={editingHelper.manpower}
                             onChange={(e) => setEditingHelper((f) => (f ? { ...f, manpower: e.target.value } : f))}
                             maxW="90px"
@@ -1023,7 +1024,8 @@ export default function VlLayoutProcessDetail() {
               <Input
                 size="sm"
                 type="number"
-                min={1}
+                min={0.25}
+                step={0.25}
                 placeholder={t("vlLayouts.processDetail.manpower")}
                 value={helperForm.manpower}
                 onChange={(e) => setHelperForm((f) => ({ ...f, manpower: e.target.value }))}
@@ -1326,7 +1328,7 @@ function SimpleFields({
             size="sm"
             type="number"
             min={0}
-            step={1}
+            step={0.25}
             value={form.manpower}
             onChange={(e) => setForm((f) => ({ ...f, manpower: e.target.value }))}
           />

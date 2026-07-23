@@ -1423,11 +1423,11 @@ export default function VlLayoutDetail() {
       let manpowerNum: number | undefined;
       if (rawMp !== "") {
         const n = Number(rawMp);
-        if (!Number.isInteger(n) || n < 0) {
+        if (!Number.isFinite(n) || n < 0) {
           toast({ title: t("vlLayouts.detail.processManpowerInvalid"), status: "warning", duration: 2500, position: "bottom-right" });
           return;
         }
-        manpowerNum = n;
+        manpowerNum = Math.round(n * 100) / 100;
       }
       await createLayoutProcess({
         layout_module: procModal.layout_module,
@@ -1588,7 +1588,7 @@ export default function VlLayoutDetail() {
     invalidateStyleAfterMeasurement();
   };
   const saveOriginalManpower = async (processPk: number, v: number | null) => {
-    await patchLayoutProcess(processPk, { manpower: v != null ? Math.round(v) : null });
+    await patchLayoutProcess(processPk, { manpower: v != null ? Math.round(v * 100) / 100 : null });
     invalidateStyleAfterMeasurement();
   };
   const saveRoundCycle = async (processPk: number, round: 1 | 2 | 3, measurement: ILayoutProcessMeasurement | null, v: number | null) => {
@@ -2679,7 +2679,7 @@ export default function VlLayoutDetail() {
                   <Input
                     type="number"
                     min={0}
-                    step={1}
+                    step={0.25}
                     value={procForm.manpower}
                     onChange={(e) => setProcForm((f) => ({ ...f, manpower: e.target.value }))}
                   />
