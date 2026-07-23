@@ -2772,6 +2772,10 @@ export interface ILayoutStyleListItem {
   sj_style: ILayoutStyleMini;
   remark: string;
   process_analysis_outline: string;
+  /** 실제 레이아웃 엑셀 파일 URL (Cloudflare R2) — 없으면 빈 문자열 */
+  layout_file_url?: string;
+  layout_file_name?: string;
+  layout_file_uploaded_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -2870,6 +2874,22 @@ export const patchLayoutStyle = (pk: number, data: Partial<Pick<ILayoutStyleList
   instance.patch(`${LAYOUT_API}styles/${pk}/`, data, layoutMutHeaders()).then((r) => r.data as ILayoutStyleDetail);
 
 export const deleteLayoutStyle = (pk: number) => instance.delete(`${LAYOUT_API}styles/${pk}/`, layoutMutHeaders());
+
+/** 실제 레이아웃 엑셀 파일(.xlsx/.xls) 업로드/교체 — 스타일당 1개만 유지, 새로 올리면 기존 파일 교체 */
+export const uploadLayoutStyleFile = async ({
+  layoutStylePk,
+  file
+}: {
+  layoutStylePk: number;
+  file: File;
+}): Promise<ILayoutStyleDetail> => {
+  const formData = new FormData();
+  formData.append("layout_file", file);
+  return instance.post(`${LAYOUT_API}styles/${layoutStylePk}/upload-file/`, formData).then((r) => r.data);
+};
+
+export const deleteLayoutStyleFile = (layoutStylePk: number): Promise<ILayoutStyleDetail> =>
+  instance.delete(`${LAYOUT_API}styles/${layoutStylePk}/upload-file/`).then((r) => r.data);
 
 export const createLayoutModule = (data: {
   layout_style: number;
@@ -3116,7 +3136,6 @@ export const createLayoutProcessMeasurementVideo = ({
 
 export const deleteLayoutProcessMeasurementVideo = (measurementPk: number, videoPk: number) =>
   instance.delete(`${LAYOUT_API}measurements/${measurementPk}/videos/${videoPk}/`, layoutMutHeaders());
-
 
 // SjStyle 사진 저장 (Cloudflare URL → Django)
 export const createSjStylePhoto = (stylePk: number, file: string, description: string) =>

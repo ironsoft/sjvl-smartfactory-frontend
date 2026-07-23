@@ -72,7 +72,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTranslation } from "react-i18next";
-import { FaArrowLeft, FaPlus, FaChevronDown, FaChevronUp, FaImage, FaVideo, FaGripVertical, FaColumns, FaChartBar, FaClock, FaTachometerAlt, FaExclamationTriangle, FaStream, FaUserFriends } from "react-icons/fa";
+import { FaArrowLeft, FaPlus, FaChevronDown, FaChevronUp, FaImage, FaVideo, FaGripVertical, FaColumns, FaChartBar, FaClock, FaTachometerAlt, FaExclamationTriangle, FaStream, FaUserFriends, FaFileExcel, FaUpload, FaTrash } from "react-icons/fa";
 import { SamSortOrderBadge } from "../components/SamSortOrderBadge";
 import { samCategoryColorScheme } from "../lib/samCategoryColor";
 import {
@@ -92,6 +92,8 @@ import VideoModal from "../components/VideoModal";
 import { resolveMediaUrl } from "../lib/resolveMediaUrl";
 import {
   getLayoutStyleDetail,
+  uploadLayoutStyleFile,
+  deleteLayoutStyleFile,
   createLayoutModule,
   patchLayoutModule,
   createLayoutProcess,
@@ -1367,9 +1369,51 @@ export default function VlLayoutDetail() {
   const [procAddSelectedTool, setProcAddSelectedTool] = useState<number | "">("");
 
   const [stylePhotoModalOpen, setStylePhotoModalOpen] = useState(false);
+  const layoutFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingLayoutFile, setIsUploadingLayoutFile] = useState(false);
+  const [isRemovingLayoutFile, setIsRemovingLayoutFile] = useState(false);
   const [layoutMediaPhotoModal, setLayoutMediaPhotoModal] = useState<{ open: boolean; images: string[] }>({ open: false, images: [] });
   const [layoutMediaVideoModal, setLayoutMediaVideoModal] = useState<{ open: boolean; url: string | undefined }>({ open: false, url: undefined });
   const [layoutMediaBusyKey, setLayoutMediaBusyKey] = useState<string | null>(null);
+
+  const handleLayoutFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (layoutFileInputRef.current) layoutFileInputRef.current.value = "";
+    if (!file || !detail) return;
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!ext || !["xlsx", "xls"].includes(ext)) {
+      toast({ title: t("vlLayouts.detail.layoutFileInvalidType"), status: "warning", duration: 3000, position: "bottom-right" });
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: t("vlLayouts.detail.layoutFileTooLarge"), status: "warning", duration: 3000, position: "bottom-right" });
+      return;
+    }
+    setIsUploadingLayoutFile(true);
+    try {
+      await uploadLayoutStyleFile({ layoutStylePk: detail.pk, file });
+      await queryClient.invalidateQueries({ queryKey: ["layoutStyle", pk] });
+      toast({ title: t("vlLayouts.detail.layoutFileUploaded"), status: "success", duration: 2000, position: "bottom-right" });
+    } catch {
+      toast({ title: t("ep.common.failedSave"), status: "error", duration: 2000, position: "bottom-right" });
+    } finally {
+      setIsUploadingLayoutFile(false);
+    }
+  };
+
+  const handleRemoveLayoutFile = async () => {
+    if (!detail) return;
+    setIsRemovingLayoutFile(true);
+    try {
+      await deleteLayoutStyleFile(detail.pk);
+      await queryClient.invalidateQueries({ queryKey: ["layoutStyle", pk] });
+      toast({ title: t("vlLayouts.detail.layoutFileRemoved"), status: "info", duration: 2000, position: "bottom-right" });
+    } catch {
+      toast({ title: t("ep.common.failedSave"), status: "error", duration: 2000, position: "bottom-right" });
+    } finally {
+      setIsRemovingLayoutFile(false);
+    }
+  };
 
   const runLayoutMedia = async (key: string, fn: () => Promise<void>) => {
     setLayoutMediaBusyKey(key);
@@ -2344,6 +2388,49 @@ export default function VlLayoutDetail() {
                   {detail.sj_style.style_name ? ` · ${detail.sj_style.style_name}` : ""}
                 </Text>
               </Box>
+            </HStack>
+
+            <HStack spacing={2} mb={4} flexWrap="wrap">
+              <Box as="span" color={detail.layout_file_url ? "green.600" : "gray.400"} display="inline-flex">
+                <FaFileExcel size={16} />
+              </Box>
+              {detail.layout_file_url ? (
+                <Link href={detail.layout_file_url} isExternal color="blue.500" fontSize="sm" fontWeight="medium">
+                  {detail.layout_file_name || t("vlLayouts.detail.layoutFileDefaultName")}
+                </Link>
+              ) : (
+                <Text fontSize="sm" color={subtleTextColor}>
+                  {t("vlLayouts.detail.layoutFileNone")}
+                </Text>
+              )}
+              {detail.layout_file_uploaded_at && (
+                <Text fontSize="xs" color={subtleTextColor}>
+                  {t("vlLayouts.detail.layoutFileUploadedAt", { date: new Date(detail.layout_file_uploaded_at).toLocaleString() })}
+                </Text>
+              )}
+              <Button
+                size="xs"
+                leftIcon={<FaUpload />}
+                variant="outline"
+                isLoading={isUploadingLayoutFile}
+                loadingText={t("vlLayouts.detail.layoutFileUploading")}
+                onClick={() => layoutFileInputRef.current?.click()}
+              >
+                {detail.layout_file_url ? t("vlLayouts.detail.layoutFileReplace") : t("vlLayouts.detail.layoutFileUpload")}
+              </Button>
+              {detail.layout_file_url && (
+                <Button
+                  size="xs"
+                  leftIcon={<FaTrash />}
+                  variant="ghost"
+                  colorScheme="red"
+                  isLoading={isRemovingLayoutFile}
+                  onClick={() => void handleRemoveLayoutFile()}
+                >
+                  {t("vlLayouts.common.delete")}
+                </Button>
+              )}
+              <input ref={layoutFileInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => void handleLayoutFileSelect(e)} />
             </HStack>
 
             {(() => {
