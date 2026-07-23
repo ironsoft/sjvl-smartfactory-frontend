@@ -97,15 +97,27 @@ export type LayoutProcessAnalysis = {
   targetMin: number | null;
   /** Target/H 최대 */
   targetMax: number | null;
-  bottleneck: {
-    pk: number;
-    code: string;
-    name: string;
-    cycleSec: number;
-    upmh: number | null;
-    manpower: number | null;
-    targetTotal: number | null;
-  } | null;
+  /**
+   * Cycle(표준시간) 병목 — Cycle이 가장 긴 공정.
+   * 방법·공법 개선 우선순위용. M/P 배치와 무관.
+   */
+  bottleneck: LayoutBottleneckInfo | null;
+  /**
+   * 용량(처리량) 병목 — Target/H(= UPMH×M/P)가 가장 낮은 공정.
+   * 라인 밸런싱·인력 배치용. M/P를 바꾸면 이동할 수 있다.
+   * Target/H가 있는 공정이 없으면 UPMH Min 공정으로 대체.
+   */
+  capacityBottleneck: LayoutBottleneckInfo | null;
+};
+
+export type LayoutBottleneckInfo = {
+  pk: number;
+  code: string;
+  name: string;
+  cycleSec: number;
+  upmh: number | null;
+  manpower: number | null;
+  targetTotal: number | null;
 };
 
 function fmtAnalysisNum(n: number, digits = 1): string {
@@ -162,7 +174,8 @@ export function analyzeLayoutProcesses(
   let nTarget = 0;
   let targetMin: number | null = null;
   let targetMax: number | null = null;
-  let bottleneck: LayoutProcessAnalysis["bottleneck"] = null;
+  let bottleneck: LayoutBottleneckInfo | null = null;
+  let capacityBottleneck: LayoutBottleneckInfo | null = null;
 
   for (const p of list) {
     const cycleSec = layoutProcessCycleSecondsForAnalysis(p);
@@ -190,6 +203,15 @@ export function analyzeLayoutProcesses(
       if (cycleMax == null || cycleSec > cycleMax) cycleMax = cycleSec;
       const upmh = cycleSec > 0 ? upmhDivisorSeconds / cycleSec : null;
       const targetTotal = upmh != null && mp != null && mp > 0 ? upmh * mp : null;
+      const info: LayoutBottleneckInfo = {
+        pk: p.pk,
+        code: p.code,
+        name: (p.name ?? "").trim(),
+        cycleSec,
+        upmh,
+        manpower: mp,
+        targetTotal
+      };
       if (upmh != null) {
         upmhSum += upmh;
         nUpmh++;
@@ -201,17 +223,17 @@ export function analyzeLayoutProcesses(
         nTarget++;
         if (targetMin == null || targetTotal < targetMin) targetMin = targetTotal;
         if (targetMax == null || targetTotal > targetMax) targetMax = targetTotal;
+        // Capacity bottleneck: lowest Target/H (line throughput limit after staffing)
+        if (
+          !capacityBottleneck ||
+          (capacityBottleneck.targetTotal != null && targetTotal < capacityBottleneck.targetTotal)
+        ) {
+          capacityBottleneck = info;
+        }
       }
+      // Cycle bottleneck: longest process cycle (method / standard-time focus)
       if (!bottleneck || cycleSec > bottleneck.cycleSec) {
-        bottleneck = {
-          pk: p.pk,
-          code: p.code,
-          name: (p.name ?? "").trim(),
-          cycleSec,
-          upmh,
-          manpower: mp,
-          targetTotal
-        };
+        bottleneck = info;
       }
     }
     const prep = parseCycleTimeToNumber(p.prep_seconds);
@@ -251,7 +273,9 @@ export function analyzeLayoutProcesses(
     targetAvg: nTarget > 0 ? targetSum / nTarget : null,
     targetMin,
     targetMax,
-    bottleneck
+    bottleneck,
+    // No staffing yet: capacity ≈ slowest UPMH (= longest cycle), same as cycle bottleneck
+    capacityBottleneck: capacityBottleneck ?? bottleneck
   };
 }
 

@@ -72,7 +72,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTranslation } from "react-i18next";
-import { FaArrowLeft, FaPlus, FaChevronDown, FaChevronUp, FaImage, FaVideo, FaGripVertical, FaColumns, FaChartBar, FaWineBottle, FaClock, FaTachometerAlt, FaExclamationTriangle, FaStream, FaUserFriends } from "react-icons/fa";
+import { FaArrowLeft, FaPlus, FaChevronDown, FaChevronUp, FaImage, FaVideo, FaGripVertical, FaColumns, FaChartBar, FaClock, FaTachometerAlt, FaExclamationTriangle, FaStream, FaUserFriends } from "react-icons/fa";
 import { SamSortOrderBadge } from "../components/SamSortOrderBadge";
 import { samCategoryColorScheme } from "../lib/samCategoryColor";
 import {
@@ -168,7 +168,8 @@ function AnalysisDetailSection({
     orange: "orange.400",
     blue: "blue.400",
     green: "green.400",
-    gray: "gray.400"
+    gray: "gray.400",
+    red: "red.400"
   }[accent];
   const labelColor = useColorModeValue("gray.600", "gray.300");
   const sectionBg = useColorModeValue("white", "gray.800");
@@ -196,7 +197,7 @@ function AnalysisDetailSection({
   );
 }
 
-type KpiAccent = "teal" | "orange" | "blue" | "green" | "gray";
+type KpiAccent = "teal" | "orange" | "blue" | "green" | "gray" | "red";
 
 function AnalysisKpiCard({
   label,
@@ -219,14 +220,16 @@ function AnalysisKpiCard({
     orange: "orange.400",
     blue: "blue.400",
     green: "green.400",
-    gray: "gray.300"
+    gray: "gray.300",
+    red: "red.400"
   }[accent];
   const lightBg = {
     teal: "teal.50",
     orange: "orange.50",
     blue: "blue.50",
     green: "green.50",
-    gray: "gray.50"
+    gray: "gray.50",
+    red: "red.50"
   }[accent];
   const accentBg = useColorModeValue(lightBg, "whiteAlpha.100");
   const cardBorder = useColorModeValue("gray.200", "gray.600");
@@ -303,6 +306,8 @@ function AnalysisRoundComparisonTable({
   const sec = (n: number | null) => (n != null ? `${formatCycleSumForDisplay(n)} s` : "—");
   const num = (n: number | null, digits = 1) => formatAnalysisMetricNumber(n, digits);
   const bottleneckLabel = (a: LayoutProcessAnalysis) => (a.bottleneck ? `[${a.bottleneck.code}] ${a.bottleneck.name || "—"}` : "—");
+  const capacityBottleneckLabel = (a: LayoutProcessAnalysis) =>
+    a.capacityBottleneck ? `[${a.capacityBottleneck.code}] ${a.capacityBottleneck.name || "—"}` : "—";
 
   const rounds = roundAnalyses.filter((r) => r.analysis.processCount - r.analysis.missingCycleCount > 0);
   if (rounds.length === 0) return null;
@@ -343,9 +348,14 @@ function AnalysisRoundComparisonTable({
       })
     },
     {
-      label: t("vlLayouts.detail.analysisBottleneck"),
+      label: t("vlLayouts.detail.analysisCycleBottleneck"),
       original: bottleneckLabel(analysis),
       values: (r) => ({ text: bottleneckLabel(r) })
+    },
+    {
+      label: t("vlLayouts.detail.analysisCapacityBottleneck"),
+      original: capacityBottleneckLabel(analysis),
+      values: (r) => ({ text: capacityBottleneckLabel(r) })
     }
   ];
 
@@ -413,21 +423,32 @@ function LayoutAnalysisSummaryPanel({
 
   const sec = (n: number | null) => (n != null ? `${formatCycleSumForDisplay(n)} s` : "—");
   const num = (n: number | null, digits = 1) => formatAnalysisMetricNumber(n, digits);
-  const bottleneckLabel = analysis.bottleneck
-    ? `[${analysis.bottleneck.code}] ${analysis.bottleneck.name || "—"}`
-    : "—";
-  const bottleneckHint = analysis.bottleneck
-    ? t("vlLayouts.detail.analysisBottleneckHint", {
+  const cycleBnLabel = analysis.bottleneck ? `[${analysis.bottleneck.code}] ${analysis.bottleneck.name || "—"}` : "—";
+  const cycleBnHint = analysis.bottleneck
+    ? t("vlLayouts.detail.analysisCycleBottleneckHint", {
         code: analysis.bottleneck.code,
         name: analysis.bottleneck.name || "—",
         seconds: formatCycleSumForDisplay(analysis.bottleneck.cycleSec)
       })
     : undefined;
+  const capacityBnLabel = analysis.capacityBottleneck
+    ? `[${analysis.capacityBottleneck.code}] ${analysis.capacityBottleneck.name || "—"}`
+    : "—";
+  const capacityBnHint = analysis.capacityBottleneck
+    ? t("vlLayouts.detail.analysisCapacityBottleneckHint", {
+        code: analysis.capacityBottleneck.code,
+        name: analysis.capacityBottleneck.name || "—",
+        target: formatAnalysisMetricNumber(analysis.capacityBottleneck.targetTotal ?? analysis.capacityBottleneck.upmh)
+      })
+    : undefined;
 
   /** 데이터가 있는 회차 중 가장 마지막 것 — KPI 카드에 "최신 VL 측정" 배지로 붙여준다 */
   const latestRound = [...(roundAnalyses ?? [])].reverse().find((r) => r.analysis.processCount - r.analysis.missingCycleCount > 0);
-  const latestBottleneckLabel = latestRound?.analysis.bottleneck
+  const latestCycleBnLabel = latestRound?.analysis.bottleneck
     ? `[${latestRound.analysis.bottleneck.code}] ${latestRound.analysis.bottleneck.name || "—"}`
+    : null;
+  const latestCapacityBnLabel = latestRound?.analysis.capacityBottleneck
+    ? `[${latestRound.analysis.capacityBottleneck.code}] ${latestRound.analysis.capacityBottleneck.name || "—"}`
     : null;
 
   return (
@@ -463,7 +484,7 @@ function LayoutAnalysisSummaryPanel({
         </Button>
       </HStack>
 
-      <SimpleGrid columns={{ base: 2, sm: 3, md: compact ? 3 : 5 }} spacing={2}>
+      <SimpleGrid columns={{ base: 2, sm: 3, md: compact ? 3 : 6 }} spacing={2}>
         <AnalysisKpiCard
           label={t("vlLayouts.detail.analysisCycleTotal")}
           value={sec(analysis.cycleSum)}
@@ -523,14 +544,26 @@ function LayoutAnalysisSummaryPanel({
           }
         />
         <AnalysisKpiCard
-          label={t("vlLayouts.detail.analysisBottleneck")}
-          value={bottleneckLabel}
-          hint={bottleneckHint}
+          label={t("vlLayouts.detail.analysisCycleBottleneck")}
+          value={cycleBnLabel}
+          hint={cycleBnHint}
           accent="orange"
           compact={compact}
           latest={
-            latestRound && latestBottleneckLabel ? (
-              <LatestRoundKpiLine round={latestRound.round} text={latestBottleneckLabel} />
+            latestRound && latestCycleBnLabel ? (
+              <LatestRoundKpiLine round={latestRound.round} text={latestCycleBnLabel} />
+            ) : undefined
+          }
+        />
+        <AnalysisKpiCard
+          label={t("vlLayouts.detail.analysisCapacityBottleneck")}
+          value={capacityBnLabel}
+          hint={capacityBnHint}
+          accent="red"
+          compact={compact}
+          latest={
+            latestRound && latestCapacityBnLabel ? (
+              <LatestRoundKpiLine round={latestRound.round} text={latestCapacityBnLabel} />
             ) : undefined
           }
         />
@@ -570,7 +603,11 @@ function LayoutAnalysisSummaryPanel({
 
             <AnalysisDetailSection icon={<FaExclamationTriangle />} label={t("vlLayouts.detail.analysisSectionBottleneck")} accent="orange">
               <SimpleGrid columns={cols} spacingX={3} spacingY={2}>
-                <AnalysisMetric label={t("vlLayouts.detail.analysisBottleneck")} value={bottleneckLabel} hint={bottleneckHint} />
+                <AnalysisMetric
+                  label={t("vlLayouts.detail.analysisCycleBottleneck")}
+                  value={cycleBnLabel}
+                  hint={cycleBnHint}
+                />
                 <AnalysisMetric
                   label={t("vlLayouts.detail.analysisBottleneckCycle")}
                   value={analysis.bottleneck ? sec(analysis.bottleneck.cycleSec) : "—"}
@@ -583,6 +620,23 @@ function LayoutAnalysisSummaryPanel({
                 <AnalysisMetric
                   label={t("vlLayouts.detail.analysisBottleneckTarget")}
                   value={num(analysis.bottleneck?.targetTotal ?? analysis.bottleneck?.upmh ?? null)}
+                />
+                <AnalysisMetric
+                  label={t("vlLayouts.detail.analysisCapacityBottleneck")}
+                  value={capacityBnLabel}
+                  hint={capacityBnHint}
+                />
+                <AnalysisMetric
+                  label={t("vlLayouts.detail.analysisCapacityBottleneckTarget")}
+                  value={num(analysis.capacityBottleneck?.targetTotal ?? analysis.capacityBottleneck?.upmh ?? null)}
+                />
+                <AnalysisMetric
+                  label={t("vlLayouts.detail.analysisCapacityBottleneckCycle")}
+                  value={analysis.capacityBottleneck ? sec(analysis.capacityBottleneck.cycleSec) : "—"}
+                />
+                <AnalysisMetric
+                  label={t("vlLayouts.detail.analysisCapacityBottleneckMp")}
+                  value={num(analysis.capacityBottleneck?.manpower ?? null, 2)}
                 />
               </SimpleGrid>
             </AnalysisDetailSection>
@@ -616,16 +670,27 @@ function SortableProcessTr({
   children,
   reversed = false,
   connectCell,
-  isBottleneck = false
+  isCycleBottleneck = false,
+  isCapacityBottleneck = false
 }: {
   id: number;
   children: React.ReactNode;
   reversed?: boolean;
   connectCell?: React.ReactNode;
-  isBottleneck?: boolean;
+  isCycleBottleneck?: boolean;
+  isCapacityBottleneck?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `proc-${id}` });
-  const bottleneckBg = useColorModeValue("orange.50", "orange.900");
+  const cycleBnBg = useColorModeValue("orange.50", "orange.900");
+  const capacityBnBg = useColorModeValue("red.50", "red.900");
+  const bothBnBg = useColorModeValue("orange.50", "orange.900");
+  const highlight = isCapacityBottleneck && isCycleBottleneck
+    ? { bg: bothBnBg, shadow: "inset 3px 0 0 var(--chakra-colors-red-400), inset 6px 0 0 var(--chakra-colors-orange-400)" }
+    : isCapacityBottleneck
+      ? { bg: capacityBnBg, shadow: "inset 3px 0 0 var(--chakra-colors-red-400)" }
+      : isCycleBottleneck
+        ? { bg: cycleBnBg, shadow: "inset 3px 0 0 var(--chakra-colors-orange-400)" }
+        : { bg: undefined, shadow: undefined };
   const dragHandle = (
     <Td key="drag" px={1} w="20px">
       <Box as="span" cursor="grab" color="gray.300" _hover={{ color: "gray.500" }} display="inline-flex" alignItems="center" {...attributes} {...listeners}>
@@ -638,8 +703,8 @@ function SortableProcessTr({
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       opacity={isDragging ? 0.4 : 1}
-      bg={isBottleneck ? bottleneckBg : undefined}
-      boxShadow={isBottleneck ? "inset 3px 0 0 var(--chakra-colors-orange-400)" : undefined}
+      bg={highlight.bg}
+      boxShadow={highlight.shadow}
     >
       {reversed ? (
         <>
@@ -674,6 +739,7 @@ export default function VlLayoutDetail() {
   const lineBorderColor = useColorModeValue("gray.300", "gray.500");
   const lineArrowColor = useColorModeValue("gray.300", "gray.500");
   const overviewBottleneckBg = useColorModeValue("orange.50", "orange.900");
+  const overviewCapacityBottleneckBg = useColorModeValue("red.50", "red.900");
   const measOriginalBg = useColorModeValue("gray.50", "whiteAlpha.100");
   const measVl1Bg = useColorModeValue("blue.50", "blue.900");
   const measVl2Bg = useColorModeValue("purple.50", "purple.900");
@@ -1646,10 +1712,12 @@ export default function VlLayoutDetail() {
     );
   };
 
-  const renderProcessRow = (p: ILayoutProcess, bottleneckPk: number | null = null) => {
-    const isBottleneck = bottleneckPk != null && p.pk === bottleneckPk;
+  const renderProcessRow = (p: ILayoutProcess, cycleBnPk: number | null = null, capacityBnPk: number | null = null) => {
+    const isCycleBottleneck = cycleBnPk != null && p.pk === cycleBnPk;
+    const isCapacityBottleneck = capacityBnPk != null && p.pk === capacityBnPk;
+    const showBnIcons = isCycleBottleneck || isCapacityBottleneck;
     return (
-    <SortableProcessTr key={p.pk} id={p.pk} isBottleneck={isBottleneck}>
+    <SortableProcessTr key={p.pk} id={p.pk} isCycleBottleneck={isCycleBottleneck} isCapacityBottleneck={isCapacityBottleneck}>
       <Td isNumeric px={1}>
         <Flex justify="center" w="100%">
           <SamSortOrderBadge sortOrder={p.sort_order} size="xs" />
@@ -1658,7 +1726,7 @@ export default function VlLayoutDetail() {
       <Td overflow="hidden">
         <Box
           display="grid"
-          gridTemplateColumns={isBottleneck ? "40px auto minmax(0, 1fr) 14px" : "40px auto minmax(0, 1fr)"}
+          gridTemplateColumns={showBnIcons ? "40px auto minmax(0, 1fr) auto" : "40px auto minmax(0, 1fr)"}
           columnGap={1.5}
           alignItems="center"
           minW={0}
@@ -1681,12 +1749,23 @@ export default function VlLayoutDetail() {
           >
             {p.code}
           </Link>
-          {isBottleneck && (
-            <Tooltip label={t("vlLayouts.detail.bottleneckBadge")} hasArrow>
-              <Box as="span" color="orange.500" display="inline-flex" flexShrink={0} aria-label={t("vlLayouts.detail.bottleneckBadge")}>
-                <FaWineBottle size={11} />
-              </Box>
-            </Tooltip>
+          {showBnIcons && (
+            <HStack spacing={0.5} flexShrink={0}>
+              {isCycleBottleneck && (
+                <Tooltip label={t("vlLayouts.detail.cycleBottleneckBadge")} hasArrow>
+                  <Box as="span" color="orange.500" display="inline-flex" aria-label={t("vlLayouts.detail.cycleBottleneckBadge")}>
+                    <FaClock size={11} />
+                  </Box>
+                </Tooltip>
+              )}
+              {isCapacityBottleneck && (
+                <Tooltip label={t("vlLayouts.detail.capacityBottleneckBadge")} hasArrow>
+                  <Box as="span" color="red.500" display="inline-flex" aria-label={t("vlLayouts.detail.capacityBottleneckBadge")}>
+                    <FaTachometerAlt size={11} />
+                  </Box>
+                </Tooltip>
+              )}
+            </HStack>
           )}
         </Box>
       </Td>
@@ -1801,7 +1880,7 @@ export default function VlLayoutDetail() {
 
   const compactProcessTableHead = (reversed = false) => {
     const cols = [
-      <Th key="code" w="140px" textAlign={reversed ? "right" : "left"}>
+      <Th key="code" w="190px" textAlign={reversed ? "right" : "left"}>
         {t("vlLayouts.detail.col.code")}
       </Th>,
       <Th key="media" w="64px" px={1} textAlign="center" fontSize="xs" color="gray.500">
@@ -1813,13 +1892,13 @@ export default function VlLayoutDetail() {
       <Th key="cycle" isNumeric w="76px" px={1} whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis">
         {t("vlLayouts.detail.col.cycle")}
       </Th>,
-      <Th key="upmh" isNumeric w="48px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap" overflow="hidden">
+      <Th key="upmh" isNumeric w="56px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap" overflow="hidden">
         {t("vlLayouts.detail.col.upmh")}
       </Th>,
-      <Th key="manpower" isNumeric w="40px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap" overflow="hidden">
+      <Th key="manpower" isNumeric w="64px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap" overflow="hidden">
         {t("vlLayouts.detail.col.manpower")}
       </Th>,
-      <Th key="targetQtyPerHour" isNumeric w="60px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap" overflow="hidden">
+      <Th key="targetQtyPerHour" isNumeric w="84px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap" overflow="hidden">
         {t("vlLayouts.detail.col.targetQtyPerHour")}
       </Th>
     ];
@@ -1832,26 +1911,49 @@ export default function VlLayoutDetail() {
     );
   };
 
-  const renderCompactProcessRow = (p: ILayoutProcess, reversed = false, bottleneckPk: number | null = null) => {
-    const isBottleneck = bottleneckPk != null && p.pk === bottleneckPk;
-    const bottleneckIcon = isBottleneck ? (
-      <Tooltip key="bn" label={t("vlLayouts.detail.bottleneckBadge")} hasArrow>
-        <Box as="span" color="orange.500" display="inline-flex" flexShrink={0} aria-label={t("vlLayouts.detail.bottleneckBadge")}>
-          <FaWineBottle size={11} />
-        </Box>
-      </Tooltip>
-    ) : null;
+  const renderBottleneckIcons = (isCycle: boolean, isCapacity: boolean, keyPrefix = "bn") => {
+    if (!isCycle && !isCapacity) return null;
+    return (
+      <HStack key={keyPrefix} spacing={0.5} flexShrink={0}>
+        {isCycle && (
+          <Tooltip label={t("vlLayouts.detail.cycleBottleneckBadge")} hasArrow>
+            <Box as="span" color="orange.500" display="inline-flex" aria-label={t("vlLayouts.detail.cycleBottleneckBadge")}>
+              <FaClock size={11} />
+            </Box>
+          </Tooltip>
+        )}
+        {isCapacity && (
+          <Tooltip label={t("vlLayouts.detail.capacityBottleneckBadge")} hasArrow>
+            <Box as="span" color="red.500" display="inline-flex" aria-label={t("vlLayouts.detail.capacityBottleneckBadge")}>
+              <FaTachometerAlt size={11} />
+            </Box>
+          </Tooltip>
+        )}
+      </HStack>
+    );
+  };
+
+  const renderCompactProcessRow = (
+    p: ILayoutProcess,
+    reversed = false,
+    cycleBnPk: number | null = null,
+    capacityBnPk: number | null = null
+  ) => {
+    const isCycleBottleneck = cycleBnPk != null && p.pk === cycleBnPk;
+    const isCapacityBottleneck = capacityBnPk != null && p.pk === capacityBnPk;
+    const showBn = isCycleBottleneck || isCapacityBottleneck;
+    const bottleneckIcon = renderBottleneckIcons(isCycleBottleneck, isCapacityBottleneck);
     const cells = [
       <Td key="code">
         <Box
           display="grid"
           gridTemplateColumns={
             reversed
-              ? isBottleneck
-                ? "14px minmax(0, 1fr) auto 40px"
+              ? showBn
+                ? "auto minmax(0, 1fr) auto 40px"
                 : "minmax(0, 1fr) auto 40px"
-              : isBottleneck
-                ? "40px auto minmax(0, 1fr) 14px"
+              : showBn
+                ? "40px auto minmax(0, 1fr) auto"
                 : "40px auto minmax(0, 1fr)"
           }
           columnGap={1.5}
@@ -1961,12 +2063,16 @@ export default function VlLayoutDetail() {
             {upmh != null ? upmh.toFixed(1) : "—"}
           </Td>,
           <Td key="manpower" isNumeric fontSize="xs" color="gray.500">
-            {mp ?? "—"}
-            {renderHelperIndicator(p)}
+            <HStack spacing={0.5} justify="flex-end">
+              <Text as="span">{mp ?? "—"}</Text>
+              {renderHelperIndicator(p)}
+            </HStack>
           </Td>,
           <Td key="targetQtyPerHour" isNumeric fontSize="xs" color="gray.500">
-            {total != null ? total.toFixed(1) : "—"}
-            {renderMeasurementIndicator(p)}
+            <HStack spacing={0.5} justify="flex-end">
+              <Text as="span">{total != null ? total.toFixed(1) : "—"}</Text>
+              {renderMeasurementIndicator(p)}
+            </HStack>
           </Td>
         ];
       })()
@@ -1991,7 +2097,14 @@ export default function VlLayoutDetail() {
       </Td>
     );
     return (
-      <SortableProcessTr key={p.pk} id={p.pk} reversed={reversed} connectCell={connectCell} isBottleneck={isBottleneck}>
+      <SortableProcessTr
+        key={p.pk}
+        id={p.pk}
+        reversed={reversed}
+        connectCell={connectCell}
+        isCycleBottleneck={isCycleBottleneck}
+        isCapacityBottleneck={isCapacityBottleneck}
+      >
         {reversed ? [...cells].reverse() : cells}
       </SortableProcessTr>
     );
@@ -2001,7 +2114,7 @@ export default function VlLayoutDetail() {
    * no drag handles or flow dots, since those are keyed by process pk and already registered by the per-module tables. */
   const overviewProcessTableHead = (reversed = false) => {
     const cols = [
-      <Th key="code" w="150px" textAlign={reversed ? "right" : "left"}>
+      <Th key="code" w="200px" textAlign={reversed ? "right" : "left"}>
         {t("vlLayouts.detail.col.code")}
       </Th>,
       <Th key="name" textAlign={reversed ? "right" : "left"}>
@@ -2010,13 +2123,13 @@ export default function VlLayoutDetail() {
       <Th key="cycle" isNumeric w="76px" px={1} whiteSpace="nowrap">
         {t("vlLayouts.detail.col.cycle")}
       </Th>,
-      <Th key="upmh" isNumeric w="48px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap">
+      <Th key="upmh" isNumeric w="56px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap">
         {t("vlLayouts.detail.col.upmh")}
       </Th>,
-      <Th key="manpower" isNumeric w="40px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap">
+      <Th key="manpower" isNumeric w="64px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap">
         {t("vlLayouts.detail.col.manpower")}
       </Th>,
-      <Th key="targetQtyPerHour" isNumeric w="60px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap">
+      <Th key="targetQtyPerHour" isNumeric w="84px" px={1} fontSize="xs" color="gray.500" whiteSpace="nowrap">
         {t("vlLayouts.detail.col.targetQtyPerHour")}
       </Th>
     ];
@@ -2027,8 +2140,15 @@ export default function VlLayoutDetail() {
     );
   };
 
-  const renderOverviewProcessRow = (p: ILayoutProcess, moduleCode: string, reversed = false, bottleneckPk: number | null = null) => {
-    const isBottleneck = bottleneckPk != null && p.pk === bottleneckPk;
+  const renderOverviewProcessRow = (
+    p: ILayoutProcess,
+    moduleCode: string,
+    reversed = false,
+    cycleBnPk: number | null = null,
+    capacityBnPk: number | null = null
+  ) => {
+    const isCycleBottleneck = cycleBnPk != null && p.pk === cycleBnPk;
+    const isCapacityBottleneck = capacityBnPk != null && p.pk === capacityBnPk;
     const cycleSec = samProcessCycleSecondsFromParts(p);
     const upmh = cycleSec != null && cycleSec > 0 ? upmhDivisorSeconds / cycleSec : null;
     const mp = p.manpower;
@@ -2038,13 +2158,7 @@ export default function VlLayoutDetail() {
         {moduleCode}
       </Badge>
     );
-    const bottleneckIcon = isBottleneck ? (
-      <Tooltip key="bn" label={t("vlLayouts.detail.bottleneckBadge")} hasArrow>
-        <Box as="span" color="orange.500" display="inline-flex" flexShrink={0}>
-          <FaWineBottle size={11} />
-        </Box>
-      </Tooltip>
-    ) : null;
+    const bottleneckIcon = renderBottleneckIcons(isCycleBottleneck, isCapacityBottleneck);
     const codeCell = (
       <Td key="code">
         <HStack spacing={1.5} justify={reversed ? "flex-end" : "flex-start"} minW={0}>
@@ -2110,8 +2224,10 @@ export default function VlLayoutDetail() {
         {upmh != null ? upmh.toFixed(1) : "—"}
       </Td>,
       <Td key="manpower" isNumeric fontSize="xs" color="gray.500">
-        {mp ?? "—"}
-        {renderHelperIndicator(p)}
+        <HStack spacing={0.5} justify="flex-end">
+          <Text as="span">{mp ?? "—"}</Text>
+          {renderHelperIndicator(p)}
+        </HStack>
       </Td>,
       <Td key="targetQtyPerHour" isNumeric fontSize="xs" color="gray.500">
         {total != null ? total.toFixed(1) : "—"}
@@ -2120,8 +2236,24 @@ export default function VlLayoutDetail() {
     return (
       <Tr
         key={p.pk}
-        bg={isBottleneck ? overviewBottleneckBg : undefined}
-        boxShadow={isBottleneck ? "inset 3px 0 0 var(--chakra-colors-orange-400)" : undefined}
+        bg={
+          isCapacityBottleneck && isCycleBottleneck
+            ? overviewBottleneckBg
+            : isCapacityBottleneck
+              ? overviewCapacityBottleneckBg
+              : isCycleBottleneck
+                ? overviewBottleneckBg
+                : undefined
+        }
+        boxShadow={
+          isCapacityBottleneck && isCycleBottleneck
+            ? "inset 3px 0 0 var(--chakra-colors-red-400), inset 6px 0 0 var(--chakra-colors-orange-400)"
+            : isCapacityBottleneck
+              ? "inset 3px 0 0 var(--chakra-colors-red-400)"
+              : isCycleBottleneck
+                ? "inset 3px 0 0 var(--chakra-colors-orange-400)"
+                : undefined
+        }
       >
         {reversed ? [...cells].reverse() : cells}
       </Tr>
@@ -2177,7 +2309,7 @@ export default function VlLayoutDetail() {
           onDragEnd={(e) => void handleDragEnd(e)}
           onDragCancel={() => setActiveDragId(null)}
         >
-          <Box maxW="1500px" mx="auto">
+          <Box maxW="1800px" mx="auto">
             <HStack mb={4} spacing={3} flexWrap="wrap">
               <Button as={RouterLink} to="/vl-layouts" leftIcon={<FaArrowLeft />} variant="ghost" size="sm">
                 {t("vlLayouts.detail.backToSamStyleOverview")}
@@ -2296,13 +2428,14 @@ export default function VlLayoutDetail() {
                       const half = Math.ceil(overviewProcs.length / 2);
                       const leftProcs = overviewProcs.slice(0, half);
                       const rightProcs = overviewProcs.slice(half);
-                      const bottleneckPk = pageAnalysis.bottleneck?.pk ?? null;
+                      const cycleBnPk = pageAnalysis.bottleneck?.pk ?? null;
+                      const capacityBnPk = pageAnalysis.capacityBottleneck?.pk ?? null;
                       return (
                         <Grid templateColumns="1fr auto 1fr" gap={2} alignItems="stretch">
                           <TableContainer overflowX="auto" ref={resetSplitTableScroll}>
-                            <Table size="sm" variant="simple" minW="560px" sx={{ tableLayout: "fixed", width: "100%", "th, td": { paddingY: "4px", fontSize: "xs" } }}>
+                            <Table size="sm" variant="simple" minW="680px" sx={{ tableLayout: "fixed", width: "100%", "th, td": { paddingY: "4px", fontSize: "xs" } }}>
                               {overviewProcessTableHead(true)}
-                              <Tbody>{leftProcs.map(({ p, moduleCode }) => renderOverviewProcessRow(p, moduleCode, true, bottleneckPk))}</Tbody>
+                              <Tbody>{leftProcs.map(({ p, moduleCode }) => renderOverviewProcessRow(p, moduleCode, true, cycleBnPk, capacityBnPk))}</Tbody>
                             </Table>
                           </TableContainer>
                           <Flex
@@ -2328,9 +2461,9 @@ export default function VlLayoutDetail() {
                             </Text>
                           </Flex>
                           <TableContainer overflowX="auto" ref={resetSplitTableScroll}>
-                            <Table size="sm" variant="simple" minW="560px" sx={{ tableLayout: "fixed", width: "100%", "th, td": { paddingY: "4px", fontSize: "xs" } }}>
+                            <Table size="sm" variant="simple" minW="680px" sx={{ tableLayout: "fixed", width: "100%", "th, td": { paddingY: "4px", fontSize: "xs" } }}>
                               {overviewProcessTableHead()}
-                              <Tbody>{rightProcs.map(({ p, moduleCode }) => renderOverviewProcessRow(p, moduleCode, false, bottleneckPk))}</Tbody>
+                              <Tbody>{rightProcs.map(({ p, moduleCode }) => renderOverviewProcessRow(p, moduleCode, false, cycleBnPk, capacityBnPk))}</Tbody>
                             </Table>
                           </TableContainer>
                         </Grid>
@@ -2494,7 +2627,9 @@ export default function VlLayoutDetail() {
                                   </HStack>
                                   {(() => {
                                     const sortedProcs = [...(mod.layout_processes ?? [])].sort(compareLayoutProcessBySortOrder);
-                                    const bottleneckPk = analyzeLayoutProcesses(sortedProcs, upmhDivisorSeconds).bottleneck?.pk ?? null;
+                                    const modAnalysisBn = analyzeLayoutProcesses(sortedProcs, upmhDivisorSeconds);
+                                    const cycleBnPk = modAnalysisBn.bottleneck?.pk ?? null;
+                                    const capacityBnPk = modAnalysisBn.capacityBottleneck?.pk ?? null;
                                     const isSplit = !singleColumnModulePks.has(mod.pk) && sortedProcs.length > 1;
                                     const half = isSplit ? getLeftColumnCount(mod.pk, sortedProcs.length) : sortedProcs.length;
                                     const leftProcs = isSplit ? sortedProcs.slice(0, half) : sortedProcs;
@@ -2502,19 +2637,19 @@ export default function VlLayoutDetail() {
                                     return isSplit ? (
                                       <Grid templateColumns="1fr auto 1fr" gap={2} alignItems="stretch">
                                         <TableContainer overflowX="auto" ref={resetSplitTableScroll}>
-                                          <Table size="sm" variant="simple" minW="520px" sx={{ tableLayout: "fixed", width: "100%", "th, td": { paddingY: "4px", fontSize: "xs" } }}>
+                                          <Table size="sm" variant="simple" minW="660px" sx={{ tableLayout: "fixed", width: "100%", "th, td": { paddingY: "4px", fontSize: "xs" } }}>
                                             {compactProcessTableHead(true)}
                                             <SortableContext items={leftProcs.map((p) => `proc-${p.pk}`)} strategy={verticalListSortingStrategy}>
-                                              <Tbody>{leftProcs.map((p) => renderCompactProcessRow(p, true, bottleneckPk))}</Tbody>
+                                              <Tbody>{leftProcs.map((p) => renderCompactProcessRow(p, true, cycleBnPk, capacityBnPk))}</Tbody>
                                             </SortableContext>
                                           </Table>
                                         </TableContainer>
                                         {renderLineConnector(mod.pk)}
                                         <TableContainer overflowX="auto" ref={resetSplitTableScroll}>
-                                          <Table size="sm" variant="simple" minW="520px" sx={{ tableLayout: "fixed", width: "100%", "th, td": { paddingY: "4px", fontSize: "xs" } }}>
+                                          <Table size="sm" variant="simple" minW="660px" sx={{ tableLayout: "fixed", width: "100%", "th, td": { paddingY: "4px", fontSize: "xs" } }}>
                                             {compactProcessTableHead()}
                                             <SortableContext items={rightProcs.map((p) => `proc-${p.pk}`)} strategy={verticalListSortingStrategy}>
-                                              <Tbody>{rightProcs.map((p) => renderCompactProcessRow(p, false, bottleneckPk))}</Tbody>
+                                              <Tbody>{rightProcs.map((p) => renderCompactProcessRow(p, false, cycleBnPk, capacityBnPk))}</Tbody>
                                             </SortableContext>
                                           </Table>
                                         </TableContainer>
@@ -2528,7 +2663,7 @@ export default function VlLayoutDetail() {
                                           <Table size="sm" variant="simple" minW="1280px" sx={{ "th, td": { paddingY: "4px" } }}>
                                             {processTableHead()}
                                             <SortableContext items={leftProcs.map((p) => `proc-${p.pk}`)} strategy={verticalListSortingStrategy}>
-                                              <Tbody>{leftProcs.map((p) => renderProcessRow(p, bottleneckPk))}</Tbody>
+                                              <Tbody>{leftProcs.map((p) => renderProcessRow(p, cycleBnPk, capacityBnPk))}</Tbody>
                                             </SortableContext>
                                           </Table>
                                         </TableContainer>
