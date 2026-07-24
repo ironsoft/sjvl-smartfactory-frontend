@@ -3051,7 +3051,7 @@
       "overallStatsModules": "모듈 {{count}}개",
       "overallStatsProcesses_one": "공정 {{count}}개",
       "overallStatsProcesses_other": "공정 {{count}}개",
-      "overallStatsTitle": "Layout CMT 산출 및 공정분석",
+      "overallStatsTitle": "Layout 공정분석 개요",
       "pageTitle": "Layout",
       "preAnalysisLink": "공정예측모델 Draft 보기",
       "preAnalysisPlaceholder": "공정예측모델 Draft와 연결될 예정입니다.",

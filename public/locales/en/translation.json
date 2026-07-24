@@ -3051,7 +3051,7 @@
       "overallStatsModules": "{{count}} modules",
       "overallStatsProcesses_one": "{{count}} process",
       "overallStatsProcesses_other": "{{count}} processes",
-      "overallStatsTitle": "Layout CMT & Process Analysis",
+      "overallStatsTitle": "Layout Process Analysis Overview",
       "pageTitle": "Layout",
       "preAnalysisLink": "Go to Prediction Model Draft",
       "preAnalysisPlaceholder": "Will be connected to the Process Prediction Model Draft.",

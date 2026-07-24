@@ -3049,7 +3049,7 @@
       "overallStatsModules": "{{count}} module",
       "overallStatsProcesses_one": "{{count}} process",
       "overallStatsProcesses_other": "{{count}} processes",
-      "overallStatsTitle": "Tính CMT Layout & Phân tích công đoạn",
+      "overallStatsTitle": "Tổng quan phân tích công đoạn Layout",
       "pageTitle": "Layout",
       "preAnalysisLink": "Xem Mô hình dự đoán Draft",
       "preAnalysisPlaceholder": "Sẽ được kết nối với Mô hình dự đoán công đoạn (Draft).",
