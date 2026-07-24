@@ -2943,6 +2943,7 @@
       "deleted": "삭제되었습니다.",
       "empty": "Layout 문서가 없습니다.",
       "open": "열기",
+      "hasLayoutFile": "레이아웃 엑셀 파일 업로드됨 — 클릭해서 다운로드",
       "col": {
         "photo": "사진",
         "styleCode": "스타일 코드",

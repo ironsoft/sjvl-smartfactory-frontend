@@ -2943,6 +2943,7 @@
       "deleted": "Layout deleted.",
       "empty": "No Layout documents yet.",
       "open": "Open",
+      "hasLayoutFile": "Layout Excel file uploaded — click to download",
       "col": {
         "photo": "Photo",
         "styleCode": "Style code",

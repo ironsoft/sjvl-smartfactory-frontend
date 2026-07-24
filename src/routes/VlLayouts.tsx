@@ -38,7 +38,8 @@ import {
   ListItem,
   InputGroup,
   InputRightElement,
-  Tag
+  Tag,
+  Tooltip
 } from "@chakra-ui/react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
@@ -46,7 +47,7 @@ import { Helmet } from "react-helmet";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useState, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { FaCog, FaPlus, FaTrash } from "react-icons/fa";
+import { FaCog, FaPlus, FaTrash, FaFileExcel } from "react-icons/fa";
 import SearchInput from "../components/SearchInput";
 import { openAppPopupWindow } from "../lib/openAppPopupWindow";
 import {
@@ -465,7 +466,16 @@ export default function VlLayouts() {
                           />
                         </Td>
                         <Td fontWeight="semibold">
-                          <RouterLink to={`/vl-layouts/${row.pk}`}>{row.sj_style.code}</RouterLink>
+                          <HStack spacing={1.5}>
+                            <RouterLink to={`/vl-layouts/${row.pk}`}>{row.sj_style.code}</RouterLink>
+                            {row.layout_file_url && (
+                              <Tooltip label={row.layout_file_name || t("vlLayouts.list.hasLayoutFile")} hasArrow>
+                                <Link href={row.layout_file_url} isExternal onClick={(e) => e.stopPropagation()} color="green.600" display="inline-flex">
+                                  <FaFileExcel size={13} />
+                                </Link>
+                              </Tooltip>
+                            )}
+                          </HStack>
                         </Td>
                         <Td>
                           <Text noOfLines={1}>{row.sj_style.style_name ?? "—"}</Text>

@@ -2943,6 +2943,7 @@
       "deleted": "Đã xóa.",
       "empty": "Chưa có Layout.",
       "open": "Mở",
+      "hasLayoutFile": "Đã tải lên file Excel layout — nhấn để tải xuống",
       "col": {
         "photo": "Ảnh",
         "styleCode": "Mã style",
