@@ -122,6 +122,7 @@ export default function VlAssemblyModuleDetail() {
   const [editingModuleQty, setEditingModuleQty] = useState<{ val: string } | null>(null);
   const [editingModuleText, setEditingModuleText] = useState<{ field: string; val: string } | null>(null);
   const [editingModuleTargetHr, setEditingModuleTargetHr] = useState<string | null>(null);
+  const [editingModuleTargetManpower, setEditingModuleTargetManpower] = useState<string | null>(null);
   const [savingModuleStatus, setSavingModuleStatus] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -250,6 +251,23 @@ export default function VlAssemblyModuleDetail() {
       toast({ title: t("vlAssembly.common.failedSave"), status: "error", duration: 2000, position: "bottom-right" });
     }
     setEditingModuleTargetHr(null);
+  };
+
+  const saveModuleTargetManpower = async (raw: string) => {
+    const trimmed = raw.trim();
+    const n = trimmed === "" ? null : Number.parseFloat(trimmed.replace(",", "."));
+    if (trimmed !== "" && (!Number.isFinite(n) || (n as number) < 0)) {
+      toast({ title: t("vlAssembly.moduleDetail.invalidTargetManpower"), status: "warning", duration: 2500, position: "bottom-right" });
+      setEditingModuleTargetManpower(null);
+      return;
+    }
+    try {
+      await patchVlAssemblyModule(pk, { target_manpower: n } as any);
+      invalidate();
+    } catch {
+      toast({ title: t("vlAssembly.common.failedSave"), status: "error", duration: 2000, position: "bottom-right" });
+    }
+    setEditingModuleTargetManpower(null);
   };
 
   const saveModuleText = async (field: string, val: string) => {
@@ -611,6 +629,27 @@ export default function VlAssemblyModuleDetail() {
                 <Text fontSize="sm">
                   {moduleDaily != null ? `${moduleDaily} pcs` : "—"}
                 </Text>
+              </InfoRow>
+              <InfoRow label={t("vlAssembly.moduleDetail.targetManpower")} labelColor={labelColor}>
+                <Tooltip label={t("vlAssembly.moduleDetail.targetManpowerHint")} placement="top" hasArrow>
+                  {editingModuleTargetManpower !== null ? (
+                    <Input size="xs" w="100px" autoFocus
+                      value={editingModuleTargetManpower}
+                      onChange={(e) => setEditingModuleTargetManpower(e.target.value)}
+                      onBlur={() => saveModuleTargetManpower(editingModuleTargetManpower)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveModuleTargetManpower(editingModuleTargetManpower);
+                        if (e.key === "Escape") setEditingModuleTargetManpower(null);
+                      }}
+                    />
+                  ) : (
+                    <Text fontSize="sm" cursor="pointer" color={data.target_manpower != null ? undefined : "gray.400"}
+                      _hover={{ textDecoration: "underline" }}
+                      onClick={() => setEditingModuleTargetManpower(data.target_manpower != null ? String(data.target_manpower) : "")}>
+                      {data.target_manpower != null ? `${data.target_manpower}` : "—"}
+                    </Text>
+                  )}
+                </Tooltip>
               </InfoRow>
               <InfoRow label={t("vlAssembly.moduleDetail.parentEpSjNo")} labelColor={labelColor}>
                 <RouterLink to={`/vl-assembly-production/sj-nos/${data.ep_sj_no_pk}`}>

@@ -1,4 +1,7 @@
 import {
+  Avatar,
+  AvatarGroup,
+  Badge,
   Box,
   Button,
   Collapse,
@@ -16,6 +19,7 @@ import {
   ModalBody,
   ModalCloseButton,
   ModalContent,
+  ModalHeader,
   ModalOverlay,
   SimpleGrid,
   Table,
@@ -29,29 +33,36 @@ import {
   Tr,
   useColorModeValue,
   useDisclosure,
+  useToast,
   VStack
 } from "@chakra-ui/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { FiChevronDown, FiChevronRight, FiSearch, FiX } from "react-icons/fi";
-import { FaThumbtack, FaThLarge, FaProjectDiagram } from "react-icons/fa";
+import { FiChevronDown, FiChevronRight, FiGrid, FiSearch, FiX } from "react-icons/fi";
+import { FaThumbtack, FaThLarge, FaProjectDiagram, FaCrown } from "react-icons/fa";
 import { Helmet } from "react-helmet";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
   getLayoutStyles,
+  getPeriodHeadcounts,
   getVlAssemblyModuleProductionDailyOutputs,
   getVlAssemblySchedules,
   getVlAssemblyScheduleProductionDailyOutputs,
   getVlPlanHolidays,
+  getWorkerAllocationLines,
   IEpModuleCopy,
   IEpSjNoCopy,
+  IPeriodHeadcountEntry,
   IVlAssemblyModuleProductionDailyOutput,
   IVlAssemblySchedule,
-  IVlAssemblyScheduleProductionDailyOutput
+  IVlAssemblyScheduleProductionDailyOutput,
+  IWorkerAllocationAssignment,
+  upsertPeriodManpower
 } from "../api";
 import ScheduleCalendarHeatmap from "../components/ScheduleCalendarHeatmap";
+import WorkerDetailModal from "../components/WorkerDetailModal";
 import { isoToLocalDate, localDateToIso } from "../lib/dateLocale";
 import { openAppPopupWindow } from "../lib/openAppPopupWindow";
 import { planHolidayApiRangeForScheduleDates } from "../lib/vlPlanHolidayRange";
@@ -193,7 +204,9 @@ type Row = {
   /** achievement % from the "BẢNG THEO DÕI TARGET" sheet, aligned to PERIODS indices 0-3 (D1-D4) */
   pcts?: ({ value: string; tone: Tone } | undefined)[];
   /** extra columns shown when the Target Qty column is expanded */
-  extra?: { targetBD?: number; snlBD?: number; targetVL?: number; snlVL?: number; snlThucTeLine?: number };
+  extra?: { targetBD?: number; snlBD?: number; manpowerBD?: number };
+  /** VL side target manpower (manually entered on the SJ No detail page) — used as the manpowerBD comparison baseline */
+  targetManpower?: number;
   /** real per-module breakdown (replaces the row, shown when expanded) */
   modules?: ModuleRow[];
 };
@@ -347,9 +360,11 @@ function buildRows(
         targetPerHour,
         targetPct: target > 0 ? (today / target) * 100 : 0,
         modules,
+        targetManpower: sj.target_manpower ?? undefined,
         extra: {
           targetBD: sj.source_target_qty_per_hour ?? undefined,
           snlBD: sj.source_daily_target_qty_8h ?? undefined,
+          manpowerBD: sj.source_manpower ?? undefined,
         }
       });
     }
@@ -357,18 +372,18 @@ function buildRows(
   return rows;
 }
 
-const LEADING_COLUMNS = ["line", "group", "po", "thumbnail", "style", "layout", "exfty", "orderQty", "balQty", "today"];
+const LEADING_COLUMNS = ["line", "group", "assigned", "po", "thumbnail", "style", "layout", "exfty", "orderQty", "balQty", "today"];
 
 /** Canonical left-to-right order of every column that can be individually pinned, and a fallback
  * display width used only until its real rendered width has been measured — used to compute each
  * pinned column's cumulative sticky `left` offset (only the widths of columns that are ALSO pinned
  * are summed, so any subset/combination works). */
 const PINNABLE_COL_ORDER = [
-  "line", "group", "po", "thumbnail", "style", "layout", "exfty",
+  "line", "group", "assigned", "po", "thumbnail", "style", "layout", "exfty",
   "orderQty", "balQty", "today", "targetPct", "targetPctHourly", "targetPerHour", "target"
 ];
 const PINNABLE_COL_FALLBACK_WIDTH: Record<string, number> = {
-  line: 100, group: 74, po: 90, thumbnail: 64, style: 140, layout: 88, exfty: 100,
+  line: 100, group: 74, assigned: 90, po: 90, thumbnail: 64, style: 140, layout: 88, exfty: 100,
   orderQty: 90, balQty: 90, today: 70, targetPct: 90, targetPctHourly: 100, targetPerHour: 90, target: 80
 };
 const PINNED_COLS_STORAGE_KEY = "vlErpDashboard_pinnedCols";
@@ -432,9 +447,9 @@ function makePlaceholderThumbnail(seed: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-const EXTRA_COLUMNS = ["targetBD", "snlBD"];
+const EXTRA_COLUMNS = ["targetBD", "snlBD", "manpowerBD"];
 /** group id per EXTRA_COLUMNS index, used to visually cluster related columns */
-const EXTRA_COLUMN_GROUP = [0, 0];
+const EXTRA_COLUMN_GROUP = [0, 0, 0];
 
 type Tone = "danger" | "success" | "neutral";
 
@@ -585,6 +600,8 @@ function PeriodCell({
   pct,
   layoutHeadcount,
   actualHeadcount,
+  isManualActual,
+  onActualClick,
   showHeadcounts
 }: {
   value: number;
@@ -593,6 +610,8 @@ function PeriodCell({
   pct?: { value: string; tone: Tone };
   layoutHeadcount?: number;
   actualHeadcount?: number;
+  isManualActual?: boolean;
+  onActualClick?: () => void;
   showHeadcounts?: boolean;
 }) {
   const { t } = useTranslation();
@@ -602,17 +621,7 @@ function PeriodCell({
   const pctNeutralColor = useColorModeValue("gray.400", "gray.500");
   const layoutColor = useColorModeValue("blue.500", "blue.300");
   const actualColor = useColorModeValue("teal.600", "teal.300");
-
-  if (value === 0) {
-    return (
-      <Text fontSize="sm" color={zeroColor} textAlign="center">
-        –
-      </Text>
-    );
-  }
-  const scheme = flagged ? "purple" : value < target ? "orange" : "green";
-  const pctColor =
-    pct?.tone === "danger" ? pctDangerColor : pct?.tone === "success" ? pctSuccessColor : pctNeutralColor;
+  const manualColor = useColorModeValue("purple.600", "purple.300");
 
   if (showHeadcounts) {
     const hasBoth = layoutHeadcount != null && actualHeadcount != null;
@@ -630,14 +639,39 @@ function PeriodCell({
             L {layoutHeadcount ?? "–"}
           </Text>
         </Tooltip>
-        <Tooltip label={diffTitle} hasArrow placement="bottom" openDelay={200}>
-          <Text fontSize="xs" fontWeight="semibold" color={diffColor} lineHeight={1.3} cursor="help">
+        <Tooltip
+          label={onActualClick ? t("kchDashboard.achievementMatrix.manpowerEditHint") : diffTitle}
+          hasArrow
+          placement="bottom"
+          openDelay={200}
+        >
+          <Text
+            fontSize="xs"
+            fontWeight="semibold"
+            color={isManualActual ? manualColor : diffColor}
+            lineHeight={1.3}
+            cursor={onActualClick ? "pointer" : "help"}
+            textDecoration={onActualClick ? "underline dotted" : undefined}
+            onClick={onActualClick}
+          >
             A {actualHeadcount ?? "–"}
+            {isManualActual ? "*" : ""}
           </Text>
         </Tooltip>
       </VStack>
     );
   }
+
+  if (value === 0) {
+    return (
+      <Text fontSize="sm" color={zeroColor} textAlign="center">
+        –
+      </Text>
+    );
+  }
+  const scheme = flagged ? "purple" : value < target ? "orange" : "green";
+  const pctColor =
+    pct?.tone === "danger" ? pctDangerColor : pct?.tone === "success" ? pctSuccessColor : pctNeutralColor;
 
   return (
     <VStack spacing={0.5}>
@@ -655,8 +689,171 @@ function PeriodCell({
   );
 }
 
+// 라인/SJ No × 시간대 달성률(%) 매트릭스 — 공장에서 쓰는 엑셀 추적표와 같은 형태로,
+// row.pcts(시간대별 실적 ÷ 시간당 목표, 이미 메인 테이블에서 계산되는 값)를 그대로 재사용해서
+// 색상 셀로 보여준다. 새 계산식이나 API 호출 없이 이미 로드된 데이터만으로 렌더링된다.
+function AchievementMatrixModal({
+  isOpen,
+  onClose,
+  rows,
+  dateLabel,
+  assignmentsBySjNoPk,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  rows: Row[];
+  dateLabel: string;
+  assignmentsBySjNoPk: Map<number, IWorkerAllocationAssignment[]>;
+}) {
+  const { t } = useTranslation();
+  const cardBg = useColorModeValue("white", "gray.800");
+  const headerBg = useColorModeValue("gray.50", "gray.750");
+  const rowBorder = useColorModeValue("gray.100", "whiteAlpha.100");
+  const cellText = useColorModeValue("gray.700", "gray.200");
+  const mutedText = useColorModeValue("gray.500", "gray.400");
+  const summaryBg = useColorModeValue("blue.50", "whiteAlpha.100");
+  const successBg = useColorModeValue("green.100", "green.900");
+  const successColor = useColorModeValue("green.800", "green.200");
+  const warningBg = useColorModeValue("yellow.100", "yellow.800");
+  const warningColor = useColorModeValue("yellow.900", "yellow.200");
+  const dangerBg = useColorModeValue("red.100", "red.900");
+  const dangerColor = useColorModeValue("red.800", "red.200");
+
+  const toneStyle = (tone?: Tone) => {
+    if (tone === "success") return { bg: successBg, color: successColor };
+    // pctTone()의 "neutral"은 60~89% 구간을 뜻한다 — 매트릭스에서는 이걸 "주의(노랑)"로 표시한다.
+    if (tone === "neutral") return { bg: warningBg, color: warningColor };
+    if (tone === "danger") return { bg: dangerBg, color: dangerColor };
+    return undefined;
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
+      <ModalOverlay />
+      <ModalContent maxH="85vh" display="flex" flexDirection="column">
+        <ModalHeader pb={1} flexShrink={0}>
+          {t("kchDashboard.achievementMatrix.title")}
+          <Text fontSize="sm" fontWeight="normal" color={mutedText} mt={1}>
+            {dateLabel}
+          </Text>
+        </ModalHeader>
+        <ModalCloseButton />
+        <ModalBody overflowY="auto" pb={6}>
+          <HStack spacing={4} mb={3} fontSize="xs" color={mutedText}>
+            <HStack spacing={1}>
+              <Box w={3} h={3} borderRadius="sm" bg={successBg} />
+              <Text>{t("kchDashboard.achievementMatrix.legendGood")}</Text>
+            </HStack>
+            <HStack spacing={1}>
+              <Box w={3} h={3} borderRadius="sm" bg={warningBg} />
+              <Text>{t("kchDashboard.achievementMatrix.legendWarn")}</Text>
+            </HStack>
+            <HStack spacing={1}>
+              <Box w={3} h={3} borderRadius="sm" bg={dangerBg} />
+              <Text>{t("kchDashboard.achievementMatrix.legendBad")}</Text>
+            </HStack>
+          </HStack>
+          <Box overflowX="auto" borderWidth="1px" borderColor={rowBorder} borderRadius="md">
+            <Table size="sm">
+              <Thead bg={headerBg} position="sticky" top={0} zIndex={1}>
+                <Tr>
+                  <Th position="sticky" left={0} bg={headerBg} zIndex={2} whiteSpace="nowrap">
+                    {t("kchDashboard.achievementMatrix.lineSjNo")}
+                  </Th>
+                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                    {t("kchDashboard.achievementMatrix.colTargetBD")}
+                  </Th>
+                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                    {t("kchDashboard.achievementMatrix.colManpowerBD")}
+                  </Th>
+                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                    {t("kchDashboard.achievementMatrix.colTargetVL")}
+                  </Th>
+                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                    {t("kchDashboard.achievementMatrix.colManpowerVL")}
+                  </Th>
+                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                    {t("kchDashboard.achievementMatrix.colActualManpower")}
+                  </Th>
+                  {PERIODS.map((p) => (
+                    <Th key={p.key} textAlign="center" whiteSpace="nowrap" px={2}>
+                      {p.key}
+                      {p.start && (
+                        <Text fontSize="9px" fontWeight="normal" color={mutedText}>
+                          {p.start}
+                        </Text>
+                      )}
+                    </Th>
+                  ))}
+                </Tr>
+              </Thead>
+              <Tbody>
+                {rows.map((row) => (
+                  <Tr key={row.schedulePk}>
+                    <Td
+                      position="sticky"
+                      left={0}
+                      bg={cardBg}
+                      borderRight="1px solid"
+                      borderColor={rowBorder}
+                      whiteSpace="nowrap"
+                      fontSize="sm"
+                      color={cellText}
+                    >
+                      <Text fontWeight="semibold">{row.line}</Text>
+                      <Text fontSize="xs" color={mutedText}>{row.sjNo}</Text>
+                    </Td>
+                    <Td textAlign="center" px={2} fontSize="xs" color={cellText} bg={summaryBg}>
+                      {row.extra?.snlBD ?? "–"}
+                    </Td>
+                    <Td textAlign="center" px={2} fontSize="xs" color={cellText} bg={summaryBg}>
+                      {row.extra?.manpowerBD ?? "–"}
+                    </Td>
+                    <Td textAlign="center" px={2} fontSize="xs" color={cellText} bg={summaryBg}>
+                      {row.target}
+                    </Td>
+                    <Td textAlign="center" px={2} fontSize="xs" color={cellText} bg={summaryBg}>
+                      {row.targetManpower ?? "–"}
+                    </Td>
+                    <Td textAlign="center" px={2} bg={summaryBg}>
+                      <TargetDiffCell
+                        value={assignmentsBySjNoPk.get(row.sjNoPk)?.length ?? 0}
+                        baseline={row.targetManpower}
+                      />
+                    </Td>
+                    {PERIODS.map((p, idx) => {
+                      const cellPct = row.pcts?.[idx];
+                      const style = toneStyle(cellPct?.tone);
+                      return (
+                        <Td key={p.key} textAlign="center" px={2} py={1.5} bg={style?.bg}>
+                          <Text fontSize="xs" fontWeight="semibold" color={style?.color ?? mutedText}>
+                            {cellPct?.value ?? "–"}
+                          </Text>
+                        </Td>
+                      );
+                    })}
+                  </Tr>
+                ))}
+                {rows.length === 0 && (
+                  <Tr>
+                    <Td colSpan={PERIODS.length + 6} textAlign="center" color={mutedText} py={6}>
+                      {t("kchDashboard.achievementMatrix.empty")}
+                    </Td>
+                  </Tr>
+                )}
+              </Tbody>
+            </Table>
+          </Box>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+}
+
 export default function VlErpDashboard() {
   const { t } = useTranslation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
   const cardBorder = useColorModeValue("gray.200", "gray.700");
@@ -668,6 +865,8 @@ export default function VlErpDashboard() {
   const cellText = useColorModeValue("gray.700", "gray.200");
   const mutedText = useColorModeValue("gray.500", "gray.400");
   const lineBadgeBg = useColorModeValue("gray.100", "whiteAlpha.200");
+  const managerRowBg = useColorModeValue("purple.50", "purple.900");
+  const managerRowBorder = useColorModeValue("purple.200", "purple.600");
   const linkColor = useColorModeValue("blue.600", "blue.300");
   const periodStartColor = useColorModeValue("gray.400", "gray.500");
   const [showExtra, setShowExtra] = useState(false);
@@ -848,6 +1047,31 @@ export default function VlErpDashboard() {
     }
     return map;
   }, [layoutStyles]);
+  const { data: allocationLines = [] } = useQuery({
+    queryKey: ["workerAllocationLines"],
+    queryFn: () => getWorkerAllocationLines("VL"),
+    staleTime: 15_000,
+    refetchInterval: 30_000
+  });
+  const { assignmentsBySjNoPk, assignmentsByModulePk } = useMemo(() => {
+    const bySjNo = new Map<number, IWorkerAllocationAssignment[]>();
+    const byModule = new Map<number, IWorkerAllocationAssignment[]>();
+    for (const line of allocationLines) {
+      for (const s of line.sj_nos) {
+        // 이 SJ No에 "표시할" 배정 인원 = SJ No 자체에 배정된 사람 + 그 하위 모듈에 배정된 사람.
+        // 라인 전체(특정 SJ No 미지정) 배정자는 여기 섞지 않는다 — 모든 SJ No 행에 똑같이
+        // 반복 표시되면 "이 SJ No에 몇 명 배정됐는지"가 오히려 헷갈리기 때문. 라인 전체 배정
+        // 현황은 VL Workers Allocation 페이지의 라인 카드에서 확인한다.
+        const rollup = [...s.assignments];
+        for (const mod of s.modules) {
+          byModule.set(mod.pk, mod.assignments);
+          rollup.push(...mod.assignments);
+        }
+        bySjNo.set(s.pk, rollup);
+      }
+    }
+    return { assignmentsBySjNoPk: bySjNo, assignmentsByModulePk: byModule };
+  }, [allocationLines]);
   const schedulePksWithOutput = useMemo(
     () => new Set(scheduleDailyRows.map((r) => r.vl_assembly_schedule).filter((pk): pk is number => pk != null)),
     [scheduleDailyRows]
@@ -891,6 +1115,55 @@ export default function VlErpDashboard() {
       return haystack.includes(q);
     });
   }, [ROWS, searchQuery]);
+
+  // "인원 정보 보기" 토글이 켜졌을 때만 조회 — 화면에 보이는 행들의 SJ No/모듈 pk로 스캔.
+  const headcountSjNoPks = useMemo(
+    () => (showHeadcounts ? filteredRows.map((r) => r.sjNoPk).filter((pk): pk is number => pk != null) : []),
+    [filteredRows, showHeadcounts]
+  );
+  const headcountModulePks = useMemo(
+    () =>
+      showHeadcounts
+        ? filteredRows.flatMap((r) => r.modules?.map((m) => m.pk) ?? [])
+        : [],
+    [filteredRows, showHeadcounts]
+  );
+  const { data: periodHeadcounts } = useQuery({
+    queryKey: ["periodHeadcounts", viewDateIso, headcountSjNoPks, headcountModulePks],
+    queryFn: () =>
+      getPeriodHeadcounts({ date: viewDateIso, sjNoPks: headcountSjNoPks, modulePks: headcountModulePks }),
+    enabled: showHeadcounts && (headcountSjNoPks.length > 0 || headcountModulePks.length > 0),
+  });
+  const emptyHeadcountEntry: IPeriodHeadcountEntry = useMemo(
+    () => ({ target_manpower: null, actual_by_period: [], manual_by_period: [] }),
+    []
+  );
+  const sjNoHeadcount = (sjNoPk: number) => periodHeadcounts?.sj_nos[String(sjNoPk)] ?? emptyHeadcountEntry;
+  const moduleHeadcount = (modulePk: number) => periodHeadcounts?.modules[String(modulePk)] ?? emptyHeadcountEntry;
+
+  // 시간대별 "실제 투입 인원" 수동 입력 — 값을 입력하면 배정 이력 기반 자동 계산보다 우선한다.
+  const [editingManpower, setEditingManpower] = useState<
+    { kind: "sjno" | "module"; pk: number; idx: number; val: string } | null
+  >(null);
+  const saveEditingManpower = async () => {
+    if (!editingManpower) return;
+    const { kind, pk, idx, val } = editingManpower;
+    const periodKey = PERIODS[idx].key;
+    const trimmed = val.trim();
+    try {
+      await upsertPeriodManpower({
+        vlAssemblySjNo: kind === "sjno" ? pk : undefined,
+        vlAssemblyModule: kind === "module" ? pk : undefined,
+        date: viewDateIso,
+        periodKey,
+        manpower: trimmed === "" ? null : Number(trimmed),
+      });
+      await queryClient.invalidateQueries({ queryKey: ["periodHeadcounts"] });
+    } catch {
+      toast({ title: t("kchDashboard.achievementMatrix.manpowerSaveFailed"), status: "error", duration: 2000, position: "bottom-right" });
+    }
+    setEditingManpower(null);
+  };
 
   const expandableSchedulePks = useMemo(
     () => filteredRows.filter((r) => r.modules?.length).map((r) => r.schedulePk),
@@ -1098,6 +1371,14 @@ export default function VlErpDashboard() {
     setActiveSchedule({ start: resolveAssemblyStart(row, holidayYmdSet), end: row.exfty, ef: row.exfty, label: row.style, target: row.target, row });
     onScheduleOpen();
   };
+  const { isOpen: isMatrixOpen, onOpen: onMatrixOpen, onClose: onMatrixClose } = useDisclosure();
+  const { isOpen: isAssignedOpen, onOpen: onAssignedOpen, onClose: onAssignedClose } = useDisclosure();
+  const [activeAssigned, setActiveAssigned] = useState<{ label: string; assignments: IWorkerAllocationAssignment[] } | null>(null);
+  const [activeWorkerPk, setActiveWorkerPk] = useState<number | null>(null);
+  const openAssignedWorkers = (label: string, assignments: IWorkerAllocationAssignment[]) => {
+    setActiveAssigned({ label, assignments });
+    onAssignedOpen();
+  };
   /** Cumulative/pace stats for the schedule detail modal: how much has shipped so far, the average
    * daily pace that implies, how many working days remain before ex-factory, and the daily rate
    * required over those remaining days to clear the balance in time. */
@@ -1243,6 +1524,9 @@ export default function VlErpDashboard() {
               onClick={() => setShowHeadcounts((v) => !v)}
             >
               {showHeadcounts ? t("kchDashboard.showOutputs") : t("kchDashboard.showHeadcounts")}
+            </Button>
+            <Button size="sm" variant="outline" leftIcon={<FiGrid />} onClick={onMatrixOpen}>
+              {t("kchDashboard.achievementMatrix.button")}
             </Button>
           </HStack>
         </HStack>
@@ -1785,6 +2069,26 @@ export default function VlErpDashboard() {
                         )}
                       </HStack>
                     </Td>
+                    <Td px={2} py={2} borderBottom="1px solid" borderColor={rowBorder} whiteSpace="nowrap" {...colStickyProps("assigned", rowBg)}>
+                      {(() => {
+                        const sjNoAssignments = assignmentsBySjNoPk.get(row.sjNoPk) ?? [];
+                        if (sjNoAssignments.length === 0) {
+                          return <Text color={mutedText} fontSize="sm">–</Text>;
+                        }
+                        return (
+                          <HStack spacing={1.5} cursor="pointer" onClick={() => openAssignedWorkers(`${row.line} · ${row.sjNo}`, sjNoAssignments)}>
+                            <AvatarGroup size="xs" max={4}>
+                              {sjNoAssignments.map((a) => (
+                                <Avatar key={a.pk} name={a.worker_detail.name} src={a.worker_detail.avatar ?? undefined} />
+                              ))}
+                            </AvatarGroup>
+                            <Text fontSize="xs" color={mutedText} fontWeight="semibold">
+                              {sjNoAssignments.length}{t("kchDashboard.assignedCountUnit")}
+                            </Text>
+                          </HStack>
+                        );
+                      })()}
+                    </Td>
                     <Td px={3} py={2} borderBottom="1px solid" borderColor={rowBorder} fontSize="sm" fontFamily="mono" whiteSpace="nowrap" {...colStickyProps("po", rowBg)}>
                       <Link
                         color={linkColor}
@@ -1905,9 +2209,20 @@ export default function VlErpDashboard() {
                         <Td px={3} py={2} borderBottom="1px solid" borderColor={rowBorder} bg={extraGroupBg[0]} textAlign="center">
                           <TargetDiffCell value={row.extra?.snlBD} baseline={row.target} />
                         </Td>
+                        <Td px={3} py={2} borderBottom="1px solid" borderColor={rowBorder} bg={extraGroupBg[0]} textAlign="center">
+                          <TargetDiffCell value={row.extra?.manpowerBD} baseline={row.targetManpower} />
+                        </Td>
                       </>
                     )}
-                    {row.periods.map((v, idx) => (
+                    {row.periods.map((v, idx) => {
+                      const hc = showHeadcounts && row.sjNoPk != null ? sjNoHeadcount(row.sjNoPk) : undefined;
+                      const canEditManpower = showHeadcounts && row.sjNoPk != null && !!PERIODS[idx].start;
+                      const isEditingThis =
+                        canEditManpower &&
+                        editingManpower?.kind === "sjno" &&
+                        editingManpower.pk === row.sjNoPk &&
+                        editingManpower.idx === idx;
+                      return (
                       <Td
                         key={idx}
                         px={2}
@@ -1917,17 +2232,45 @@ export default function VlErpDashboard() {
                         bg={idx === currentPeriodIdx ? currentPeriodBg : undefined}
                         animation={idx === currentPeriodIdx ? `${currentPeriodPulse} 4s ease-in-out infinite` : undefined}
                       >
-                        <PeriodCell
-                          value={v}
-                          target={row.target}
-                          flagged={row.flagIdx === idx}
-                          pct={row.pcts?.[idx]}
-                          layoutHeadcount={row.extra?.targetVL}
-                          actualHeadcount={row.extra?.snlVL}
-                          showHeadcounts={showHeadcounts}
-                        />
+                        {isEditingThis ? (
+                          <Input
+                            size="xs"
+                            w="50px"
+                            autoFocus
+                            value={editingManpower!.val}
+                            onChange={(e) => setEditingManpower({ ...editingManpower!, val: e.target.value })}
+                            onBlur={saveEditingManpower}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEditingManpower();
+                              if (e.key === "Escape") setEditingManpower(null);
+                            }}
+                          />
+                        ) : (
+                          <PeriodCell
+                            value={v}
+                            target={row.target}
+                            flagged={row.flagIdx === idx}
+                            pct={row.pcts?.[idx]}
+                            layoutHeadcount={hc?.target_manpower ?? undefined}
+                            actualHeadcount={hc?.actual_by_period[idx]}
+                            isManualActual={hc?.manual_by_period[idx]}
+                            showHeadcounts={showHeadcounts}
+                            onActualClick={
+                              canEditManpower
+                                ? () =>
+                                    setEditingManpower({
+                                      kind: "sjno",
+                                      pk: row.sjNoPk!,
+                                      idx,
+                                      val: String(hc?.actual_by_period[idx] ?? ""),
+                                    })
+                                : undefined
+                            }
+                          />
+                        )}
                       </Td>
-                    ))}
+                      );
+                    })}
                   </Tr>
                   {isExpanded &&
                     (row.modules ?? []).map((mod, modIdx) => {
@@ -1946,6 +2289,30 @@ export default function VlErpDashboard() {
                           <Tag size="sm" borderRadius="full" colorScheme={modIdx % 2 === 0 ? "teal" : "purple"} fontWeight="bold">
                             {mod.code}
                           </Tag>
+                        </Td>
+                        <Td px={2} py={2} borderBottom="1px solid" borderColor={rowBorder} whiteSpace="nowrap" {...colStickyProps("assigned", letterBg)}>
+                          {(() => {
+                            const modAssignments = assignmentsByModulePk.get(mod.pk) ?? [];
+                            if (modAssignments.length === 0) {
+                              return <Text color={mutedText} fontSize="sm">–</Text>;
+                            }
+                            return (
+                              <HStack
+                                spacing={1.5}
+                                cursor="pointer"
+                                onClick={() => openAssignedWorkers(`${mod.code} (${mod.name})`, modAssignments)}
+                              >
+                                <AvatarGroup size="xs" max={4}>
+                                  {modAssignments.map((a) => (
+                                    <Avatar key={a.pk} name={a.worker_detail.name} src={a.worker_detail.avatar ?? undefined} />
+                                  ))}
+                                </AvatarGroup>
+                                <Text fontSize="xs" color={mutedText} fontWeight="semibold">
+                                  {modAssignments.length}{t("kchDashboard.assignedCountUnit")}
+                                </Text>
+                              </HStack>
+                            );
+                          })()}
                         </Td>
                         <Td px={3} py={2} borderBottom="1px solid" borderColor={rowBorder} {...colStickyProps("po", letterBg)} />
                         <Td px={2} py={2} borderBottom="1px solid" borderColor={rowBorder} {...colStickyProps("thumbnail", letterBg)} />
@@ -2019,7 +2386,15 @@ export default function VlErpDashboard() {
                               –
                             </Td>
                           ))}
-                        {mod.periods.map((v, idx) => (
+                        {mod.periods.map((v, idx) => {
+                          const hc = showHeadcounts ? moduleHeadcount(mod.pk) : undefined;
+                          const canEditManpower = showHeadcounts && !!PERIODS[idx].start;
+                          const isEditingThis =
+                            canEditManpower &&
+                            editingManpower?.kind === "module" &&
+                            editingManpower.pk === mod.pk &&
+                            editingManpower.idx === idx;
+                          return (
                           <Td
                             key={PERIODS[idx].key}
                             px={2}
@@ -2029,9 +2404,44 @@ export default function VlErpDashboard() {
                             bg={idx === currentPeriodIdx ? currentPeriodBg : undefined}
                             animation={idx === currentPeriodIdx ? `${currentPeriodPulse} 4s ease-in-out infinite` : undefined}
                           >
-                            <PeriodCell value={v} target={mod.target ?? 0} pct={mod.pcts?.[idx]} showHeadcounts={showHeadcounts} />
+                            {isEditingThis ? (
+                              <Input
+                                size="xs"
+                                w="50px"
+                                autoFocus
+                                value={editingManpower!.val}
+                                onChange={(e) => setEditingManpower({ ...editingManpower!, val: e.target.value })}
+                                onBlur={saveEditingManpower}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveEditingManpower();
+                                  if (e.key === "Escape") setEditingManpower(null);
+                                }}
+                              />
+                            ) : (
+                              <PeriodCell
+                                value={v}
+                                target={mod.target ?? 0}
+                                pct={mod.pcts?.[idx]}
+                                layoutHeadcount={hc?.target_manpower ?? undefined}
+                                actualHeadcount={hc?.actual_by_period[idx]}
+                                isManualActual={hc?.manual_by_period[idx]}
+                                showHeadcounts={showHeadcounts}
+                                onActualClick={
+                                  canEditManpower
+                                    ? () =>
+                                        setEditingManpower({
+                                          kind: "module",
+                                          pk: mod.pk,
+                                          idx,
+                                          val: String(hc?.actual_by_period[idx] ?? ""),
+                                        })
+                                    : undefined
+                                }
+                              />
+                            )}
                           </Td>
-                        ))}
+                          );
+                        })}
                       </Tr>
                       );
                     })}
@@ -2110,6 +2520,88 @@ export default function VlErpDashboard() {
           </Box>
         </Box>
       </Box>
+
+      <Modal isOpen={isAssignedOpen} onClose={onAssignedClose} isCentered size="sm">
+        <ModalOverlay />
+        <ModalContent bg={cardBg}>
+          <ModalCloseButton />
+          <ModalBody py={6}>
+            {activeAssigned && (
+              <>
+                <Text fontWeight="bold" fontSize="md" color={cellText} mb={4}>
+                  {activeAssigned.label}
+                </Text>
+                {activeAssigned.assignments.length === 0 ? (
+                  <Text color={mutedText} fontSize="sm">{t("kchDashboard.noAssignedWorkers")}</Text>
+                ) : (
+                  <VStack align="stretch" spacing={2}>
+                    {[...activeAssigned.assignments]
+                      .sort((a, b) => Number(b.worker_detail.is_manager) - Number(a.worker_detail.is_manager))
+                      .map((a) => (
+                        <HStack
+                          key={a.pk}
+                          spacing={3}
+                          p={a.worker_detail.is_manager ? 2 : 1}
+                          borderRadius="md"
+                          bg={a.worker_detail.is_manager ? managerRowBg : "transparent"}
+                          borderWidth={a.worker_detail.is_manager ? "1px" : 0}
+                          borderColor={managerRowBorder}
+                          cursor="pointer"
+                          _hover={{ bg: a.worker_detail.is_manager ? managerRowBg : rowHoverBg }}
+                          onClick={() => setActiveWorkerPk(a.worker_detail.pk)}
+                        >
+                          <Avatar size="sm" name={a.worker_detail.name} src={a.worker_detail.avatar ?? undefined} />
+                          <Box>
+                            <HStack spacing={1}>
+                              <Text fontSize="sm" fontWeight="semibold" color={cellText}>{a.worker_detail.name}</Text>
+                              {a.worker_detail.is_manager && (
+                                <Badge
+                                  fontSize="0.6rem"
+                                  colorScheme="purple"
+                                  variant="solid"
+                                  display="flex"
+                                  alignItems="center"
+                                  gap={1}
+                                >
+                                  <FaCrown size={9} />
+                                  {t("kchDashboard.manager")}
+                                </Badge>
+                              )}
+                            </HStack>
+                            <Text fontSize="xs" color={mutedText}>
+                              {[
+                                a.worker_detail.department?.name,
+                                a.worker_detail.section?.name,
+                                a.worker_detail.position?.name,
+                                a.worker_detail.line?.name,
+                                a.worker_detail.job_duties?.name,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ") || "-"}
+                            </Text>
+                            <Text fontSize="10px" color={mutedText}>
+                              {new Date(a.assigned_at).toLocaleString()}~
+                            </Text>
+                          </Box>
+                        </HStack>
+                      ))}
+                  </VStack>
+                )}
+              </>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      <WorkerDetailModal workerPk={activeWorkerPk} onClose={() => setActiveWorkerPk(null)} />
+
+      <AchievementMatrixModal
+        isOpen={isMatrixOpen}
+        onClose={onMatrixClose}
+        rows={filteredRows}
+        dateLabel={viewDateIso}
+        assignmentsBySjNoPk={assignmentsBySjNoPk}
+      />
 
       <Modal isOpen={isThumbOpen} onClose={onThumbClose} isCentered size="md">
         <ModalOverlay />

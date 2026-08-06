@@ -3364,8 +3364,10 @@ export interface IWorkerListItem {
   rank: IWorkerRank | null;
   factory: IWorkerFactory | null;
   job_duties: IJobDuties | null;
+  line: IWorkerLine | null;
   is_resigned: string | null;
   is_indirect: string | null;
+  is_manager: boolean;
   joined_at_factory: string | null;
 }
 
@@ -3391,6 +3393,7 @@ export interface IWorkerDetail {
   is_resigned: string | null;
   resigned_date: string | null;
   is_indirect: string | null;
+  is_manager: boolean;
   factory: number | null;
   factory_detail: IWorkerFactory | null;
   department: number | null;
@@ -3463,6 +3466,176 @@ export const getWorkerLines = async (): Promise<IWorkerLine[]> =>
   instance.get("workers/meta/lines/").then((r) => r.data);
 export const getWorkerMe = async (): Promise<IWorkerDetail> =>
   instance.get("workers/me/").then((r) => r.data);
+
+// ── Worker Allocation (VL Workers Allocation) ────────────────
+
+export interface IWorkerAllocationAssignment {
+  pk: number;
+  worker: number;
+  worker_detail: IWorkerListItem;
+  production_line: number;
+  production_line_name: string | null;
+  vl_assembly_sj_no: number | null;
+  sj_no: string | null;
+  vl_assembly_module: number | null;
+  module_code: string | null;
+  assigned_at: string;
+  unassigned_at: string | null;
+  assigned_by: number | null;
+}
+
+export interface IWorkerAllocationModule {
+  pk: number;
+  code: string;
+  name: string;
+  assignments: IWorkerAllocationAssignment[];
+}
+
+export interface IWorkerAllocationSjNo {
+  pk: number;
+  sj_no: string;
+  assignments: IWorkerAllocationAssignment[];
+  modules: IWorkerAllocationModule[];
+}
+
+export interface IWorkerAllocationLine {
+  pk: number;
+  name: string;
+  factory: string;
+  assignments: IWorkerAllocationAssignment[];
+  sj_nos: IWorkerAllocationSjNo[];
+}
+
+export const getWorkerAllocationLines = async (
+  factory: string = "VL"
+): Promise<IWorkerAllocationLine[]> => {
+  const response = await instance.get("worker-allocation/lines/", { params: { factory } });
+  return (response.data as { results: IWorkerAllocationLine[] }).results;
+};
+
+export const createWorkerAllocationAssignment = async (data: {
+  worker: number;
+  production_line: number;
+  vl_assembly_sj_no?: number | null;
+  vl_assembly_module?: number | null;
+}): Promise<IWorkerAllocationAssignment> => {
+  const response = await instance.post("worker-allocation/assignments/", data, {
+    headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" },
+  });
+  return response.data as IWorkerAllocationAssignment;
+};
+
+export const unassignWorkerAllocation = async (
+  pk: number
+): Promise<IWorkerAllocationAssignment> => {
+  const response = await instance.post(
+    `worker-allocation/assignments/${pk}/unassign/`,
+    {},
+    { headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" } }
+  );
+  return response.data as IWorkerAllocationAssignment;
+};
+
+// ── 미배정 인원 풀 (서버 사이드 검색/집계 — 공장당 수천 명 규모 대응) ──
+
+export interface IUnassignedWorkerGroup {
+  line: number | null;
+  line_name: string | null;
+  count: number;
+}
+
+export const getUnassignedWorkerGroups = async (
+  search?: string
+): Promise<{ results: IUnassignedWorkerGroup[]; total: number }> => {
+  const response = await instance.get("worker-allocation/unassigned-workers/groups/", {
+    params: search ? { search } : undefined,
+  });
+  return response.data as { results: IUnassignedWorkerGroup[]; total: number };
+};
+
+export interface IUnassignedWorkerPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: IWorkerListItem[];
+}
+
+export const getUnassignedWorkers = async (params: {
+  line?: number | "none";
+  search?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<IUnassignedWorkerPage> => {
+  const response = await instance.get("worker-allocation/unassigned-workers/", { params });
+  return response.data as IUnassignedWorkerPage;
+};
+
+export interface IWorkerProductionStatEntry {
+  sj_no: string;
+  qty: number;
+  periods: {
+    production_line: string;
+    module_code: string;
+    assigned_at: string;
+    unassigned_at: string | null;
+  }[];
+}
+
+export const getWorkerProductionStats = async (
+  workerId: number
+): Promise<IWorkerProductionStatEntry[]> => {
+  const response = await instance.get(`worker-allocation/workers/${workerId}/production-stats/`);
+  return (response.data as { results: IWorkerProductionStatEntry[] }).results;
+};
+
+export interface IPeriodHeadcountEntry {
+  target_manpower: number | null;
+  actual_by_period: number[];
+  /** true면 그 시간대는 수동 입력값 — false면 배정 이력에서 자동 계산된 값 */
+  manual_by_period: boolean[];
+}
+
+export interface IPeriodHeadcountsResponse {
+  period_keys: string[];
+  sj_nos: Record<string, IPeriodHeadcountEntry>;
+  modules: Record<string, IPeriodHeadcountEntry>;
+}
+
+export const getPeriodHeadcounts = async (params: {
+  date: string;
+  sjNoPks: number[];
+  modulePks: number[];
+}): Promise<IPeriodHeadcountsResponse> => {
+  const response = await instance.get("worker-allocation/period-headcounts/", {
+    params: {
+      date: params.date,
+      sj_no: params.sjNoPks.join(","),
+      module: params.modulePks.join(","),
+    },
+  });
+  return response.data as IPeriodHeadcountsResponse;
+};
+
+/** 시간대별 '실제 투입 인원' 수동 입력/삭제. manpower를 null로 보내면 자동 계산으로 되돌아간다. */
+export const upsertPeriodManpower = async (params: {
+  vlAssemblySjNo?: number;
+  vlAssemblyModule?: number;
+  date: string;
+  periodKey: string;
+  manpower: number | null;
+}): Promise<void> => {
+  await instance.post(
+    "worker-allocation/period-manpower/",
+    {
+      vl_assembly_sj_no: params.vlAssemblySjNo ?? null,
+      vl_assembly_module: params.vlAssemblyModule ?? null,
+      date: params.date,
+      period_key: params.periodKey,
+      manpower: params.manpower,
+    },
+    { headers: { "X-CSRFToken": Cookies.get("csrftoken") || "" } }
+  );
+};
 
 // ── Production Process ──────────────────────────────────────
 
@@ -4003,6 +4176,8 @@ export interface IEpModuleCopy {
   cycle_time?: string | null;
   target_qty_per_hour?: number | null;
   daily_target_qty_8h?: number | null;
+  /** 목표 인원 — 수동 입력 (VL Assembly 모듈 전용, Layout과 연동되지 않음) */
+  target_manpower?: number | null;
   /** EP 검사 기록 불량 수량 합계 (해당 모듈 기준) */
   total_defect_qty?: number;
   override_fields?: string[];
@@ -4030,6 +4205,10 @@ export interface IEpSjNoCopy {
   source_target_qty_per_hour?: number | null;
   /** 원본 SJ No 자체의 daily target (8h) */
   source_daily_target_qty_8h?: number | null;
+  /** 목표 인원 — 수동 입력 (VL Assembly SJ No 전용, Layout과 연동되지 않음) */
+  target_manpower?: number | null;
+  /** 원본 스타일(BD)의 Layout 공정 manpower 합계 — target_manpower(VL)와 비교용 */
+  source_manpower?: number | null;
   /** EP 검사 기록 불량 수량 합계 (해당 SJ No 기준) */
   total_defect_qty?: number;
   override_fields?: string[];

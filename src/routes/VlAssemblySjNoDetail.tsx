@@ -104,6 +104,7 @@ export default function VlAssemblySjNoDetail() {
   const [editingSjNo, setEditingSjNo] = useState<{ val: string } | null>(null);
   const [editingCycleTime, setEditingCycleTime] = useState<string | null>(null);
   const [editingTargetHr, setEditingTargetHr] = useState<string | null>(null);
+  const [editingTargetManpower, setEditingTargetManpower] = useState<string | null>(null);
   const [photoModalUrl, setPhotoModalUrl] = useState<string | undefined>();
   const [syncing, setSyncing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -175,6 +176,23 @@ export default function VlAssemblySjNoDetail() {
       toast({ title: t("vlAssembly.common.failedSave"), status: "error", duration: 2000, position: "bottom-right" });
     }
     setEditingTargetHr(null);
+  };
+
+  const saveTargetManpower = async (raw: string) => {
+    const trimmed = raw.trim();
+    const n = trimmed === "" ? null : Number.parseFloat(trimmed.replace(",", "."));
+    if (trimmed !== "" && (!Number.isFinite(n) || (n as number) < 0)) {
+      toast({ title: t("vlAssembly.sjNoDetail.invalidTargetManpower"), status: "warning", duration: 2500, position: "bottom-right" });
+      setEditingTargetManpower(null);
+      return;
+    }
+    try {
+      await patchVlAssemblySjNo(pk, { target_manpower: n } as any);
+      invalidate();
+    } catch {
+      toast({ title: t("vlAssembly.common.failedSave"), status: "error", duration: 2000, position: "bottom-right" });
+    }
+    setEditingTargetManpower(null);
   };
 
   const openSyncConfirm = (mode: "full" | string[]) => {
@@ -391,6 +409,27 @@ export default function VlAssemblySjNoDetail() {
               </InfoRow>
               <InfoRow label={t("vlAssembly.processDetail.dailyTarget")} labelColor={labelColor}>
                 <Text fontSize="sm">{sjDaily != null ? `${sjDaily} pcs` : "—"}</Text>
+              </InfoRow>
+              <InfoRow label={t("vlAssembly.sjNoDetail.targetManpower")} labelColor={labelColor}>
+                <Tooltip label={t("vlAssembly.sjNoDetail.targetManpowerHint")} placement="top" hasArrow>
+                  {editingTargetManpower !== null ? (
+                    <Input size="xs" w="100px" autoFocus
+                      value={editingTargetManpower}
+                      onChange={(e) => setEditingTargetManpower(e.target.value)}
+                      onBlur={() => saveTargetManpower(editingTargetManpower)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveTargetManpower(editingTargetManpower);
+                        if (e.key === "Escape") setEditingTargetManpower(null);
+                      }}
+                    />
+                  ) : (
+                    <Text fontSize="sm" cursor="pointer" color={data.target_manpower != null ? undefined : "gray.400"}
+                      _hover={{ textDecoration: "underline" }}
+                      onClick={() => setEditingTargetManpower(data.target_manpower != null ? String(data.target_manpower) : "")}>
+                      {data.target_manpower != null ? `${data.target_manpower}` : "—"}
+                    </Text>
+                  )}
+                </Tooltip>
               </InfoRow>
               <InfoRow label={t("vlAssembly.sjNoDetail.originalSjNo")} labelColor={labelColor}>
                 {data.source_sj_no_info ? (

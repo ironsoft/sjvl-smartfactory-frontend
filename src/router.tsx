@@ -141,6 +141,7 @@ import VlFactoryLiveScheduleDetail from "./routes/VlFactoryLiveScheduleDetail";
 import VlFactoryLiveAssemblyDisplay from "./routes/VlFactoryLiveAssemblyDisplay";
 import VlFactoryLiveModuleDisplay from "./routes/VlFactoryLiveModuleDisplay";
 import VlErpDashboard from "./routes/VlErpDashboard";
+import VlWorkersAllocation from "./routes/VlWorkersAllocation";
 import VlLayouts from "./routes/VlLayouts";
 import VlLayoutDetail from "./routes/VlLayoutDetail";
 import VlLayoutModuleDetail from "./routes/VlLayoutModuleDetail";
@@ -713,6 +714,10 @@ const router = createBrowserRouter([
       {
         path: "vl-erp-dashboard",
         element: <VlErpDashboard />
+      },
+      {
+        path: "vl-workers-allocation",
+        element: <VlWorkersAllocation />
       },
       {
         path: "vl-layouts",
