@@ -711,7 +711,10 @@ function AchievementMatrixModal({
   const rowBorder = useColorModeValue("gray.100", "whiteAlpha.100");
   const cellText = useColorModeValue("gray.700", "gray.200");
   const mutedText = useColorModeValue("gray.500", "gray.400");
-  const summaryBg = useColorModeValue("blue.50", "whiteAlpha.100");
+  const bdGroupBg = useColorModeValue("gray.100", "whiteAlpha.100");
+  const vlGroupBg = useColorModeValue("blue.50", "blue.900");
+  const actualGroupBg = useColorModeValue("purple.50", "purple.900");
+  const groupDividerColor = useColorModeValue("gray.300", "whiteAlpha.300");
   const successBg = useColorModeValue("green.100", "green.900");
   const successColor = useColorModeValue("green.800", "green.200");
   const warningBg = useColorModeValue("yellow.100", "yellow.800");
@@ -760,19 +763,19 @@ function AchievementMatrixModal({
                   <Th position="sticky" left={0} bg={headerBg} zIndex={2} whiteSpace="nowrap">
                     {t("kchDashboard.achievementMatrix.lineSjNo")}
                   </Th>
-                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                  <Th textAlign="center" whiteSpace="nowrap" px={1.5} w="52px" fontSize="9px" bg={bdGroupBg}>
                     {t("kchDashboard.achievementMatrix.colTargetBD")}
                   </Th>
-                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                  <Th textAlign="center" whiteSpace="nowrap" px={1.5} w="52px" fontSize="9px" bg={bdGroupBg}>
                     {t("kchDashboard.achievementMatrix.colManpowerBD")}
                   </Th>
-                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                  <Th textAlign="center" whiteSpace="nowrap" px={1.5} w="52px" fontSize="9px" bg={vlGroupBg} borderLeft="2px solid" borderColor={groupDividerColor}>
                     {t("kchDashboard.achievementMatrix.colTargetVL")}
                   </Th>
-                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                  <Th textAlign="center" whiteSpace="nowrap" px={1.5} w="52px" fontSize="9px" bg={vlGroupBg}>
                     {t("kchDashboard.achievementMatrix.colManpowerVL")}
                   </Th>
-                  <Th textAlign="center" whiteSpace="nowrap" px={2} bg={summaryBg}>
+                  <Th textAlign="center" whiteSpace="nowrap" px={1.5} w="56px" fontSize="9px" bg={actualGroupBg} borderLeft="2px solid" borderColor={groupDividerColor}>
                     {t("kchDashboard.achievementMatrix.colActualManpower")}
                   </Th>
                   {PERIODS.map((p) => (
@@ -803,19 +806,19 @@ function AchievementMatrixModal({
                       <Text fontWeight="semibold">{row.line}</Text>
                       <Text fontSize="xs" color={mutedText}>{row.sjNo}</Text>
                     </Td>
-                    <Td textAlign="center" px={2} fontSize="xs" color={cellText} bg={summaryBg}>
+                    <Td textAlign="center" px={1.5} w="52px" fontSize="xs" color={cellText} bg={bdGroupBg}>
                       {row.extra?.snlBD ?? "–"}
                     </Td>
-                    <Td textAlign="center" px={2} fontSize="xs" color={cellText} bg={summaryBg}>
+                    <Td textAlign="center" px={1.5} w="52px" fontSize="xs" color={cellText} bg={bdGroupBg}>
                       {row.extra?.manpowerBD ?? "–"}
                     </Td>
-                    <Td textAlign="center" px={2} fontSize="xs" color={cellText} bg={summaryBg}>
+                    <Td textAlign="center" px={1.5} w="52px" fontSize="xs" color={cellText} bg={vlGroupBg} borderLeft="2px solid" borderColor={groupDividerColor}>
                       {row.target}
                     </Td>
-                    <Td textAlign="center" px={2} fontSize="xs" color={cellText} bg={summaryBg}>
+                    <Td textAlign="center" px={1.5} w="52px" fontSize="xs" color={cellText} bg={vlGroupBg}>
                       {row.targetManpower ?? "–"}
                     </Td>
-                    <Td textAlign="center" px={2} bg={summaryBg}>
+                    <Td textAlign="center" px={1.5} w="56px" bg={actualGroupBg} borderLeft="2px solid" borderColor={groupDividerColor}>
                       <TargetDiffCell
                         value={assignmentsBySjNoPk.get(row.sjNoPk)?.length ?? 0}
                         baseline={row.targetManpower}
